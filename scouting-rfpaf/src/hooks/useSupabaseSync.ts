@@ -1,6 +1,8 @@
 import { useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { OBSERVADORES, CATEGORIAS, CLUBES } from '../data/masterData'
+import { supabaseService } from '../services/supabaseService'
+import { useStoreWithSync } from '../store/useStoreWithSync'
 
 async function seedIfEmpty() {
   const { count: obsCount } = await supabase
@@ -35,11 +37,22 @@ async function seedIfEmpty() {
 }
 
 export function useSupabaseSync() {
+  const setFichas = useStoreWithSync((s) => s.setFichas)
+
   useEffect(() => {
-    seedIfEmpty().then(() => {
+    async function init() {
+      await seedIfEmpty()
+
+      const fichas = await supabaseService.getFichas()
+      if (fichas.length > 0) {
+        setFichas(fichas)
+      }
+
       console.log('✅ Supabase sincronización lista')
-    }).catch((err) => {
-      console.error('Error en seed:', err)
+    }
+
+    init().catch((err) => {
+      console.error('Error en sincronización:', err)
     })
   }, [])
 }

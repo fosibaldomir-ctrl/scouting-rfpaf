@@ -15,6 +15,7 @@ interface AppState {
 
   login: (observadorId: string) => void
   logout: () => void
+  setFichas: (fichas: FichaJugadora[]) => void
   addFicha: (ficha: FichaJugadora) => void
   updateFicha: (id: string, ficha: Partial<FichaJugadora>) => void
   deleteFicha: (id: string) => void
@@ -43,6 +44,8 @@ export const useStoreWithSync = create<AppState>()(
 
       login: (observadorId) => set({ currentObservador: observadorId }),
       logout: () => set({ currentObservador: null }),
+
+      setFichas: (fichas) => set({ fichas }),
 
       addFicha: async (ficha) => {
         set((state) => ({ fichas: [...state.fichas, ficha] }))
