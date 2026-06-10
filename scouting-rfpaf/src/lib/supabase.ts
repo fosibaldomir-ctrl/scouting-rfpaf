@@ -1,10 +1,9 @@
 import { createClient } from '@supabase/supabase-js'
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://placeholder.supabase.co'
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'placeholder'
+const rawUrl = import.meta.env.VITE_SUPABASE_URL ?? ''
+const rawKey = import.meta.env.VITE_SUPABASE_ANON_KEY ?? ''
 
-if (!import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KEY) {
-  console.error('Faltan las credenciales de Supabase. Configura VITE_SUPABASE_URL y VITE_SUPABASE_ANON_KEY')
-}
+const supabaseUrl = rawUrl.startsWith('http') ? rawUrl : 'https://placeholder.supabase.co'
+const supabaseAnonKey = rawKey.length > 10 ? rawKey : 'placeholder-key-not-configured'
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey)
