@@ -1,5 +1,5 @@
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Edit, FileText, Star } from 'lucide-react'
+import { ArrowLeft, Edit, FileText, Star, Eye } from 'lucide-react'
 import { useRef } from 'react'
 import { useStore } from '../store/useStore'
 import RadarChart from '../components/charts/RadarChart'
@@ -41,7 +41,7 @@ function PropuestaBadge({ propuesta }: { propuesta: string }) {
 export default function FichaJugadora() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const { getFicha, observadores, clubes } = useStore()
+  const { fichas: allFichas, getFicha, observadores, clubes } = useStore()
   const contentRef = useRef<HTMLDivElement>(null)
   const pdfRef = useRef<HTMLDivElement>(null)
 
@@ -168,6 +168,15 @@ export default function FichaJugadora() {
 
   const obsNombre = observadores.find((o) => o.id === ficha.observador)?.nombre ?? ficha.observador
   const clubNombre = clubes.find((c) => c.id === ficha.club)?.nombre ?? ficha.club
+
+  const fichasJugadora = allFichas
+    .filter(
+      (f) =>
+        f.nombre === ficha.nombre &&
+        f.primerApellido === ficha.primerApellido &&
+        f.segundoApellido === ficha.segundoApellido,
+    )
+    .sort((a, b) => new Date(b.fechaPartido).getTime() - new Date(a.fechaPartido).getTime())
   const itemsDemarc = DEMARCACIONES_ITEMS.find((d) => d.posicion === ficha.demarcacion)?.items ?? []
   const tecValues = [
     ficha.evaluacionTecnica?.item1 ?? 0,
@@ -381,6 +390,77 @@ export default function FichaJugadora() {
         )}
       </div>
 
+      {/* Historial de observaciones */}
+      <div className="card">
+        <h2 className="text-base font-bold text-gray-700 mb-1">Historial de Observaciones</h2>
+        <p className="text-xs text-gray-400 mb-4">
+          {ficha.nombre} {ficha.primerApellido} {ficha.segundoApellido} ·{' '}
+          {calcularEdad(ficha.fechaNacimiento)} años · {clubNombre}
+        </p>
+        {fichasJugadora.length === 0 ? (
+          <p className="text-sm text-gray-400">Sin observaciones registradas.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b bg-gray-50 text-xs text-gray-500 uppercase tracking-wide">
+                  <th className="px-3 py-2 text-left font-semibold">Fecha</th>
+                  <th className="px-3 py-2 text-left font-semibold">Partido</th>
+                  <th className="px-3 py-2 text-left font-semibold">Categoría</th>
+                  <th className="px-3 py-2 text-left font-semibold">Observador</th>
+                  <th className="px-3 py-2 text-left font-semibold">Valoración</th>
+                  <th className="px-3 py-2 text-left font-semibold">Propuesta</th>
+                  <th className="px-3 py-2 text-left font-semibold"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {fichasJugadora.map((f) => {
+                  const obsNom = observadores.find((o) => o.id === f.observador)?.nombre ?? f.observador
+                  const propMap: Record<string, string> = {
+                    'SELECCIÓN': 'bg-green-100 text-green-800',
+                    'INCORPORAR': 'bg-blue-100 text-blue-800',
+                    'SEGUIR': 'bg-yellow-100 text-yellow-800',
+                    'DESCARTAR': 'bg-red-100 text-red-800',
+                  }
+                  return (
+                    <tr key={f.id} className={`border-b last:border-0 hover:bg-blue-50/30 transition-colors ${f.id === ficha.id ? 'bg-blue-50' : ''}`}>
+                      <td className="px-3 py-2 whitespace-nowrap text-gray-600">
+                        {new Date(f.fechaPartido).toLocaleDateString('es-ES')}
+                      </td>
+                      <td className="px-3 py-2 whitespace-nowrap font-medium text-gray-800">
+                        {f.local} <span className="text-gray-400 font-normal">vs</span> {f.visitante}
+                      </td>
+                      <td className="px-3 py-2 text-gray-600 whitespace-nowrap">{f.categoria}</td>
+                      <td className="px-3 py-2 text-gray-600 whitespace-nowrap">{obsNom}</td>
+                      <td className="px-3 py-2 whitespace-nowrap">
+                        <span className="text-yellow-500">{'★'.repeat(f.valoracionGeneral ?? 0)}</span>
+                        <span className="text-gray-300">{'★'.repeat(5 - (f.valoracionGeneral ?? 0))}</span>
+                      </td>
+                      <td className="px-3 py-2">
+                        <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${propMap[f.propuesta] ?? 'bg-gray-100 text-gray-600'}`}>
+                          {f.propuesta}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2">
+                        {f.id !== ficha.id && (
+                          <button
+                            onClick={() => navigate(`/ficha/${f.id}`)}
+                            className="text-rfpaf-blue hover:text-rfpaf-blue-light"
+                            title="Ver ficha"
+                          >
+                            <Eye className="w-4 h-4" />
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
       {/* Template oculto para exportar PDF */}
       <div
         ref={pdfRef}
@@ -391,6 +471,8 @@ export default function FichaJugadora() {
           ficha={ficha}
           obsNombre={obsNombre}
           clubNombre={clubNombre}
+          fichasJugadora={fichasJugadora}
+          observadores={observadores}
         />
       </div>
     </div>

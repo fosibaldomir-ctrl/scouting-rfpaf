@@ -1,4 +1,4 @@
-import type { FichaJugadora } from '../../types'
+import type { FichaJugadora, Observador } from '../../types'
 import RadarSVG from './RadarSVG'
 import { DEMARCACIONES_ITEMS } from '../../data/masterData'
 
@@ -6,6 +6,8 @@ interface Props {
   ficha: FichaJugadora
   obsNombre: string
   clubNombre: string
+  fichasJugadora?: FichaJugadora[]
+  observadores?: Observador[]
 }
 
 function calcularEdad(fecha: string): number {
@@ -26,7 +28,7 @@ const PROPUESTA_STYLES: Record<string, { bg: string; color: string; border: stri
 
 const BAR_COLORS = ['#1a3a6b', '#c0392b', '#16a34a', '#f59e0b', '#8b5cf6', '#06b6d4']
 
-export default function FichaPDFTemplate({ ficha, obsNombre, clubNombre }: Props) {
+export default function FichaPDFTemplate({ ficha, obsNombre, clubNombre, fichasJugadora = [], observadores = [] }: Props) {
   const itemsDemarc = DEMARCACIONES_ITEMS.find((d) => d.posicion === ficha.demarcacion)?.items ?? []
   const tecValues = [
     ficha.evaluacionTecnica?.item1 ?? 0,
@@ -317,6 +319,70 @@ export default function FichaPDFTemplate({ ficha, obsNombre, clubNombre }: Props
             <TextBlock label="Cierre" text={ficha.cierre} />
           )}
         </SectionCard>
+
+        {/* ── Historial de observaciones ──── */}
+        {fichasJugadora.length > 0 && (
+          <SectionCard title={`Historial de Observaciones · ${ficha.nombre} ${ficha.primerApellido} ${ficha.segundoApellido} · ${edad} años · ${clubNombre}`}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 10.5 }}>
+              <thead>
+                <tr style={{ borderBottom: '2px solid #e2e8f0', background: '#f8fafc' }}>
+                  {['Fecha', 'Partido', 'Categoría', 'Observador', 'Valoración', 'Propuesta'].map((h) => (
+                    <th key={h} style={{ padding: '5px 8px', textAlign: 'left', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: 0.3, fontSize: 9.5 }}>
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {fichasJugadora.map((f, idx) => {
+                  const obsNom = observadores.find((o) => o.id === f.observador)?.nombre ?? f.observador
+                  const propColors: Record<string, { bg: string; color: string }> = {
+                    'SELECCIÓN':  { bg: '#dcfce7', color: '#166534' },
+                    'INCORPORAR': { bg: '#dbeafe', color: '#1e40af' },
+                    'SEGUIR':     { bg: '#fef9c3', color: '#854d0e' },
+                    'DESCARTAR':  { bg: '#fee2e2', color: '#991b1b' },
+                  }
+                  const pc = propColors[f.propuesta] ?? { bg: '#f1f5f9', color: '#475569' }
+                  const isCurrent = f.id === ficha.id
+                  return (
+                    <tr key={f.id} style={{ borderBottom: '1px solid #f1f5f9', background: isCurrent ? '#eff6ff' : idx % 2 === 0 ? '#ffffff' : '#fafafa' }}>
+                      <td style={{ padding: '5px 8px', color: '#374151', whiteSpace: 'nowrap' }}>
+                        {new Date(f.fechaPartido).toLocaleDateString('es-ES')}
+                      </td>
+                      <td style={{ padding: '5px 8px', fontWeight: 600, color: '#1e293b' }}>
+                        {f.local} <span style={{ color: '#94a3b8', fontWeight: 400 }}>vs</span> {f.visitante}
+                      </td>
+                      <td style={{ padding: '5px 8px', color: '#64748b', whiteSpace: 'nowrap' }}>{f.categoria}</td>
+                      <td style={{ padding: '5px 8px', color: '#64748b', whiteSpace: 'nowrap' }}>{obsNom}</td>
+                      <td style={{ padding: '5px 8px', color: '#f59e0b', whiteSpace: 'nowrap', fontSize: 12 }}>
+                        {'★'.repeat(f.valoracionGeneral ?? 0)}
+                        <span style={{ color: '#e5e7eb' }}>{'★'.repeat(5 - (f.valoracionGeneral ?? 0))}</span>
+                      </td>
+                      <td style={{ padding: '5px 8px' }}>
+                        <span
+                          data-pdf-pill={pc.color}
+                          data-pdf-pill-bg={pc.bg}
+                          data-pdf-pill-border={pc.bg}
+                          style={{
+                            display: 'inline-block',
+                            background: pc.bg, color: pc.color,
+                            border: `1px solid ${pc.bg}`,
+                            lineHeight: 1, paddingTop: 3, paddingBottom: 3,
+                            paddingLeft: 8, paddingRight: 8,
+                            borderRadius: 20, fontWeight: 800, fontSize: 9.5,
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          {f.propuesta}
+                        </span>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </SectionCard>
+        )}
 
         {/* ── Footer ──── */}
         <div style={{
