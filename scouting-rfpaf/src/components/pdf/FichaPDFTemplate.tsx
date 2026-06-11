@@ -211,7 +211,7 @@ export default function FichaPDFTemplate({ ficha, obsNombre, clubNombre, fichasJ
                 max={10}
                 colorStart="#1a3a6b"
                 colorEnd="#16a34a"
-                size={200}
+                size={260}
               />
             </div>
             <div style={{
@@ -263,7 +263,7 @@ export default function FichaPDFTemplate({ ficha, obsNombre, clubNombre, fichasJ
                   max={5}
                   colorStart="#1a3a6b"
                   colorEnd="#c0392b"
-                  size={220}
+                  size={290}
                 />
               </div>
             </div>
