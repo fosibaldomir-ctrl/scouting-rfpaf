@@ -10,7 +10,7 @@ import {
   Legend,
 } from 'chart.js'
 import { useStore } from '../store/useStore'
-import type { PartidoCalendario } from '../types'
+import type { Observador, PartidoCalendario } from '../types'
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend)
 
@@ -20,6 +20,23 @@ const MONTHS = [
   'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre',
 ]
 
+// Paleta de colores para observadores (índice → color)
+const PALETTE = [
+  '#2563eb', // azul
+  '#16a34a', // verde
+  '#dc2626', // rojo
+  '#9333ea', // púrpura
+  '#ea580c', // naranja
+  '#0891b2', // cyan
+  '#d97706', // ámbar
+  '#db2777', // rosa
+]
+
+function getObsColor(obsId: string, observadores: Observador[]): string {
+  const idx = observadores.findIndex((o) => o.id === obsId)
+  return PALETTE[idx >= 0 ? idx % PALETTE.length : 0]
+}
+
 function toYMD(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
@@ -27,7 +44,7 @@ function toYMD(d: Date): string {
 function getCalendarDays(year: number, month: number) {
   const firstDay = new Date(year, month, 1)
   const lastDay = new Date(year, month + 1, 0)
-  const startDow = (firstDay.getDay() + 6) % 7 // Mon = 0
+  const startDow = (firstDay.getDay() + 6) % 7 // Lun = 0
   const days: { date: Date; current: boolean }[] = []
 
   for (let i = startDow - 1; i >= 0; i--) {
@@ -43,10 +60,10 @@ function getCalendarDays(year: number, month: number) {
   return days
 }
 
-const EMPTY_FORM = { observador: '', local: '', visitante: '', hora: '12:00' }
+const EMPTY_FORM = { observador: '', local: '', visitante: '', hora: '12:00', categoria: '' }
 
 export default function Calendario() {
-  const { observadores, clubes, partidos, addPartido, deletePartido } = useStore()
+  const { observadores, clubes, categorias, partidos, addPartido, deletePartido } = useStore()
 
   const today = new Date()
   const todayYMD = toYMD(today)
@@ -61,13 +78,12 @@ export default function Calendario() {
 
   const partidosByDate = useMemo(() => {
     const map: Record<string, PartidoCalendario[]> = {}
-    partidos.forEach((p) => {
-      ;(map[p.fecha] ??= []).push(p)
-    })
+    partidos.forEach((p) => { ;(map[p.fecha] ??= []).push(p) })
     return map
   }, [partidos])
 
-  const selectedPartidos = partidosByDate[selectedDate] ?? []
+  const selectedPartidos = (partidosByDate[selectedDate] ?? [])
+    .slice().sort((a, b) => a.hora.localeCompare(b.hora))
 
   const [sy, sm, sd] = selectedDate.split('-').map(Number)
   const selectedLabel = `${sd} de ${MONTHS[sm - 1]} de ${sy}`
@@ -89,9 +105,10 @@ export default function Calendario() {
   function handleAdd() {
     const errs: Record<string, boolean> = {}
     if (!form.observador) errs.observador = true
-    if (!form.local) errs.local = true
-    if (!form.visitante) errs.visitante = true
-    if (!form.hora) errs.hora = true
+    if (!form.local)      errs.local = true
+    if (!form.visitante)  errs.visitante = true
+    if (!form.hora)       errs.hora = true
+    if (!form.categoria)  errs.categoria = true
     if (Object.keys(errs).length) { setErrors(errs); return }
 
     addPartido({
@@ -101,10 +118,12 @@ export default function Calendario() {
       local: form.local,
       visitante: form.visitante,
       observador: form.observador,
+      categoria: form.categoria,
     })
     setForm(EMPTY_FORM)
   }
 
+  // Gráfico: barras con color propio de cada observador
   const chartData = useMemo(() => {
     const counts: Record<string, number> = {}
     partidos.forEach((p) => { counts[p.observador] = (counts[p.observador] ?? 0) + 1 })
@@ -114,10 +133,16 @@ export default function Calendario() {
       datasets: [{
         label: 'Partidos asignados',
         data: obs.map((o) => counts[o.id] ?? 0),
-        backgroundColor: '#1a3a6b',
+        backgroundColor: obs.map((o) => getObsColor(o.id, observadores)),
         borderRadius: 6,
       }],
     }
+  }, [partidos, observadores])
+
+  // Leyenda de colores
+  const obsConPartidos = useMemo(() => {
+    const ids = new Set(partidos.map((p) => p.observador))
+    return observadores.filter((o) => ids.has(o.id))
   }, [partidos, observadores])
 
   return (
@@ -141,13 +166,26 @@ export default function Calendario() {
             <button onClick={prevMonth} className="p-2 rounded-lg hover:bg-gray-100 transition-colors">
               <ChevronLeft className="w-5 h-5 text-gray-600" />
             </button>
-            <h2 className="text-base font-bold text-rfpaf-blue">
-              {MONTHS[month]} {year}
-            </h2>
+            <h2 className="text-base font-bold text-rfpaf-blue">{MONTHS[month]} {year}</h2>
             <button onClick={nextMonth} className="p-2 rounded-lg hover:bg-gray-100 transition-colors">
               <ChevronRight className="w-5 h-5 text-gray-600" />
             </button>
           </div>
+
+          {/* Leyenda observadores */}
+          {obsConPartidos.length > 0 && (
+            <div className="flex flex-wrap gap-2 mb-3">
+              {obsConPartidos.map((o) => (
+                <span
+                  key={o.id}
+                  className="flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full text-white"
+                  style={{ backgroundColor: getObsColor(o.id, observadores) }}
+                >
+                  {o.nombre}
+                </span>
+              ))}
+            </div>
+          )}
 
           {/* Cabeceras días */}
           <div className="grid grid-cols-7 mb-1">
@@ -162,38 +200,50 @@ export default function Calendario() {
               const ymd = toYMD(date)
               const isToday = ymd === todayYMD
               const isSelected = ymd === selectedDate
-              const dayPartidos = partidosByDate[ymd] ?? []
+              const dayPartidos = (partidosByDate[ymd] ?? [])
+                .slice().sort((a, b) => a.hora.localeCompare(b.hora))
 
               return (
                 <button
                   key={i}
-                  onClick={() => setSelectedDate(ymd)}
-                  className={`min-h-14 rounded-lg p-1 text-xs flex flex-col items-center transition-all border ${
+                  onClick={() => current && setSelectedDate(ymd)}
+                  className={`min-h-[72px] rounded-lg p-1 flex flex-col items-stretch transition-all border text-left ${
                     isSelected
-                      ? 'bg-rfpaf-blue text-white border-rfpaf-blue shadow-md'
+                      ? 'bg-rfpaf-blue border-rfpaf-blue shadow-md'
                       : isToday
-                      ? 'border-rfpaf-blue text-rfpaf-blue font-bold bg-blue-50'
+                      ? 'border-rfpaf-blue bg-blue-50'
                       : current
-                      ? 'border-transparent hover:bg-gray-50 text-gray-700'
-                      : 'border-transparent text-gray-300 cursor-default'
+                      ? 'border-transparent hover:bg-gray-50'
+                      : 'border-transparent opacity-30 cursor-default'
                   }`}
                 >
-                  <span className="font-semibold leading-none mt-1">{date.getDate()}</span>
-                  {dayPartidos.length > 0 && (
-                    <div className="flex flex-wrap gap-0.5 mt-1.5 justify-center">
-                      {dayPartidos.slice(0, 3).map((_, pi) => (
-                        <span
-                          key={pi}
-                          className={`w-1.5 h-1.5 rounded-full ${isSelected ? 'bg-white' : 'bg-rfpaf-red'}`}
-                        />
-                      ))}
-                      {dayPartidos.length > 3 && (
-                        <span className={`text-[9px] ${isSelected ? 'text-white/80' : 'text-rfpaf-red'}`}>
-                          +{dayPartidos.length - 3}
-                        </span>
-                      )}
-                    </div>
-                  )}
+                  {/* Número día */}
+                  <span className={`text-xs font-bold leading-none mb-1 ml-0.5 ${
+                    isSelected ? 'text-white' : isToday ? 'text-rfpaf-blue' : 'text-gray-700'
+                  }`}>
+                    {date.getDate()}
+                  </span>
+
+                  {/* Chips de partidos */}
+                  <div className="flex flex-col gap-0.5">
+                    {dayPartidos.slice(0, 2).map((p) => {
+                      const color = getObsColor(p.observador, observadores)
+                      return (
+                        <div
+                          key={p.id}
+                          className="text-white text-[9px] font-semibold px-1 py-px rounded truncate leading-tight"
+                          style={{ backgroundColor: color }}
+                        >
+                          {p.hora}
+                        </div>
+                      )
+                    })}
+                    {dayPartidos.length > 2 && (
+                      <span className={`text-[9px] ml-0.5 ${isSelected ? 'text-white/70' : 'text-gray-400'}`}>
+                        +{dayPartidos.length - 2} más
+                      </span>
+                    )}
+                  </div>
                 </button>
               )
             })}
@@ -215,10 +265,25 @@ export default function Calendario() {
                 className={`form-select ${errors.observador ? 'border-red-400 ring-1 ring-red-300' : ''}`}
                 value={form.observador}
                 onChange={(e) => setField('observador', e.target.value)}
+                style={form.observador ? { borderLeftWidth: 4, borderLeftColor: getObsColor(form.observador, observadores) } : {}}
               >
                 <option value="">— Selecciona —</option>
                 {observadores.map((o) => (
                   <option key={o.id} value={o.id}>{o.nombre}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="form-label">Categoría *</label>
+              <select
+                className={`form-select ${errors.categoria ? 'border-red-400 ring-1 ring-red-300' : ''}`}
+                value={form.categoria}
+                onChange={(e) => setField('categoria', e.target.value)}
+              >
+                <option value="">— Selecciona —</option>
+                {categorias.map((c) => (
+                  <option key={c.id} value={c.nombre}>{c.nombre}</option>
                 ))}
               </select>
             </div>
@@ -270,40 +335,43 @@ export default function Calendario() {
             </button>
           </div>
 
-          {/* Partidos del día */}
+          {/* Partidos del día seleccionado */}
           {selectedPartidos.length > 0 && (
             <div className="card p-4 space-y-2">
               <h3 className="text-sm font-bold text-gray-700">
                 Partidos · {selectedLabel}
               </h3>
-              {selectedPartidos
-                .slice()
-                .sort((a, b) => a.hora.localeCompare(b.hora))
-                .map((p) => {
-                  const obsNombre = observadores.find((o) => o.id === p.observador)?.nombre ?? p.observador
-                  return (
-                    <div
-                      key={p.id}
-                      className="flex items-start justify-between gap-2 p-2.5 bg-gray-50 rounded-lg border border-gray-100"
-                    >
-                      <div className="text-xs leading-relaxed min-w-0">
-                        <div className="font-semibold text-gray-800 truncate">
-                          {p.local} <span className="text-gray-400 font-normal">vs</span> {p.visitante}
-                        </div>
-                        <div className="text-gray-500 mt-0.5">
-                          {p.hora} · <span className="text-rfpaf-blue font-medium">{obsNombre}</span>
-                        </div>
+              {selectedPartidos.map((p) => {
+                const obsNombre = observadores.find((o) => o.id === p.observador)?.nombre ?? p.observador
+                const color = getObsColor(p.observador, observadores)
+                return (
+                  <div
+                    key={p.id}
+                    className="flex items-start justify-between gap-2 p-2.5 bg-gray-50 rounded-lg border border-gray-100 overflow-hidden"
+                    style={{ borderLeftWidth: 4, borderLeftColor: color }}
+                  >
+                    <div className="text-xs leading-relaxed min-w-0">
+                      <div className="font-semibold text-gray-800 truncate">
+                        {p.local} <span className="text-gray-400 font-normal">vs</span> {p.visitante}
                       </div>
-                      <button
-                        onClick={() => deletePartido(p.id)}
-                        className="text-red-400 hover:text-red-600 flex-shrink-0 p-0.5 transition-colors"
-                        title="Eliminar"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+                      <div className="text-gray-500 mt-0.5 flex items-center gap-1.5 flex-wrap">
+                        <span>{p.hora}</span>
+                        {p.categoria && (
+                          <span className="bg-gray-200 text-gray-600 px-1.5 py-px rounded text-[10px] font-medium">{p.categoria}</span>
+                        )}
+                        <span className="font-semibold" style={{ color }}>{obsNombre}</span>
+                      </div>
                     </div>
-                  )
-                })}
+                    <button
+                      onClick={() => deletePartido(p.id)}
+                      className="text-red-400 hover:text-red-600 flex-shrink-0 p-0.5 transition-colors"
+                      title="Eliminar"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                )
+              })}
             </div>
           )}
         </div>
@@ -311,29 +379,44 @@ export default function Calendario() {
 
       {/* Gráfico */}
       <div className="card">
-        <h2 className="text-base font-bold text-gray-700 mb-4">Partidos por Observador</h2>
+        <h2 className="text-base font-bold text-gray-700 mb-1">Partidos por Observador</h2>
+
         {partidos.length === 0 ? (
           <div className="h-40 flex items-center justify-center text-gray-400 text-sm">
             Sin partidos asignados aún
           </div>
         ) : (
-          <div className="h-52">
-            <Bar
-              data={chartData}
-              options={{
-                maintainAspectRatio: false,
-                plugins: { legend: { display: false } },
-                scales: {
-                  y: {
-                    beginAtZero: true,
-                    ticks: { stepSize: 1 },
-                    grid: { color: 'rgba(0,0,0,0.05)' },
+          <>
+            {/* Leyenda colores */}
+            <div className="flex flex-wrap gap-2 mb-4">
+              {obsConPartidos.map((o) => (
+                <span
+                  key={o.id}
+                  className="flex items-center gap-1.5 text-xs font-medium"
+                >
+                  <span className="w-3 h-3 rounded-sm flex-shrink-0" style={{ backgroundColor: getObsColor(o.id, observadores) }} />
+                  {o.nombre}
+                </span>
+              ))}
+            </div>
+            <div className="h-52">
+              <Bar
+                data={chartData}
+                options={{
+                  maintainAspectRatio: false,
+                  plugins: { legend: { display: false } },
+                  scales: {
+                    y: {
+                      beginAtZero: true,
+                      ticks: { stepSize: 1 },
+                      grid: { color: 'rgba(0,0,0,0.05)' },
+                    },
+                    x: { ticks: { font: { size: 11 } } },
                   },
-                  x: { ticks: { font: { size: 11 } } },
-                },
-              }}
-            />
-          </div>
+                }}
+              />
+            </div>
+          </>
         )}
       </div>
     </div>

@@ -103,4 +103,5 @@ export interface PartidoCalendario {
   local: string
   visitante: string
   observador: string
+  categoria: string
 }
