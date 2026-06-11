@@ -360,16 +360,15 @@ export default function FichaPDFTemplate({ ficha, obsNombre, clubNombre, fichasJ
                       </td>
                       <td style={{ padding: '5px 8px' }}>
                         <span
-                          data-pdf-pill={pc.color}
-                          data-pdf-pill-bg={pc.bg}
-                          data-pdf-pill-border={pc.bg}
                           style={{
                             display: 'inline-block',
-                            background: pc.bg, color: pc.color,
-                            border: `1px solid ${pc.bg}`,
-                            lineHeight: 1, paddingTop: 3, paddingBottom: 3,
-                            paddingLeft: 8, paddingRight: 8,
-                            borderRadius: 20, fontWeight: 800, fontSize: 9.5,
+                            background: pc.bg,
+                            color: pc.color,
+                            lineHeight: '1.2',
+                            padding: '3px 9px',
+                            borderRadius: 20,
+                            fontWeight: 800,
+                            fontSize: 9.5,
                             whiteSpace: 'nowrap',
                           }}
                         >
