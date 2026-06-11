@@ -95,3 +95,12 @@ export interface ItemDemarcacion {
 }
 
 export type WizardStep = 1 | 2 | 3 | 4 | 5
+
+export interface PartidoCalendario {
+  id: string
+  fecha: string      // YYYY-MM-DD
+  hora: string       // HH:MM
+  local: string
+  visitante: string
+  observador: string
+}

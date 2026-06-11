@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { FichaJugadora, Observador, Club, CategoriaItem } from '../types'
+import type { FichaJugadora, Observador, Club, CategoriaItem, PartidoCalendario } from '../types'
 import { OBSERVADORES, CATEGORIAS, CLUBES } from '../data/masterData'
 import { supabaseService } from '../services/supabaseService'
 
@@ -9,11 +9,14 @@ interface AppState {
   observadores: Observador[]
   categorias: CategoriaItem[]
   clubes: Club[]
+  partidos: PartidoCalendario[]
   currentObservador: string | null
   borrador: Partial<FichaJugadora> | null
 
   login: (observadorId: string) => void
   logout: () => void
+  addPartido: (p: PartidoCalendario) => void
+  deletePartido: (id: string) => void
   addFicha: (ficha: FichaJugadora) => Promise<void>
   updateFicha: (id: string, ficha: Partial<FichaJugadora>) => Promise<void>
   deleteFicha: (id: string) => Promise<void>
@@ -36,11 +39,15 @@ export const useStore = create<AppState>()(
       observadores: OBSERVADORES,
       categorias: CATEGORIAS,
       clubes: CLUBES,
+      partidos: [],
       currentObservador: null,
       borrador: null,
 
       login: (observadorId) => set({ currentObservador: observadorId }),
       logout: () => set({ currentObservador: null }),
+
+      addPartido: (p) => set((state) => ({ partidos: [...state.partidos, p] })),
+      deletePartido: (id) => set((state) => ({ partidos: state.partidos.filter((p) => p.id !== id) })),
 
       addFicha: async (ficha) => {
         set((state) => ({ fichas: [...state.fichas, ficha] }))
@@ -114,6 +121,7 @@ export const useStore = create<AppState>()(
         observadores: state.observadores,
         categorias: state.categorias,
         clubes: state.clubes,
+        partidos: state.partidos,
         currentObservador: state.currentObservador,
         borrador: state.borrador,
       }),

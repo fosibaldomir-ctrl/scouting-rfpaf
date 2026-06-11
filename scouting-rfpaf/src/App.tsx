@@ -7,6 +7,7 @@ import NuevaFicha from './pages/NuevaFicha'
 import BaseDatos from './pages/BaseDatos'
 import FichaJugadora from './pages/FichaJugadora'
 import Campograma from './pages/Campograma'
+import Calendario from './pages/Calendario'
 import Admin from './pages/Admin'
 
 function AppContent() {
@@ -21,6 +22,7 @@ function AppContent() {
         <Route path="/editar/:id" element={<NuevaFicha />} />
         <Route path="/base-datos" element={<BaseDatos />} />
         <Route path="/campograma" element={<Campograma />} />
+        <Route path="/calendario" element={<Calendario />} />
         <Route path="/ficha/:id" element={<FichaJugadora />} />
         <Route path="/admin" element={<Admin />} />
       </Route>

@@ -1,5 +1,5 @@
 import { NavLink, useNavigate } from 'react-router-dom'
-import { LayoutDashboard, Database, PlusCircle, Settings, LogOut, LayoutGrid, X } from 'lucide-react'
+import { LayoutDashboard, Database, PlusCircle, Settings, LogOut, LayoutGrid, X, CalendarDays } from 'lucide-react'
 import { useStore } from '../../store/useStore'
 import RFPAFLogo from '../RFPAFLogo'
 
@@ -8,6 +8,7 @@ const navItems = [
   { to: '/nueva-ficha', icon: PlusCircle, label: 'Nueva Ficha' },
   { to: '/base-datos', icon: Database, label: 'Base de Datos' },
   { to: '/campograma', icon: LayoutGrid, label: 'Campograma' },
+  { to: '/calendario', icon: CalendarDays, label: 'Calendario' },
   { to: '/admin', icon: Settings, label: 'Administración' },
 ]
 
