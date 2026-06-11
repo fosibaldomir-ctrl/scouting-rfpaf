@@ -128,16 +128,17 @@ export default function BaseDatos() {
   const uniqueDemarcs = [...new Set(fichas.map((f) => f.demarcacion))].sort()
 
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-5">
+    <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-5">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-rfpaf-blue">Base de Datos</h1>
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="text-xl sm:text-2xl font-bold text-rfpaf-blue">Base de Datos</h1>
           <p className="text-gray-500 text-sm">{filtered.length} fichas encontradas</p>
         </div>
-        <button onClick={handleExport} className="btn-secondary flex items-center gap-2">
+        <button onClick={handleExport} className="btn-secondary flex items-center gap-2 flex-shrink-0">
           <Download className="w-4 h-4" />
-          Exportar Excel
+          <span className="hidden sm:inline">Exportar Excel</span>
+          <span className="sm:hidden">Excel</span>
         </button>
       </div>
 

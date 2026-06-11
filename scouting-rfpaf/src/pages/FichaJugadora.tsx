@@ -179,17 +179,18 @@ export default function FichaJugadora() {
   ]
 
   return (
-    <div ref={contentRef} className="p-6 max-w-6xl mx-auto space-y-6">
+    <div ref={contentRef} className="p-4 sm:p-6 max-w-6xl mx-auto space-y-6">
       {/* Actions */}
-      <div className="flex items-center justify-between">
-        <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-rfpaf-blue hover:underline text-sm">
+      <div className="flex items-center justify-between gap-2">
+        <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-rfpaf-blue hover:underline text-sm flex-shrink-0">
           <ArrowLeft className="w-4 h-4" />
           Volver
         </button>
         <div className="flex gap-2">
           <button onClick={handleExportPDF} className="btn-secondary flex items-center gap-2 text-sm">
             <FileText className="w-4 h-4" />
-            Exportar PDF
+            <span className="hidden sm:inline">Exportar PDF</span>
+            <span className="sm:hidden">PDF</span>
           </button>
           <button onClick={() => navigate(`/editar/${ficha.id}`)} className="btn-primary flex items-center gap-2 text-sm">
             <Edit className="w-4 h-4" />

@@ -228,12 +228,12 @@ export default function Campograma() {
   )
 
   return (
-    <div className="p-6 space-y-5">
+    <div className="p-4 sm:p-6 space-y-5">
       {/* Cabecera */}
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-rfpaf-blue flex items-center gap-2">
-            <Users className="w-6 h-6" />
+          <h1 className="text-xl sm:text-2xl font-bold text-rfpaf-blue flex items-center gap-2">
+            <Users className="w-5 h-5 sm:w-6 sm:h-6" />
             Campograma · Once Ideal
           </h1>
           <p className="text-gray-500 text-sm mt-1">

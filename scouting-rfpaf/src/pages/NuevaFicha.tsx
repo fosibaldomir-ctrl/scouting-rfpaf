@@ -182,10 +182,10 @@ export default function NuevaFicha() {
   }
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
+    <div className="p-4 sm:p-6 max-w-5xl mx-auto">
       {/* Header */}
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-rfpaf-blue">{isEdit ? 'Editar Ficha' : 'Nueva Ficha'}</h1>
+        <h1 className="text-xl sm:text-2xl font-bold text-rfpaf-blue">{isEdit ? 'Editar Ficha' : 'Nueva Ficha'}</h1>
         <p className="text-gray-500 text-sm">Completa todos los pasos para registrar la jugadora</p>
       </div>
 
