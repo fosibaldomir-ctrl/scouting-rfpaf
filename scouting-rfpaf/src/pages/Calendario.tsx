@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { ChevronLeft, ChevronRight, Plus, Trash2, CalendarDays } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Plus, Trash2, CalendarDays, BarChart3 } from 'lucide-react'
 import { Bar } from 'react-chartjs-2'
 import {
   Chart as ChartJS,
@@ -73,6 +73,7 @@ export default function Calendario() {
   const [selectedDate, setSelectedDate] = useState<string>(todayYMD)
   const [form, setForm] = useState(EMPTY_FORM)
   const [errors, setErrors] = useState<Record<string, boolean>>({})
+  const [resumenOpen, setResumenOpen] = useState(false)
 
   const calDays = useMemo(() => getCalendarDays(year, month), [year, month])
 
@@ -123,10 +124,15 @@ export default function Calendario() {
     setForm(EMPTY_FORM)
   }
 
+  // Conteo de partidos por observador (para el resumen)
+  const counts = useMemo(() => {
+    const c: Record<string, number> = {}
+    partidos.forEach((p) => { c[p.observador] = (c[p.observador] ?? 0) + 1 })
+    return c
+  }, [partidos])
+
   // Gráfico: barras con color propio de cada observador
   const chartData = useMemo(() => {
-    const counts: Record<string, number> = {}
-    partidos.forEach((p) => { counts[p.observador] = (counts[p.observador] ?? 0) + 1 })
     const obs = observadores.filter((o) => counts[o.id])
     return {
       labels: obs.map((o) => o.nombre),
@@ -137,30 +143,41 @@ export default function Calendario() {
         borderRadius: 6,
       }],
     }
-  }, [partidos, observadores])
+  }, [counts, observadores])
 
-  // Leyenda de colores
+  // Observadores con partidos
   const obsConPartidos = useMemo(() => {
-    const ids = new Set(partidos.map((p) => p.observador))
-    return observadores.filter((o) => ids.has(o.id))
-  }, [partidos, observadores])
+    return observadores.filter((o) => counts[o.id])
+  }, [counts, observadores])
 
   return (
     <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-xl sm:text-2xl font-bold text-rfpaf-blue flex items-center gap-2">
-          <CalendarDays className="w-6 h-6" />
-          Calendario de Partidos
-        </h1>
-        <p className="text-gray-500 text-sm">Asigna partidos a observadores</p>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-xl sm:text-2xl font-bold text-rfpaf-blue flex items-center gap-2">
+            <CalendarDays className="w-6 h-6" />
+            Calendario de Partidos
+          </h1>
+          <p className="text-gray-500 text-sm">Asigna partidos a observadores</p>
+        </div>
+        {!resumenOpen && (
+          <button
+            onClick={() => setResumenOpen(true)}
+            className="hidden lg:flex items-center gap-1.5 text-sm font-semibold text-rfpaf-blue border border-rfpaf-blue/30 rounded-lg px-3 py-1.5 hover:bg-blue-50 transition-colors flex-shrink-0"
+            title="Mostrar resumen"
+          >
+            <BarChart3 className="w-4 h-4" />
+            Resumen
+          </button>
+        )}
       </div>
 
-      {/* Main grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      {/* Main layout */}
+      <div className="flex flex-col lg:flex-row gap-6">
 
-        {/* Calendario */}
-        <div className="lg:col-span-2 card p-4">
+        {/* Calendario — crece para ocupar el espacio disponible */}
+        <div className="flex-1 min-w-0 card p-4">
           {/* Nav mes */}
           <div className="flex items-center justify-between mb-4">
             <button onClick={prevMonth} className="p-2 rounded-lg hover:bg-gray-100 transition-colors">
@@ -207,7 +224,7 @@ export default function Calendario() {
                 <button
                   key={i}
                   onClick={() => current && setSelectedDate(ymd)}
-                  className={`min-h-[72px] rounded-lg p-1 flex flex-col items-stretch transition-all border text-left ${
+                  className={`min-h-[88px] rounded-lg p-1 flex flex-col items-stretch transition-all border text-left ${
                     isSelected
                       ? 'bg-rfpaf-blue border-rfpaf-blue shadow-md'
                       : isToday
@@ -224,23 +241,24 @@ export default function Calendario() {
                     {date.getDate()}
                   </span>
 
-                  {/* Chips de partidos */}
+                  {/* Chips de partidos — con más detalle (equipos) */}
                   <div className="flex flex-col gap-0.5">
-                    {dayPartidos.slice(0, 2).map((p) => {
+                    {dayPartidos.slice(0, 3).map((p) => {
                       const color = getObsColor(p.observador, observadores)
                       return (
                         <div
                           key={p.id}
-                          className="text-white text-[9px] font-semibold px-1 py-px rounded truncate leading-tight"
+                          className="text-white text-[9px] font-semibold px-1 py-0.5 rounded leading-tight overflow-hidden"
                           style={{ backgroundColor: color }}
                         >
-                          {p.hora}
+                          <span className="block truncate">{p.hora} {p.local}</span>
+                          <span className="block truncate opacity-90">vs {p.visitante}</span>
                         </div>
                       )
                     })}
-                    {dayPartidos.length > 2 && (
+                    {dayPartidos.length > 3 && (
                       <span className={`text-[9px] ml-0.5 ${isSelected ? 'text-white/70' : 'text-gray-400'}`}>
-                        +{dayPartidos.length - 2} más
+                        +{dayPartidos.length - 3} más
                       </span>
                     )}
                   </div>
@@ -250,8 +268,8 @@ export default function Calendario() {
           </div>
         </div>
 
-        {/* Columna derecha */}
-        <div className="space-y-4">
+        {/* Panel del día (formulario + partidos) */}
+        <div className="w-full lg:w-80 flex-shrink-0 space-y-4">
           {/* Formulario */}
           <div className="card p-4 space-y-3">
             <h3 className="text-sm font-bold text-gray-700">
@@ -375,48 +393,71 @@ export default function Calendario() {
             </div>
           )}
         </div>
-      </div>
 
-      {/* Gráfico */}
-      <div className="card">
-        <h2 className="text-base font-bold text-gray-700 mb-1">Partidos por Observador</h2>
+        {/* RESUMEN colapsable (estilo panel lateral, como la captura) */}
+        {resumenOpen && (
+          <div className="w-full lg:w-64 flex-shrink-0 card p-4 self-start">
+            <div className="flex items-center justify-between mb-3 pb-2 border-b border-gray-100">
+              <h2 className="text-sm font-bold text-rfpaf-blue tracking-wide uppercase">Resumen</h2>
+              <button
+                onClick={() => setResumenOpen(false)}
+                className="p-1 rounded-md hover:bg-gray-100 transition-colors text-gray-500"
+                title="Ocultar resumen"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
 
-        {partidos.length === 0 ? (
-          <div className="h-40 flex items-center justify-center text-gray-400 text-sm">
-            Sin partidos asignados aún
+            {partidos.length === 0 ? (
+              <p className="text-gray-400 text-sm py-4 text-center">Sin partidos asignados aún</p>
+            ) : (
+              <>
+                {/* Total */}
+                <div className="flex items-center justify-between pb-2 mb-2 border-b border-gray-100">
+                  <span className="text-sm text-gray-500">Total partidos</span>
+                  <span className="text-lg font-bold text-rfpaf-blue">{partidos.length}</span>
+                </div>
+
+                {/* Filas por observador */}
+                <div className="space-y-1.5 mb-4">
+                  {obsConPartidos.map((o) => {
+                    const color = getObsColor(o.id, observadores)
+                    return (
+                      <div
+                        key={o.id}
+                        className="flex items-center justify-between py-1 pl-2 pr-1 rounded"
+                        style={{ borderLeft: `3px solid ${color}` }}
+                      >
+                        <span className="text-sm text-gray-700 truncate">{o.nombre}</span>
+                        <span className="text-sm font-bold ml-2 flex-shrink-0" style={{ color }}>
+                          {counts[o.id]}
+                        </span>
+                      </div>
+                    )
+                  })}
+                </div>
+
+                {/* Mini gráfico */}
+                <div className="h-44">
+                  <Bar
+                    data={chartData}
+                    options={{
+                      maintainAspectRatio: false,
+                      plugins: { legend: { display: false } },
+                      scales: {
+                        y: {
+                          beginAtZero: true,
+                          ticks: { stepSize: 1, font: { size: 10 } },
+                          grid: { color: 'rgba(0,0,0,0.05)' },
+                        },
+                        x: { ticks: { font: { size: 9 } } },
+                      },
+                    }}
+                  />
+                </div>
+              </>
+            )}
           </div>
-        ) : (
-          <>
-            {/* Leyenda colores */}
-            <div className="flex flex-wrap gap-2 mb-4">
-              {obsConPartidos.map((o) => (
-                <span
-                  key={o.id}
-                  className="flex items-center gap-1.5 text-xs font-medium"
-                >
-                  <span className="w-3 h-3 rounded-sm flex-shrink-0" style={{ backgroundColor: getObsColor(o.id, observadores) }} />
-                  {o.nombre}
-                </span>
-              ))}
-            </div>
-            <div className="h-52">
-              <Bar
-                data={chartData}
-                options={{
-                  maintainAspectRatio: false,
-                  plugins: { legend: { display: false } },
-                  scales: {
-                    y: {
-                      beginAtZero: true,
-                      ticks: { stepSize: 1 },
-                      grid: { color: 'rgba(0,0,0,0.05)' },
-                    },
-                    x: { ticks: { font: { size: 11 } } },
-                  },
-                }}
-              />
-            </div>
-          </>
         )}
       </div>
     </div>
