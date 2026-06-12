@@ -485,7 +485,7 @@ export default function Calendario() {
                       style={{ borderLeftWidth: 4, borderLeftColor: color }}
                     >
                       <div className="min-w-0">
-                        <div className="font-bold text-gray-800 truncate">
+                        <div className="text-sm font-bold text-gray-800 break-words">
                           {p.local} <span className="text-gray-400 font-normal">vs</span> {p.visitante}
                         </div>
                         <div className="text-gray-500 text-xs mt-1 flex items-center gap-2 flex-wrap">
