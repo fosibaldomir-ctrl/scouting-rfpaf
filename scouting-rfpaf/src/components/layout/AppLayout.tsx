@@ -29,7 +29,9 @@ export default function AppLayout() {
           <RFPAFLogo />
           <div className="flex-1 leading-tight text-right">
             <p className="text-white font-bold text-sm tracking-wide">STAFF LAB</p>
-            <p className="text-white/60 text-[10px] font-semibold uppercase">Real Federación de Fútbol · Principado de Asturias</p>
+            <p className="text-white text-[10px] font-semibold uppercase">Real Federación de Fútbol</p>
+            <div className="border-t border-white/40 my-0.5" />
+            <p className="text-white text-[10px] uppercase">Principado de Asturias</p>
           </div>
         </header>
         <main className="flex-1 overflow-auto">
