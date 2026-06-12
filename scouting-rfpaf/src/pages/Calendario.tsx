@@ -175,6 +175,104 @@ export default function Calendario() {
         )}
       </div>
 
+      {/* Formulario nuevo partido (desplegable, parte superior) */}
+      <div className="card p-4">
+        <button
+          onClick={() => setFormOpen((o) => !o)}
+          className="w-full flex items-center justify-between gap-2 text-left"
+        >
+          <h3 className="text-sm font-bold text-gray-700 flex items-center gap-2">
+            <Plus className="w-4 h-4 text-rfpaf-blue" />
+            Nuevo partido
+            <span className="block text-rfpaf-blue font-normal text-xs">· {selectedLabel}</span>
+          </h3>
+          <ChevronDown
+            className={`w-4 h-4 text-gray-500 flex-shrink-0 transition-transform ${formOpen ? 'rotate-180' : ''}`}
+          />
+        </button>
+
+        {formOpen && (
+          <div className="mt-3 pt-3 border-t border-gray-100 space-y-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+              <div>
+                <label className="form-label">Observador *</label>
+                <select
+                  className={`form-select ${errors.observador ? 'border-red-400 ring-1 ring-red-300' : ''}`}
+                  value={form.observador}
+                  onChange={(e) => setField('observador', e.target.value)}
+                  style={form.observador ? { borderLeftWidth: 4, borderLeftColor: getObsColor(form.observador, observadores) } : {}}
+                >
+                  <option value="">— Selecciona —</option>
+                  {observadores.map((o) => (
+                    <option key={o.id} value={o.id}>{o.nombre}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="form-label">Categoría *</label>
+                <select
+                  className={`form-select ${errors.categoria ? 'border-red-400 ring-1 ring-red-300' : ''}`}
+                  value={form.categoria}
+                  onChange={(e) => setField('categoria', e.target.value)}
+                >
+                  <option value="">— Selecciona —</option>
+                  {categorias.map((c) => (
+                    <option key={c.id} value={c.nombre}>{c.nombre}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="form-label">Equipo local *</label>
+                <select
+                  className={`form-select ${errors.local ? 'border-red-400 ring-1 ring-red-300' : ''}`}
+                  value={form.local}
+                  onChange={(e) => setField('local', e.target.value)}
+                >
+                  <option value="">— Selecciona —</option>
+                  {clubes.map((c) => (
+                    <option key={c.id} value={c.nombre}>{c.nombre}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="form-label">Equipo visitante *</label>
+                <select
+                  className={`form-select ${errors.visitante ? 'border-red-400 ring-1 ring-red-300' : ''}`}
+                  value={form.visitante}
+                  onChange={(e) => setField('visitante', e.target.value)}
+                >
+                  <option value="">— Selecciona —</option>
+                  {clubes.map((c) => (
+                    <option key={c.id} value={c.nombre}>{c.nombre}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="form-label">Hora *</label>
+                <input
+                  type="time"
+                  className={`form-input ${errors.hora ? 'border-red-400 ring-1 ring-red-300' : ''}`}
+                  value={form.hora}
+                  onChange={(e) => setField('hora', e.target.value)}
+                />
+              </div>
+            </div>
+
+            <button
+              onClick={handleAdd}
+              className="w-full sm:w-auto btn-primary flex items-center justify-center gap-2"
+            >
+              <Plus className="w-4 h-4" />
+              Añadir partido
+            </button>
+          </div>
+        )}
+      </div>
+
       {/* Main layout */}
       <div className="flex flex-col lg:flex-row gap-6">
 
@@ -270,105 +368,6 @@ export default function Calendario() {
           </div>
         </div>
 
-        {/* Panel del día (formulario + partidos) */}
-        <div className="w-full lg:w-80 flex-shrink-0 space-y-4">
-          {/* Formulario (desplegable) */}
-          <div className="card p-4">
-            <button
-              onClick={() => setFormOpen((o) => !o)}
-              className="w-full flex items-center justify-between gap-2 text-left"
-            >
-              <h3 className="text-sm font-bold text-gray-700 flex items-center gap-2">
-                <Plus className="w-4 h-4 text-rfpaf-blue" />
-                Nuevo partido
-                <span className="block text-rfpaf-blue font-normal text-xs">· {selectedLabel}</span>
-              </h3>
-              <ChevronDown
-                className={`w-4 h-4 text-gray-500 flex-shrink-0 transition-transform ${formOpen ? 'rotate-180' : ''}`}
-              />
-            </button>
-
-            {formOpen && (
-            <div className="space-y-3 mt-3 pt-3 border-t border-gray-100">
-            <div>
-              <label className="form-label">Observador *</label>
-              <select
-                className={`form-select ${errors.observador ? 'border-red-400 ring-1 ring-red-300' : ''}`}
-                value={form.observador}
-                onChange={(e) => setField('observador', e.target.value)}
-                style={form.observador ? { borderLeftWidth: 4, borderLeftColor: getObsColor(form.observador, observadores) } : {}}
-              >
-                <option value="">— Selecciona —</option>
-                {observadores.map((o) => (
-                  <option key={o.id} value={o.id}>{o.nombre}</option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="form-label">Categoría *</label>
-              <select
-                className={`form-select ${errors.categoria ? 'border-red-400 ring-1 ring-red-300' : ''}`}
-                value={form.categoria}
-                onChange={(e) => setField('categoria', e.target.value)}
-              >
-                <option value="">— Selecciona —</option>
-                {categorias.map((c) => (
-                  <option key={c.id} value={c.nombre}>{c.nombre}</option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="form-label">Equipo local *</label>
-              <select
-                className={`form-select ${errors.local ? 'border-red-400 ring-1 ring-red-300' : ''}`}
-                value={form.local}
-                onChange={(e) => setField('local', e.target.value)}
-              >
-                <option value="">— Selecciona —</option>
-                {clubes.map((c) => (
-                  <option key={c.id} value={c.nombre}>{c.nombre}</option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="form-label">Equipo visitante *</label>
-              <select
-                className={`form-select ${errors.visitante ? 'border-red-400 ring-1 ring-red-300' : ''}`}
-                value={form.visitante}
-                onChange={(e) => setField('visitante', e.target.value)}
-              >
-                <option value="">— Selecciona —</option>
-                {clubes.map((c) => (
-                  <option key={c.id} value={c.nombre}>{c.nombre}</option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="form-label">Hora *</label>
-              <input
-                type="time"
-                className={`form-input ${errors.hora ? 'border-red-400 ring-1 ring-red-300' : ''}`}
-                value={form.hora}
-                onChange={(e) => setField('hora', e.target.value)}
-              />
-            </div>
-
-            <button
-              onClick={handleAdd}
-              className="w-full btn-primary flex items-center justify-center gap-2"
-            >
-              <Plus className="w-4 h-4" />
-              Añadir partido
-            </button>
-            </div>
-            )}
-          </div>
-
-        </div>
 
         {/* RESUMEN colapsable (estilo panel lateral, como la captura) */}
         {resumenOpen && (
