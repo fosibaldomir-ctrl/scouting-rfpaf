@@ -76,6 +76,7 @@ export default function Calendario() {
   const [resumenOpen, setResumenOpen] = useState(false)
   const [formOpen, setFormOpen] = useState(false)
   const [dayModalOpen, setDayModalOpen] = useState(false)
+  const [statsObs, setStatsObs] = useState<string | null>(null)
 
   const calDays = useMemo(() => getCalendarDays(year, month), [year, month])
 
@@ -151,6 +152,36 @@ export default function Calendario() {
   const obsConPartidos = useMemo(() => {
     return observadores.filter((o) => counts[o.id])
   }, [counts, observadores])
+
+  // Estadísticas del observador seleccionado (partidos por mes)
+  const statsData = useMemo(() => {
+    if (!statsObs) return null
+    const obsPartidos = partidos.filter((p) => p.observador === statsObs)
+    const byMonth: Record<string, number> = {}
+    obsPartidos.forEach((p) => {
+      const ym = p.fecha.slice(0, 7) // YYYY-MM
+      byMonth[ym] = (byMonth[ym] ?? 0) + 1
+    })
+    const keys = Object.keys(byMonth).sort()
+    const color = getObsColor(statsObs, observadores)
+    return {
+      nombre: observadores.find((o) => o.id === statsObs)?.nombre ?? statsObs,
+      total: obsPartidos.length,
+      color,
+      chart: {
+        labels: keys.map((k) => {
+          const [y, m] = k.split('-')
+          return `${MONTHS[+m - 1].slice(0, 3)} ${y.slice(2)}`
+        }),
+        datasets: [{
+          label: 'Partidos',
+          data: keys.map((k) => byMonth[k]),
+          backgroundColor: color,
+          borderRadius: 6,
+        }],
+      },
+    }
+  }, [statsObs, partidos, observadores])
 
   return (
     <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-6">
@@ -289,18 +320,63 @@ export default function Calendario() {
             </button>
           </div>
 
-          {/* Leyenda observadores */}
+          {/* Leyenda observadores — clic para ver estadísticas */}
           {obsConPartidos.length > 0 && (
             <div className="flex flex-wrap gap-2 mb-3">
-              {obsConPartidos.map((o) => (
-                <span
-                  key={o.id}
-                  className="flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full text-white"
-                  style={{ backgroundColor: getObsColor(o.id, observadores) }}
+              {obsConPartidos.map((o) => {
+                const active = statsObs === o.id
+                return (
+                  <button
+                    key={o.id}
+                    onClick={() => setStatsObs((cur) => (cur === o.id ? null : o.id))}
+                    className={`flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full text-white transition-all hover:opacity-90 ${
+                      active ? 'ring-2 ring-offset-1 ring-rfpaf-blue' : ''
+                    }`}
+                    style={{ backgroundColor: getObsColor(o.id, observadores) }}
+                    title="Ver estadísticas de partidos"
+                  >
+                    {o.nombre}
+                    <span className="bg-white/25 rounded-full px-1.5 leading-tight">{counts[o.id]}</span>
+                  </button>
+                )
+              })}
+            </div>
+          )}
+
+          {/* Panel desplegable: estadísticas del observador */}
+          {statsData && (
+            <div className="mb-3 p-3 rounded-xl border border-gray-100 bg-gray-50">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-sm font-bold flex items-center gap-2" style={{ color: statsData.color }}>
+                  <BarChart3 className="w-4 h-4" />
+                  {statsData.nombre}
+                  <span className="text-gray-500 font-normal">· {statsData.total} {statsData.total === 1 ? 'partido visto' : 'partidos vistos'}</span>
+                </h3>
+                <button
+                  onClick={() => setStatsObs(null)}
+                  className="p-1 rounded-md hover:bg-gray-200 transition-colors text-gray-500"
+                  title="Cerrar"
                 >
-                  {o.nombre}
-                </span>
-              ))}
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              <div className="h-40">
+                <Bar
+                  data={statsData.chart}
+                  options={{
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                      y: {
+                        beginAtZero: true,
+                        ticks: { stepSize: 1, font: { size: 10 } },
+                        grid: { color: 'rgba(0,0,0,0.05)' },
+                      },
+                      x: { ticks: { font: { size: 10 } } },
+                    },
+                  }}
+                />
+              </div>
             </div>
           )}
 
