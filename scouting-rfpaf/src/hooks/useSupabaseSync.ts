@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import { OBSERVADORES, CATEGORIAS, CLUBES } from '../data/masterData'
 import { supabaseService } from '../services/supabaseService'
 import { useStoreWithSync } from '../store/useStoreWithSync'
+import { useStore } from '../store/useStore'
 
 async function seedIfEmpty() {
   const { count: obsCount } = await supabase
@@ -38,6 +39,7 @@ async function seedIfEmpty() {
 
 export function useSupabaseSync() {
   const setFichas = useStoreWithSync((s) => s.setFichas)
+  const setPartidos = useStore((s) => s.setPartidos)
 
   useEffect(() => {
     async function init() {
@@ -46,6 +48,11 @@ export function useSupabaseSync() {
       const fichas = await supabaseService.getFichas()
       if (fichas.length > 0) {
         setFichas(fichas)
+      }
+
+      const partidos = await supabaseService.getPartidos()
+      if (partidos.length > 0) {
+        setPartidos(partidos)
       }
 
       console.log('✅ Supabase sincronización lista')

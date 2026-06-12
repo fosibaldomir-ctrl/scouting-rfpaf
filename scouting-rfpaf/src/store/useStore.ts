@@ -15,8 +15,9 @@ interface AppState {
 
   login: (observadorId: string) => void
   logout: () => void
-  addPartido: (p: PartidoCalendario) => void
-  deletePartido: (id: string) => void
+  setPartidos: (partidos: PartidoCalendario[]) => void
+  addPartido: (p: PartidoCalendario) => Promise<void>
+  deletePartido: (id: string) => Promise<void>
   addFicha: (ficha: FichaJugadora) => Promise<void>
   updateFicha: (id: string, ficha: Partial<FichaJugadora>) => Promise<void>
   deleteFicha: (id: string) => Promise<void>
@@ -46,8 +47,17 @@ export const useStore = create<AppState>()(
       login: (observadorId) => set({ currentObservador: observadorId }),
       logout: () => set({ currentObservador: null }),
 
-      addPartido: (p) => set((state) => ({ partidos: [...state.partidos, p] })),
-      deletePartido: (id) => set((state) => ({ partidos: state.partidos.filter((p) => p.id !== id) })),
+      setPartidos: (partidos) => set({ partidos }),
+
+      addPartido: async (p) => {
+        set((state) => ({ partidos: [...state.partidos, p] }))
+        await supabaseService.addPartido(p)
+      },
+
+      deletePartido: async (id) => {
+        set((state) => ({ partidos: state.partidos.filter((p) => p.id !== id) }))
+        await supabaseService.deletePartido(id)
+      },
 
       addFicha: async (ficha) => {
         set((state) => ({ fichas: [...state.fichas, ficha] }))

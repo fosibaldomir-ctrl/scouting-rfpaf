@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabase'
-import type { FichaJugadora, Club, Observador, CategoriaItem } from '../types'
+import type { FichaJugadora, Club, Observador, CategoriaItem, PartidoCalendario } from '../types'
 
 export const supabaseService = {
   async getFichas(): Promise<FichaJugadora[]> {
@@ -242,6 +242,55 @@ export const supabaseService = {
     const { error } = await supabase.from('categorias').delete().eq('id', id)
     if (error) {
       console.error('Error al eliminar categoría:', error)
+      return false
+    }
+    return true
+  },
+
+  async getPartidos(): Promise<PartidoCalendario[]> {
+    const { data, error } = await supabase
+      .from('calendario_partidos')
+      .select('*')
+      .order('fecha', { ascending: true })
+
+    if (error) {
+      console.error('Error al cargar partidos:', error)
+      return []
+    }
+
+    return (data || []).map((p: any) => ({
+      id: p.id,
+      fecha: p.fecha,
+      hora: p.hora,
+      local: p.local,
+      visitante: p.visitante,
+      observador: p.observador,
+      categoria: p.categoria,
+    }))
+  },
+
+  async addPartido(partido: PartidoCalendario): Promise<boolean> {
+    const { error } = await supabase.from('calendario_partidos').insert([{
+      id: partido.id,
+      fecha: partido.fecha,
+      hora: partido.hora,
+      local: partido.local,
+      visitante: partido.visitante,
+      observador: partido.observador,
+      categoria: partido.categoria,
+    }])
+
+    if (error) {
+      console.error('Error al guardar partido:', error)
+      return false
+    }
+    return true
+  },
+
+  async deletePartido(id: string): Promise<boolean> {
+    const { error } = await supabase.from('calendario_partidos').delete().eq('id', id)
+    if (error) {
+      console.error('Error al eliminar partido:', error)
       return false
     }
     return true
