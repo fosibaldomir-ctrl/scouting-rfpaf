@@ -23,7 +23,7 @@ export default function Login() {
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-8">
         {/* Logo / Header */}
         <div className="text-center mb-8">
-          <div className="inline-block mb-4">
+          <div className="inline-block mb-4 scale-150">
             <RFPAFLogo />
           </div>
           <h1 className="text-2xl font-bold text-rfpaf-blue">RFPAF Scouting</h1>
