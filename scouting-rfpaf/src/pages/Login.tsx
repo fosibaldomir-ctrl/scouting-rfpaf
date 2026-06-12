@@ -22,9 +22,42 @@ export default function Login() {
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-8">
         {/* Logo / Header */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-20 h-20 bg-rfpaf-blue rounded-full mb-4">
-            <span className="text-white text-3xl font-bold">RF</span>
-          </div>
+          {/* Escudo RFPAF */}
+          <svg
+            width="80"
+            height="100"
+            viewBox="0 0 80 100"
+            className="mx-auto mb-4"
+          >
+            {/* Fondo del escudo */}
+            <defs>
+              <linearGradient id="shieldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" style={{ stopColor: '#1a3a6b', stopOpacity: 1 }} />
+                <stop offset="100%" style={{ stopColor: '#0f2847', stopOpacity: 1 }} />
+              </linearGradient>
+            </defs>
+            {/* Escudo */}
+            <path
+              d="M 40 5 L 70 20 L 70 50 Q 70 75 40 95 Q 10 75 10 50 L 10 20 Z"
+              fill="url(#shieldGrad)"
+              stroke="#fbbf24"
+              strokeWidth="2"
+            />
+            {/* Franja blanca central */}
+            <rect x="28" y="15" width="24" height="70" fill="rgba(255,255,255,0.15)" />
+            {/* Emblema interior: pelota de fútbol */}
+            <circle cx="40" cy="45" r="15" fill="none" stroke="white" strokeWidth="1.5" />
+            {/* Pentágonos del balón */}
+            <circle cx="40" cy="45" r="10" fill="white" opacity="0.3" />
+            <text x="40" y="50" textAnchor="middle" fontSize="18" fontWeight="bold" fill="white">
+              ⚽
+            </text>
+            {/* Estrella en la punta */}
+            <polygon
+              points="40,8 43,18 54,18 45,25 48,35 40,30 32,35 35,25 26,18 37,18"
+              fill="#fbbf24"
+            />
+          </svg>
           <h1 className="text-2xl font-bold text-rfpaf-blue">RFPAF Scouting</h1>
           <p className="text-gray-500 text-sm mt-1">
             Real Federación de Fútbol del Principado de Asturias
