@@ -38,7 +38,8 @@ async function seedIfEmpty() {
 }
 
 export function useSupabaseSync() {
-  const setFichas = useStoreWithSync((s) => s.setFichas)
+  const setFichasWithSync = useStoreWithSync((s) => s.setFichas)
+  const setFichasMain = useStore((s) => s.setFichas)
   const setPartidos = useStore((s) => s.setPartidos)
 
   useEffect(() => {
@@ -46,9 +47,8 @@ export function useSupabaseSync() {
       await seedIfEmpty()
 
       const fichas = await supabaseService.getFichas()
-      if (fichas.length > 0) {
-        setFichas(fichas)
-      }
+      setFichasWithSync(fichas)
+      setFichasMain(fichas) // Sincronizar en ambos stores
 
       const partidos = await supabaseService.getPartidos()
       setPartidos(partidos)
@@ -56,7 +56,7 @@ export function useSupabaseSync() {
     }
 
     init().catch((err) => {
-      console.error('Error en sincronización:', err)
+      console.error('❌ Error en sincronización:', err)
     })
-  }, [])
+  }, [setFichasWithSync, setFichasMain, setPartidos])
 }

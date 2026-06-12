@@ -15,6 +15,7 @@ interface AppState {
 
   login: (observadorId: string) => void
   logout: () => void
+  setFichas: (fichas: FichaJugadora[]) => void
   setPartidos: (partidos: PartidoCalendario[]) => void
   addPartido: (p: PartidoCalendario) => Promise<void>
   deletePartido: (id: string) => Promise<void>
@@ -47,6 +48,7 @@ export const useStore = create<AppState>()(
       login: (observadorId) => set({ currentObservador: observadorId }),
       logout: () => set({ currentObservador: null }),
 
+      setFichas: (fichas) => set({ fichas }),
       setPartidos: (partidos) => set({ partidos }),
 
       addPartido: async (p) => {
