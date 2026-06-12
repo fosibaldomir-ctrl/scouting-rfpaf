@@ -48,9 +48,9 @@ export default function Sidebar({ mobileOpen, onClose }: SidebarProps) {
           <RFPAFLogo />
           <div className="flex-1 leading-tight text-right">
             <p className="text-white font-bold text-base tracking-wide">STAFF LAB</p>
-            <p className="text-white text-[8px] font-semibold uppercase leading-snug">Real Federación de Fútbol</p>
+            <p className="text-white text-[8px] font-semibold uppercase leading-snug whitespace-nowrap">Real Federación de Fútbol</p>
             <div className="border-t border-white/40 my-0.5" />
-            <p className="text-white text-[8px] uppercase leading-snug">Principado de Asturias</p>
+            <p className="text-white text-[8px] uppercase leading-snug whitespace-nowrap">Principado de Asturias</p>
           </div>
           <button
             onClick={onClose}
