@@ -250,11 +250,11 @@ export default function Calendario() {
                       return (
                         <div
                           key={p.id}
-                          className="text-white text-[9px] font-semibold px-1 py-0.5 rounded leading-tight overflow-hidden"
+                          className="text-white text-[8px] font-semibold px-1 py-0.5 rounded leading-tight"
                           style={{ backgroundColor: color }}
                         >
-                          <span className="block truncate">{p.hora} {p.local}</span>
-                          <span className="block truncate opacity-90">vs {p.visitante}</span>
+                          <span className="block break-words">{p.hora} {p.local}</span>
+                          <span className="block break-words opacity-90">vs {p.visitante}</span>
                         </div>
                       )
                     })}
