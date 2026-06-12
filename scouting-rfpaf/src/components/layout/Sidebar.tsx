@@ -43,13 +43,8 @@ export default function Sidebar({ mobileOpen, onClose }: SidebarProps) {
           mobileOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
-        {/* Logo */}
+        {/* Logo / Branding (superior derecha) */}
         <div className="p-4 border-b border-white/10 flex items-center gap-3">
-          <RFPAFLogo />
-          <div className="flex-1 leading-tight">
-            <p className="text-white font-bold text-sm">RFPAF</p>
-            <p className="text-white/60 text-xs">Scouting</p>
-          </div>
           <button
             onClick={onClose}
             className="lg:hidden text-white/70 hover:text-white p-1 rounded-lg hover:bg-white/10 transition-colors"
@@ -57,6 +52,12 @@ export default function Sidebar({ mobileOpen, onClose }: SidebarProps) {
           >
             <X className="w-5 h-5" />
           </button>
+          <div className="flex-1 leading-tight text-right">
+            <p className="text-white font-bold text-base tracking-wide">STAFF LAB</p>
+            <p className="text-white/70 text-[10px] font-semibold uppercase leading-snug">Real Federación de Fútbol</p>
+            <p className="text-white/50 text-[10px] uppercase">Principado de Asturias</p>
+          </div>
+          <RFPAFLogo />
         </div>
 
         {/* Nav */}
