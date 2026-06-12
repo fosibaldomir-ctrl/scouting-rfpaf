@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { ChevronLeft, ChevronRight, ChevronDown, Plus, Trash2, CalendarDays, BarChart3 } from 'lucide-react'
+import { ChevronLeft, ChevronRight, ChevronDown, Plus, Trash2, CalendarDays, BarChart3, X } from 'lucide-react'
 import { Bar } from 'react-chartjs-2'
 import {
   Chart as ChartJS,
@@ -75,6 +75,7 @@ export default function Calendario() {
   const [errors, setErrors] = useState<Record<string, boolean>>({})
   const [resumenOpen, setResumenOpen] = useState(false)
   const [formOpen, setFormOpen] = useState(false)
+  const [dayModalOpen, setDayModalOpen] = useState(false)
 
   const calDays = useMemo(() => getCalendarDays(year, month), [year, month])
 
@@ -224,7 +225,7 @@ export default function Calendario() {
               return (
                 <button
                   key={i}
-                  onClick={() => current && setSelectedDate(ymd)}
+                  onClick={() => { if (current) { setSelectedDate(ymd); setDayModalOpen(true) } }}
                   className={`min-h-[88px] rounded-lg p-1 flex flex-col items-stretch transition-all border text-left ${
                     isSelected
                       ? 'bg-rfpaf-blue border-rfpaf-blue shadow-md'
@@ -367,45 +368,6 @@ export default function Calendario() {
             )}
           </div>
 
-          {/* Partidos del día seleccionado */}
-          {selectedPartidos.length > 0 && (
-            <div className="card p-4 space-y-2">
-              <h3 className="text-sm font-bold text-gray-700">
-                Partidos · {selectedLabel}
-              </h3>
-              {selectedPartidos.map((p) => {
-                const obsNombre = observadores.find((o) => o.id === p.observador)?.nombre ?? p.observador
-                const color = getObsColor(p.observador, observadores)
-                return (
-                  <div
-                    key={p.id}
-                    className="flex items-start justify-between gap-2 p-2.5 bg-gray-50 rounded-lg border border-gray-100 overflow-hidden"
-                    style={{ borderLeftWidth: 4, borderLeftColor: color }}
-                  >
-                    <div className="text-xs leading-relaxed min-w-0">
-                      <div className="font-semibold text-gray-800 truncate">
-                        {p.local} <span className="text-gray-400 font-normal">vs</span> {p.visitante}
-                      </div>
-                      <div className="text-gray-500 mt-0.5 flex items-center gap-1.5 flex-wrap">
-                        <span>{p.hora}</span>
-                        {p.categoria && (
-                          <span className="bg-gray-200 text-gray-600 px-1.5 py-px rounded text-[10px] font-medium">{p.categoria}</span>
-                        )}
-                        <span className="font-semibold" style={{ color }}>{obsNombre}</span>
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => deletePartido(p.id)}
-                      className="text-red-400 hover:text-red-600 flex-shrink-0 p-0.5 transition-colors"
-                      title="Eliminar"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                )
-              })}
-            </div>
-          )}
         </div>
 
         {/* RESUMEN colapsable (estilo panel lateral, como la captura) */}
@@ -474,6 +436,97 @@ export default function Calendario() {
           </div>
         )}
       </div>
+
+      {/* Modal: partidos del día seleccionado */}
+      {dayModalOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
+          onClick={() => setDayModalOpen(false)}
+        >
+          <div
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[85vh] flex flex-col overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Cabecera modal */}
+            <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-gray-100 bg-rfpaf-blue text-white">
+              <div className="flex items-center gap-2 min-w-0">
+                <CalendarDays className="w-5 h-5 flex-shrink-0" />
+                <div className="min-w-0">
+                  <h3 className="text-base font-bold leading-tight truncate">{selectedLabel}</h3>
+                  <p className="text-xs text-white/70">
+                    {selectedPartidos.length} {selectedPartidos.length === 1 ? 'partido programado' : 'partidos programados'}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setDayModalOpen(false)}
+                className="p-1.5 rounded-lg hover:bg-white/20 transition-colors flex-shrink-0"
+                title="Cerrar"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Lista de partidos */}
+            <div className="p-5 space-y-2.5 overflow-y-auto">
+              {selectedPartidos.length === 0 ? (
+                <div className="text-center py-8 text-gray-400">
+                  <CalendarDays className="w-10 h-10 mx-auto mb-2 opacity-40" />
+                  <p className="text-sm">No hay partidos programados este día</p>
+                </div>
+              ) : (
+                selectedPartidos.map((p) => {
+                  const obsNombre = observadores.find((o) => o.id === p.observador)?.nombre ?? p.observador
+                  const color = getObsColor(p.observador, observadores)
+                  return (
+                    <div
+                      key={p.id}
+                      className="flex items-start justify-between gap-3 p-3 bg-gray-50 rounded-xl border border-gray-100 overflow-hidden"
+                      style={{ borderLeftWidth: 4, borderLeftColor: color }}
+                    >
+                      <div className="min-w-0">
+                        <div className="font-bold text-gray-800 truncate">
+                          {p.local} <span className="text-gray-400 font-normal">vs</span> {p.visitante}
+                        </div>
+                        <div className="text-gray-500 text-xs mt-1 flex items-center gap-2 flex-wrap">
+                          <span className="font-semibold text-gray-700">{p.hora}</span>
+                          {p.categoria && (
+                            <span className="bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full text-[11px] font-medium">{p.categoria}</span>
+                          )}
+                          <span
+                            className="px-2 py-0.5 rounded-full text-[11px] font-semibold text-white"
+                            style={{ backgroundColor: color }}
+                          >
+                            {obsNombre}
+                          </span>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => deletePartido(p.id)}
+                        className="text-red-400 hover:text-red-600 flex-shrink-0 p-1 transition-colors"
+                        title="Eliminar partido"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  )
+                })
+              )}
+            </div>
+
+            {/* Pie modal: añadir partido */}
+            <div className="px-5 py-4 border-t border-gray-100 bg-gray-50">
+              <button
+                onClick={() => { setDayModalOpen(false); setFormOpen(true) }}
+                className="w-full btn-primary flex items-center justify-center gap-2"
+              >
+                <Plus className="w-4 h-4" />
+                Añadir partido a este día
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
