@@ -51,11 +51,8 @@ export function useSupabaseSync() {
       }
 
       const partidos = await supabaseService.getPartidos()
-      if (partidos.length > 0) {
-        setPartidos(partidos)
-      }
-
-      console.log('✅ Supabase sincronización lista')
+      setPartidos(partidos)
+      console.log(`✅ Supabase sincronización lista. Fichas: ${fichas.length}, Partidos: ${partidos.length}`)
     }
 
     init().catch((err) => {

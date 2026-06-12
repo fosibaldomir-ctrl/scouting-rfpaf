@@ -248,25 +248,31 @@ export const supabaseService = {
   },
 
   async getPartidos(): Promise<PartidoCalendario[]> {
-    const { data, error } = await supabase
-      .from('calendario_partidos')
-      .select('*')
-      .order('fecha', { ascending: true })
+    try {
+      const { data, error } = await supabase
+        .from('calendario_partidos')
+        .select('*')
+        .order('fecha', { ascending: true })
 
-    if (error) {
-      console.error('Error al cargar partidos:', error)
+      if (error) {
+        console.error('❌ Error al cargar partidos:', error.message, error.code)
+        return []
+      }
+
+      console.log('✅ Partidos cargados:', data?.length ?? 0)
+      return (data || []).map((p: any) => ({
+        id: p.id,
+        fecha: p.fecha,
+        hora: p.hora,
+        local: p.local,
+        visitante: p.visitante,
+        observador: p.observador,
+        categoria: p.categoria,
+      }))
+    } catch (err) {
+      console.error('⚠️ Excepción al cargar partidos:', err)
       return []
     }
-
-    return (data || []).map((p: any) => ({
-      id: p.id,
-      fecha: p.fecha,
-      hora: p.hora,
-      local: p.local,
-      visitante: p.visitante,
-      observador: p.observador,
-      categoria: p.categoria,
-    }))
   },
 
   async addPartido(partido: PartidoCalendario): Promise<boolean> {
