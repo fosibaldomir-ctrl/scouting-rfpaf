@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { ChevronLeft, ChevronRight, Plus, Trash2, CalendarDays, BarChart3 } from 'lucide-react'
+import { ChevronLeft, ChevronRight, ChevronDown, Plus, Trash2, CalendarDays, BarChart3 } from 'lucide-react'
 import { Bar } from 'react-chartjs-2'
 import {
   Chart as ChartJS,
@@ -74,6 +74,7 @@ export default function Calendario() {
   const [form, setForm] = useState(EMPTY_FORM)
   const [errors, setErrors] = useState<Record<string, boolean>>({})
   const [resumenOpen, setResumenOpen] = useState(false)
+  const [formOpen, setFormOpen] = useState(false)
 
   const calDays = useMemo(() => getCalendarDays(year, month), [year, month])
 
@@ -270,13 +271,24 @@ export default function Calendario() {
 
         {/* Panel del día (formulario + partidos) */}
         <div className="w-full lg:w-80 flex-shrink-0 space-y-4">
-          {/* Formulario */}
-          <div className="card p-4 space-y-3">
-            <h3 className="text-sm font-bold text-gray-700">
-              Nuevo partido
-              <span className="block text-rfpaf-blue font-normal mt-0.5">{selectedLabel}</span>
-            </h3>
+          {/* Formulario (desplegable) */}
+          <div className="card p-4">
+            <button
+              onClick={() => setFormOpen((o) => !o)}
+              className="w-full flex items-center justify-between gap-2 text-left"
+            >
+              <h3 className="text-sm font-bold text-gray-700 flex items-center gap-2">
+                <Plus className="w-4 h-4 text-rfpaf-blue" />
+                Nuevo partido
+                <span className="block text-rfpaf-blue font-normal text-xs">· {selectedLabel}</span>
+              </h3>
+              <ChevronDown
+                className={`w-4 h-4 text-gray-500 flex-shrink-0 transition-transform ${formOpen ? 'rotate-180' : ''}`}
+              />
+            </button>
 
+            {formOpen && (
+            <div className="space-y-3 mt-3 pt-3 border-t border-gray-100">
             <div>
               <label className="form-label">Observador *</label>
               <select
@@ -351,6 +363,8 @@ export default function Calendario() {
               <Plus className="w-4 h-4" />
               Añadir partido
             </button>
+            </div>
+            )}
           </div>
 
           {/* Partidos del día seleccionado */}
