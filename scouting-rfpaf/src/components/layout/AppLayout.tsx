@@ -26,11 +26,11 @@ export default function AppLayout() {
           >
             <Menu className="w-6 h-6" />
           </button>
+          <RFPAFLogo />
           <div className="flex-1 leading-tight text-right">
             <p className="text-white font-bold text-sm tracking-wide">STAFF LAB</p>
             <p className="text-white/60 text-[10px] font-semibold uppercase">Real Federación de Fútbol · Principado de Asturias</p>
           </div>
-          <RFPAFLogo />
         </header>
         <main className="flex-1 overflow-auto">
           <Outlet />
