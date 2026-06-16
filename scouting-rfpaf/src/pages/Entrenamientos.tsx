@@ -37,7 +37,7 @@ type TeamId = 1 | 2 | 3
 interface PlacedPlayer { uid: string; team: TeamId; number: number; x: number; y: number }
 interface SelPlayer { team: TeamId; number: number }
 
-type AccessoryType = 'goal' | 'cone' | 'mushroom' | 'ladder' | 'hurdle' | 'mannequin' | 'barrier' | 'ball_bw' | 'ball_blue' | 'ball_red'
+type AccessoryType = 'goal_front' | 'goal_3d_r' | 'goal_3d_l' | 'goal_side' | 'goal_mini' | 'goal_arc' | 'cone' | 'mushroom' | 'ladder' | 'hurdle' | 'mannequin' | 'barrier' | 'ball_bw' | 'ball_blue' | 'ball_red'
 interface PlacedAccessory { uid: string; type: AccessoryType; x: number; y: number; rotation: number; color?: string; scale: number }
 interface SelAcc { type: AccessoryType; color?: string }
 
@@ -67,13 +67,92 @@ function drawAccessory(ctx: CanvasRenderingContext2D, a: PlacedAccessory, draggi
   ctx.scale(a.scale, a.scale)
   const clr = a.color
   switch (a.type) {
-    case 'goal': {
+    case 'goal_front': {
+      // Vista frontal clásica
       const w=36, h=19
-      ctx.strokeStyle='#ffffff'; ctx.lineWidth=2.5
+      ctx.strokeStyle='#ffffff'; ctx.lineWidth=2.2
       ctx.beginPath(); ctx.moveTo(-w/2,h/2); ctx.lineTo(-w/2,-h/2); ctx.lineTo(w/2,-h/2); ctx.lineTo(w/2,h/2); ctx.stroke()
-      ctx.lineWidth=0.8; ctx.strokeStyle='rgba(255,255,255,0.35)'
+      ctx.lineWidth=0.75; ctx.strokeStyle='rgba(255,255,255,0.35)'
       for(let i=1;i<4;i++){const nx=-w/2+(w/4)*i;ctx.beginPath();ctx.moveTo(nx,-h/2);ctx.lineTo(nx,h/2);ctx.stroke()}
       ctx.beginPath();ctx.moveTo(-w/2,0);ctx.lineTo(w/2,0);ctx.stroke()
+      break
+    }
+    case 'goal_3d_r': {
+      // 3D perspectiva, profundidad a la derecha — bounding box centrado x[-18,18] y[-12,12]
+      const fl=-18,fr=6,ft=-4,fb=12,bl=-6,br=18,bt=-12,bb=4
+      ctx.strokeStyle='#ffffff'; ctx.lineWidth=2.2
+      ctx.beginPath(); ctx.moveTo(fl,fb); ctx.lineTo(fl,ft); ctx.lineTo(fr,ft); ctx.lineTo(fr,fb); ctx.stroke()
+      ctx.beginPath(); ctx.moveTo(fr,ft); ctx.lineTo(br,bt); ctx.stroke()
+      ctx.beginPath(); ctx.moveTo(br,bt); ctx.lineTo(br,bb); ctx.stroke()
+      ctx.lineWidth=1.4; ctx.strokeStyle='rgba(255,255,255,0.6)'
+      ctx.beginPath(); ctx.moveTo(fl,ft); ctx.lineTo(bl,bt); ctx.stroke()
+      ctx.beginPath(); ctx.moveTo(bl,bt); ctx.lineTo(br,bt); ctx.stroke()
+      ctx.beginPath(); ctx.moveTo(fl,fb); ctx.lineTo(bl,bb); ctx.stroke()
+      ctx.beginPath(); ctx.moveTo(fr,fb); ctx.lineTo(br,bb); ctx.stroke()
+      ctx.beginPath(); ctx.moveTo(bl,bb); ctx.lineTo(br,bb); ctx.stroke()
+      ctx.lineWidth=0.7; ctx.strokeStyle='rgba(255,255,255,0.28)'
+      for(let i=1;i<3;i++){const nx=fl+(fr-fl)/3*i;ctx.beginPath();ctx.moveTo(nx,ft);ctx.lineTo(nx,fb);ctx.stroke()}
+      ctx.beginPath();ctx.moveTo(fl,(ft+fb)/2);ctx.lineTo(fr,(ft+fb)/2);ctx.stroke()
+      break
+    }
+    case 'goal_3d_l': {
+      // 3D perspectiva, profundidad a la izquierda — bounding box centrado x[-18,18] y[-12,12]
+      const fl=-6,fr=18,ft=-4,fb=12,bl=-18,br=6,bt=-12,bb=4
+      ctx.strokeStyle='#ffffff'; ctx.lineWidth=2.2
+      ctx.beginPath(); ctx.moveTo(fr,fb); ctx.lineTo(fr,ft); ctx.lineTo(fl,ft); ctx.lineTo(fl,fb); ctx.stroke()
+      ctx.beginPath(); ctx.moveTo(fl,ft); ctx.lineTo(bl,bt); ctx.stroke()
+      ctx.beginPath(); ctx.moveTo(bl,bt); ctx.lineTo(bl,bb); ctx.stroke()
+      ctx.lineWidth=1.4; ctx.strokeStyle='rgba(255,255,255,0.6)'
+      ctx.beginPath(); ctx.moveTo(fr,ft); ctx.lineTo(br,bt); ctx.stroke()
+      ctx.beginPath(); ctx.moveTo(bl,bt); ctx.lineTo(br,bt); ctx.stroke()
+      ctx.beginPath(); ctx.moveTo(fr,fb); ctx.lineTo(br,bb); ctx.stroke()
+      ctx.beginPath(); ctx.moveTo(fl,fb); ctx.lineTo(bl,bb); ctx.stroke()
+      ctx.beginPath(); ctx.moveTo(bl,bb); ctx.lineTo(br,bb); ctx.stroke()
+      ctx.lineWidth=0.7; ctx.strokeStyle='rgba(255,255,255,0.28)'
+      for(let i=1;i<3;i++){const nx=fl+(fr-fl)/3*i;ctx.beginPath();ctx.moveTo(nx,ft);ctx.lineTo(nx,fb);ctx.stroke()}
+      ctx.beginPath();ctx.moveTo(fl,(ft+fb)/2);ctx.lineTo(fr,(ft+fb)/2);ctx.stroke()
+      break
+    }
+    case 'goal_side': {
+      // Vista lateral / perfil
+      const d=15, h=9
+      ctx.strokeStyle='#ffffff'; ctx.lineWidth=2.5
+      ctx.beginPath(); ctx.moveTo(-d,-h); ctx.lineTo(-d,h); ctx.stroke()
+      ctx.beginPath(); ctx.moveTo(-d,-h); ctx.lineTo(d,-h); ctx.stroke()
+      ctx.lineWidth=1.5; ctx.strokeStyle='rgba(255,255,255,0.65)'
+      ctx.beginPath(); ctx.moveTo(d,-h); ctx.lineTo(d,h); ctx.stroke()
+      ctx.beginPath(); ctx.moveTo(-d,h); ctx.lineTo(d,h); ctx.stroke()
+      ctx.lineWidth=0.7; ctx.strokeStyle='rgba(255,255,255,0.3)'
+      for(let i=1;i<4;i++){const nx=-d+(d*2/4)*i;ctx.beginPath();ctx.moveTo(nx,-h);ctx.lineTo(nx,h);ctx.stroke()}
+      ctx.beginPath();ctx.moveTo(-d,0);ctx.lineTo(d,0);ctx.stroke()
+      break
+    }
+    case 'goal_mini': {
+      // Portería mini / portátil rectangular
+      const w=22, h=11
+      ctx.strokeStyle='#ffffff'; ctx.lineWidth=2
+      ctx.beginPath(); ctx.moveTo(-w/2,h/2); ctx.lineTo(-w/2,-h/2); ctx.lineTo(w/2,-h/2); ctx.lineTo(w/2,h/2); ctx.stroke()
+      ctx.lineWidth=1.8; ctx.strokeStyle='rgba(255,255,255,0.7)'
+      ctx.beginPath(); ctx.moveTo(-w/2,h/2); ctx.lineTo(-w/2+4,h/2+5); ctx.stroke()
+      ctx.beginPath(); ctx.moveTo(w/2,h/2); ctx.lineTo(w/2-4,h/2+5); ctx.stroke()
+      ctx.lineWidth=0.7; ctx.strokeStyle='rgba(255,255,255,0.35)'
+      for(let i=1;i<3;i++){const nx=-w/2+(w/3)*i;ctx.beginPath();ctx.moveTo(nx,-h/2);ctx.lineTo(nx,h/2);ctx.stroke()}
+      ctx.beginPath();ctx.moveTo(-w/2,h/2-4);ctx.lineTo(w/2,h/2-4);ctx.stroke()
+      break
+    }
+    case 'goal_arc': {
+      // Portería de arco / portátil curva
+      const w=22, h=11
+      ctx.strokeStyle='#ffffff'; ctx.lineWidth=2
+      ctx.beginPath()
+      ctx.moveTo(-w/2,h/2); ctx.lineTo(-w/2,-h/4)
+      ctx.bezierCurveTo(-w/2,-h*1.15,w/2,-h*1.15,w/2,-h/4)
+      ctx.lineTo(w/2,h/2)
+      ctx.stroke()
+      ctx.lineWidth=0.7; ctx.strokeStyle='rgba(255,255,255,0.35)'
+      ctx.beginPath();ctx.moveTo(0,-h/2);ctx.lineTo(0,h/2);ctx.stroke()
+      ctx.beginPath();ctx.moveTo(-w/2,h/4);ctx.lineTo(w/2,h/4);ctx.stroke()
+      ctx.beginPath();ctx.moveTo(-w/2,h/2);ctx.lineTo(w/2,h/2);ctx.stroke()
       break
     }
     case 'cone': {
@@ -432,7 +511,15 @@ const ACCESSORY_LIST: { type: AccessoryType; label: string }[] = [
   { type:'hurdle', label:'Valla' },
   { type:'mannequin', label:'Maniquí' },
   { type:'barrier', label:'Barrera' },
-  { type:'goal', label:'Portería' },
+]
+
+const GOAL_LIST: { type: AccessoryType; label: string }[] = [
+  { type:'goal_front', label:'Frontal' },
+  { type:'goal_3d_r', label:'3D Derecha' },
+  { type:'goal_3d_l', label:'3D Izquierda' },
+  { type:'goal_side', label:'Lateral' },
+  { type:'goal_mini', label:'Mini' },
+  { type:'goal_arc', label:'Portátil' },
 ]
 
 const BALL_LIST: { type: AccessoryType; label: string }[] = [
@@ -460,6 +547,7 @@ function TacticalBoard({ onCapture, onRegisterCapture }: TacticalBoardProps) {
   const [draggedTextIdx, setDraggedTextIdx] = useState<number | null>(null)
   const [pitchType, setPitchType] = useState<PitchType>('full')
   const [ballMenuOpen, setBallMenuOpen] = useState(false)
+  const [goalMenuOpen, setGoalMenuOpen] = useState(false)
   const [placedPlayers, setPlacedPlayers] = useState<PlacedPlayer[]>([])
   const [selPlayer, setSelPlayer] = useState<SelPlayer | null>(null)
   const [placedAccessories, setPlacedAccessories] = useState<PlacedAccessory[]>([])
@@ -686,15 +774,35 @@ function TacticalBoard({ onCapture, onRegisterCapture }: TacticalBoardProps) {
             const isSel = selAcc?.type === acc.type
             return (
               <button key={acc.type} type="button"
-                onClick={() => { setSelAcc(isSel ? null : { type: acc.type }); setSelPlayer(null); setBallMenuOpen(false) }}
+                onClick={() => { setSelAcc(isSel ? null : { type: acc.type }); setSelPlayer(null); setBallMenuOpen(false); setGoalMenuOpen(false) }}
                 className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all border ${isSel ? 'bg-rfpaf-blue text-white border-rfpaf-blue shadow-sm' : 'bg-white/10 text-white/70 border-white/10 hover:bg-white/20 hover:text-white'}`}>
                 {acc.label}
               </button>
             )
           })}
-          {/* Ball group toggle */}
+          {/* Porterías dropdown */}
           <button type="button"
-            onClick={() => { setBallMenuOpen(v => !v); setSelPlayer(null) }}
+            onClick={() => { setGoalMenuOpen(v => !v); setBallMenuOpen(false); setSelPlayer(null) }}
+            className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all border ${
+              GOAL_LIST.some(g => selAcc?.type === g.type)
+                ? 'bg-rfpaf-blue text-white border-rfpaf-blue shadow-sm'
+                : 'bg-white/10 text-white/70 border-white/10 hover:bg-white/20 hover:text-white'
+            }`}>
+            Porterías <ChevronDown className={`w-3 h-3 transition-transform duration-200 ${goalMenuOpen ? 'rotate-180' : ''}`}/>
+          </button>
+          {goalMenuOpen && GOAL_LIST.map(g => {
+            const isSel = selAcc?.type === g.type
+            return (
+              <button key={g.type} type="button"
+                onClick={() => { setSelAcc(isSel ? null : { type: g.type }); setGoalMenuOpen(false) }}
+                className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all border ${isSel ? 'bg-rfpaf-blue text-white border-rfpaf-blue shadow-sm' : 'bg-white/10 text-white/70 border-white/10 hover:bg-white/20 hover:text-white'}`}>
+                {g.label}
+              </button>
+            )
+          })}
+          {/* Balones dropdown */}
+          <button type="button"
+            onClick={() => { setBallMenuOpen(v => !v); setGoalMenuOpen(false); setSelPlayer(null) }}
             className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all border ${
               BALL_LIST.some(b => selAcc?.type === b.type)
                 ? 'bg-rfpaf-blue text-white border-rfpaf-blue shadow-sm'
