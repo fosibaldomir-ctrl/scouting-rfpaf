@@ -68,91 +68,179 @@ function drawAccessory(ctx: CanvasRenderingContext2D, a: PlacedAccessory, draggi
   const clr = a.color
   switch (a.type) {
     case 'goal_front': {
-      // Vista frontal clásica
-      const w=36, h=19
-      ctx.strokeStyle='#ffffff'; ctx.lineWidth=2.2
-      ctx.beginPath(); ctx.moveTo(-w/2,h/2); ctx.lineTo(-w/2,-h/2); ctx.lineTo(w/2,-h/2); ctx.lineTo(w/2,h/2); ctx.stroke()
-      ctx.lineWidth=0.75; ctx.strokeStyle='rgba(255,255,255,0.35)'
-      for(let i=1;i<4;i++){const nx=-w/2+(w/4)*i;ctx.beginPath();ctx.moveTo(nx,-h/2);ctx.lineTo(nx,h/2);ctx.stroke()}
-      ctx.beginPath();ctx.moveTo(-w/2,0);ctx.lineTo(w/2,0);ctx.stroke()
+      const L=-18,R=18,T=-9,B=9
+      // Sombra de suelo
+      ctx.strokeStyle='rgba(255,255,255,0.1)';ctx.lineWidth=1.5
+      ctx.beginPath();ctx.moveTo(L-2,B+2);ctx.lineTo(R+2,B+2);ctx.stroke()
+      // Sugerencia de profundidad trasera
+      ctx.strokeStyle='rgba(255,255,255,0.22)';ctx.lineWidth=1
+      ctx.beginPath();ctx.moveTo(L,T);ctx.lineTo(L+3,T-3);ctx.lineTo(R+3,T-3);ctx.lineTo(R,T);ctx.stroke()
+      // Red de diamante (clip al interior)
+      ctx.save();ctx.beginPath();ctx.rect(L,T,R-L,B-T);ctx.clip()
+      ctx.strokeStyle='rgba(255,255,255,0.2)';ctx.lineWidth=0.55
+      for(let x=L-25;x<R+25;x+=5){ctx.beginPath();ctx.moveTo(x,T);ctx.lineTo(x+(B-T),B);ctx.stroke();ctx.beginPath();ctx.moveTo(x,T);ctx.lineTo(x-(B-T),B);ctx.stroke()}
+      ctx.restore()
+      // Marco (3 lados, sin suelo)
+      ctx.strokeStyle='#ffffff';ctx.lineWidth=3;ctx.lineCap='round';ctx.lineJoin='round'
+      ctx.beginPath();ctx.moveTo(L,B);ctx.lineTo(L,T);ctx.lineTo(R,T);ctx.lineTo(R,B);ctx.stroke()
+      // Brillo en postes (efecto cilíndrico)
+      ctx.strokeStyle='rgba(255,255,255,0.42)';ctx.lineWidth=0.9
+      ctx.beginPath();ctx.moveTo(L+1.4,B);ctx.lineTo(L+1.4,T+1.4);ctx.lineTo(R-1.4,T+1.4);ctx.lineTo(R-1.4,B);ctx.stroke()
       break
     }
     case 'goal_3d_r': {
-      // 3D perspectiva, profundidad a la derecha — bounding box centrado x[-18,18] y[-12,12]
+      // Front: fl=-18,fr=6,ft=-4,fb=12 | Back: bl=-6,br=18,bt=-12,bb=4
       const fl=-18,fr=6,ft=-4,fb=12,bl=-6,br=18,bt=-12,bb=4
-      ctx.strokeStyle='#ffffff'; ctx.lineWidth=2.2
-      ctx.beginPath(); ctx.moveTo(fl,fb); ctx.lineTo(fl,ft); ctx.lineTo(fr,ft); ctx.lineTo(fr,fb); ctx.stroke()
-      ctx.beginPath(); ctx.moveTo(fr,ft); ctx.lineTo(br,bt); ctx.stroke()
-      ctx.beginPath(); ctx.moveTo(br,bt); ctx.lineTo(br,bb); ctx.stroke()
-      ctx.lineWidth=1.4; ctx.strokeStyle='rgba(255,255,255,0.6)'
-      ctx.beginPath(); ctx.moveTo(fl,ft); ctx.lineTo(bl,bt); ctx.stroke()
-      ctx.beginPath(); ctx.moveTo(bl,bt); ctx.lineTo(br,bt); ctx.stroke()
-      ctx.beginPath(); ctx.moveTo(fl,fb); ctx.lineTo(bl,bb); ctx.stroke()
-      ctx.beginPath(); ctx.moveTo(fr,fb); ctx.lineTo(br,bb); ctx.stroke()
-      ctx.beginPath(); ctx.moveTo(bl,bb); ctx.lineTo(br,bb); ctx.stroke()
-      ctx.lineWidth=0.7; ctx.strokeStyle='rgba(255,255,255,0.28)'
-      for(let i=1;i<3;i++){const nx=fl+(fr-fl)/3*i;ctx.beginPath();ctx.moveTo(nx,ft);ctx.lineTo(nx,fb);ctx.stroke()}
-      ctx.beginPath();ctx.moveTo(fl,(ft+fb)/2);ctx.lineTo(fr,(ft+fb)/2);ctx.stroke()
+      // Sombra suelo
+      ctx.strokeStyle='rgba(255,255,255,0.08)';ctx.lineWidth=1.5
+      ctx.beginPath();ctx.moveTo(fl-1,fb+2);ctx.lineTo(bl,bb+2);ctx.stroke()
+      // Red cara frontal
+      ctx.save();ctx.beginPath();ctx.rect(fl,ft,fr-fl,fb-ft);ctx.clip()
+      ctx.strokeStyle='rgba(255,255,255,0.2)';ctx.lineWidth=0.5
+      for(let x=fl-25;x<fr+25;x+=5){ctx.beginPath();ctx.moveTo(x,ft);ctx.lineTo(x+(fb-ft),fb);ctx.stroke();ctx.beginPath();ctx.moveTo(x,ft);ctx.lineTo(x-(fb-ft),fb);ctx.stroke()}
+      ctx.restore()
+      // Red cara lateral derecha (cuadrícula en perspectiva)
+      ctx.save();ctx.beginPath();ctx.moveTo(fr,ft);ctx.lineTo(br,bt);ctx.lineTo(br,bb);ctx.lineTo(fr,fb);ctx.closePath();ctx.clip()
+      ctx.strokeStyle='rgba(255,255,255,0.14)';ctx.lineWidth=0.5
+      for(let i=0;i<=5;i++){const v=i/5;ctx.beginPath();ctx.moveTo(fr,ft+v*(fb-ft));ctx.lineTo(br,bt+v*(bb-bt));ctx.stroke()}
+      for(let i=0;i<=4;i++){const u=i/4;ctx.beginPath();ctx.moveTo(fr+u*(br-fr),ft+u*(bt-ft));ctx.lineTo(fr+u*(br-fr),fb+u*(bb-fb));ctx.stroke()}
+      ctx.restore()
+      // Marco trasero (más tenue = profundidad)
+      ctx.strokeStyle='rgba(255,255,255,0.55)';ctx.lineWidth=1.7;ctx.lineCap='round'
+      ctx.beginPath();ctx.moveTo(br,bt);ctx.lineTo(br,bb);ctx.stroke()
+      ctx.beginPath();ctx.moveTo(bl,bt);ctx.lineTo(br,bt);ctx.stroke()
+      // Barras de profundidad superior
+      ctx.strokeStyle='rgba(255,255,255,0.48)';ctx.lineWidth=1.5
+      ctx.beginPath();ctx.moveTo(fl,ft);ctx.lineTo(bl,bt);ctx.stroke()
+      ctx.beginPath();ctx.moveTo(fr,ft);ctx.lineTo(br,bt);ctx.stroke()
+      // Barras de base
+      ctx.strokeStyle='rgba(255,255,255,0.38)';ctx.lineWidth=1.3
+      ctx.beginPath();ctx.moveTo(fl,fb);ctx.lineTo(bl,bb);ctx.stroke()
+      ctx.beginPath();ctx.moveTo(fr,fb);ctx.lineTo(br,bb);ctx.stroke()
+      ctx.beginPath();ctx.moveTo(bl,bb);ctx.lineTo(br,bb);ctx.stroke()
+      // Marco frontal (más brillante y grueso)
+      ctx.strokeStyle='#ffffff';ctx.lineWidth=3;ctx.lineCap='round';ctx.lineJoin='round'
+      ctx.beginPath();ctx.moveTo(fl,fb);ctx.lineTo(fl,ft);ctx.lineTo(fr,ft);ctx.lineTo(fr,fb);ctx.stroke()
+      ctx.strokeStyle='rgba(255,255,255,0.42)';ctx.lineWidth=0.9
+      ctx.beginPath();ctx.moveTo(fl+1.4,fb);ctx.lineTo(fl+1.4,ft+1.4);ctx.lineTo(fr-1.4,ft+1.4);ctx.lineTo(fr-1.4,fb);ctx.stroke()
       break
     }
     case 'goal_3d_l': {
-      // 3D perspectiva, profundidad a la izquierda — bounding box centrado x[-18,18] y[-12,12]
+      // Front: fl=-6,fr=18,ft=-4,fb=12 | Back: bl=-18,br=6,bt=-12,bb=4
       const fl=-6,fr=18,ft=-4,fb=12,bl=-18,br=6,bt=-12,bb=4
-      ctx.strokeStyle='#ffffff'; ctx.lineWidth=2.2
-      ctx.beginPath(); ctx.moveTo(fr,fb); ctx.lineTo(fr,ft); ctx.lineTo(fl,ft); ctx.lineTo(fl,fb); ctx.stroke()
-      ctx.beginPath(); ctx.moveTo(fl,ft); ctx.lineTo(bl,bt); ctx.stroke()
-      ctx.beginPath(); ctx.moveTo(bl,bt); ctx.lineTo(bl,bb); ctx.stroke()
-      ctx.lineWidth=1.4; ctx.strokeStyle='rgba(255,255,255,0.6)'
-      ctx.beginPath(); ctx.moveTo(fr,ft); ctx.lineTo(br,bt); ctx.stroke()
-      ctx.beginPath(); ctx.moveTo(bl,bt); ctx.lineTo(br,bt); ctx.stroke()
-      ctx.beginPath(); ctx.moveTo(fr,fb); ctx.lineTo(br,bb); ctx.stroke()
-      ctx.beginPath(); ctx.moveTo(fl,fb); ctx.lineTo(bl,bb); ctx.stroke()
-      ctx.beginPath(); ctx.moveTo(bl,bb); ctx.lineTo(br,bb); ctx.stroke()
-      ctx.lineWidth=0.7; ctx.strokeStyle='rgba(255,255,255,0.28)'
-      for(let i=1;i<3;i++){const nx=fl+(fr-fl)/3*i;ctx.beginPath();ctx.moveTo(nx,ft);ctx.lineTo(nx,fb);ctx.stroke()}
-      ctx.beginPath();ctx.moveTo(fl,(ft+fb)/2);ctx.lineTo(fr,(ft+fb)/2);ctx.stroke()
+      ctx.strokeStyle='rgba(255,255,255,0.08)';ctx.lineWidth=1.5
+      ctx.beginPath();ctx.moveTo(br,bb+2);ctx.lineTo(fr+1,fb+2);ctx.stroke()
+      // Red cara frontal
+      ctx.save();ctx.beginPath();ctx.rect(fl,ft,fr-fl,fb-ft);ctx.clip()
+      ctx.strokeStyle='rgba(255,255,255,0.2)';ctx.lineWidth=0.5
+      for(let x=fl-25;x<fr+25;x+=5){ctx.beginPath();ctx.moveTo(x,ft);ctx.lineTo(x+(fb-ft),fb);ctx.stroke();ctx.beginPath();ctx.moveTo(x,ft);ctx.lineTo(x-(fb-ft),fb);ctx.stroke()}
+      ctx.restore()
+      // Red cara lateral izquierda
+      ctx.save();ctx.beginPath();ctx.moveTo(fl,ft);ctx.lineTo(bl,bt);ctx.lineTo(bl,bb);ctx.lineTo(fl,fb);ctx.closePath();ctx.clip()
+      ctx.strokeStyle='rgba(255,255,255,0.14)';ctx.lineWidth=0.5
+      for(let i=0;i<=5;i++){const v=i/5;ctx.beginPath();ctx.moveTo(fl,ft+v*(fb-ft));ctx.lineTo(bl,bt+v*(bb-bt));ctx.stroke()}
+      for(let i=0;i<=4;i++){const u=i/4;ctx.beginPath();ctx.moveTo(fl+u*(bl-fl),ft+u*(bt-ft));ctx.lineTo(fl+u*(bl-fl),fb+u*(bb-fb));ctx.stroke()}
+      ctx.restore()
+      ctx.strokeStyle='rgba(255,255,255,0.55)';ctx.lineWidth=1.7;ctx.lineCap='round'
+      ctx.beginPath();ctx.moveTo(bl,bt);ctx.lineTo(bl,bb);ctx.stroke()
+      ctx.beginPath();ctx.moveTo(bl,bt);ctx.lineTo(br,bt);ctx.stroke()
+      ctx.strokeStyle='rgba(255,255,255,0.48)';ctx.lineWidth=1.5
+      ctx.beginPath();ctx.moveTo(fr,ft);ctx.lineTo(br,bt);ctx.stroke()
+      ctx.beginPath();ctx.moveTo(fl,ft);ctx.lineTo(bl,bt);ctx.stroke()
+      ctx.strokeStyle='rgba(255,255,255,0.38)';ctx.lineWidth=1.3
+      ctx.beginPath();ctx.moveTo(fr,fb);ctx.lineTo(br,bb);ctx.stroke()
+      ctx.beginPath();ctx.moveTo(fl,fb);ctx.lineTo(bl,bb);ctx.stroke()
+      ctx.beginPath();ctx.moveTo(bl,bb);ctx.lineTo(br,bb);ctx.stroke()
+      ctx.strokeStyle='#ffffff';ctx.lineWidth=3;ctx.lineCap='round';ctx.lineJoin='round'
+      ctx.beginPath();ctx.moveTo(fr,fb);ctx.lineTo(fr,ft);ctx.lineTo(fl,ft);ctx.lineTo(fl,fb);ctx.stroke()
+      ctx.strokeStyle='rgba(255,255,255,0.42)';ctx.lineWidth=0.9
+      ctx.beginPath();ctx.moveTo(fr-1.4,fb);ctx.lineTo(fr-1.4,ft+1.4);ctx.lineTo(fl+1.4,ft+1.4);ctx.lineTo(fl+1.4,fb);ctx.stroke()
       break
     }
     case 'goal_side': {
-      // Vista lateral / perfil
-      const d=15, h=9
-      ctx.strokeStyle='#ffffff'; ctx.lineWidth=2.5
-      ctx.beginPath(); ctx.moveTo(-d,-h); ctx.lineTo(-d,h); ctx.stroke()
-      ctx.beginPath(); ctx.moveTo(-d,-h); ctx.lineTo(d,-h); ctx.stroke()
-      ctx.lineWidth=1.5; ctx.strokeStyle='rgba(255,255,255,0.65)'
-      ctx.beginPath(); ctx.moveTo(d,-h); ctx.lineTo(d,h); ctx.stroke()
-      ctx.beginPath(); ctx.moveTo(-d,h); ctx.lineTo(d,h); ctx.stroke()
-      ctx.lineWidth=0.7; ctx.strokeStyle='rgba(255,255,255,0.3)'
-      for(let i=1;i<4;i++){const nx=-d+(d*2/4)*i;ctx.beginPath();ctx.moveTo(nx,-h);ctx.lineTo(nx,h);ctx.stroke()}
-      ctx.beginPath();ctx.moveTo(-d,0);ctx.lineTo(d,0);ctx.stroke()
+      const L=-15,R=15,T=-9,B=9
+      ctx.strokeStyle='rgba(255,255,255,0.08)';ctx.lineWidth=1.5
+      ctx.beginPath();ctx.moveTo(L-1,B+2);ctx.lineTo(R+1,B+2);ctx.stroke()
+      // Red (cuadrícula de perspectiva lateral)
+      ctx.save();ctx.beginPath();ctx.rect(L,T,R-L,B-T);ctx.clip()
+      ctx.strokeStyle='rgba(255,255,255,0.2)';ctx.lineWidth=0.5
+      for(let i=1;i<7;i++){const x=L+(R-L)*i/7;ctx.beginPath();ctx.moveTo(x,T);ctx.lineTo(x,B);ctx.stroke()}
+      for(let i=1;i<5;i++){const y=T+(B-T)*i/5;ctx.beginPath();ctx.moveTo(L,y);ctx.lineTo(R,y);ctx.stroke()}
+      ctx.restore()
+      // Poste trasero y base (más tenues)
+      ctx.strokeStyle='rgba(255,255,255,0.5)';ctx.lineWidth=1.8;ctx.lineCap='round'
+      ctx.beginPath();ctx.moveTo(R,T);ctx.lineTo(R,B);ctx.stroke()
+      ctx.beginPath();ctx.moveTo(L,B);ctx.lineTo(R,B);ctx.stroke()
+      // Larguero superior
+      ctx.strokeStyle='rgba(255,255,255,0.8)';ctx.lineWidth=2.2
+      ctx.beginPath();ctx.moveTo(L,T);ctx.lineTo(R,T);ctx.stroke()
+      // Poste frontal (más grueso y brillante)
+      ctx.strokeStyle='#ffffff';ctx.lineWidth=3;ctx.lineCap='round'
+      ctx.beginPath();ctx.moveTo(L,B);ctx.lineTo(L,T);ctx.stroke()
+      ctx.strokeStyle='rgba(255,255,255,0.42)';ctx.lineWidth=0.9
+      ctx.beginPath();ctx.moveTo(L+1.4,B-0.5);ctx.lineTo(L+1.4,T+1);ctx.stroke()
       break
     }
     case 'goal_mini': {
-      // Portería mini / portátil rectangular
-      const w=22, h=11
-      ctx.strokeStyle='#ffffff'; ctx.lineWidth=2
-      ctx.beginPath(); ctx.moveTo(-w/2,h/2); ctx.lineTo(-w/2,-h/2); ctx.lineTo(w/2,-h/2); ctx.lineTo(w/2,h/2); ctx.stroke()
-      ctx.lineWidth=1.8; ctx.strokeStyle='rgba(255,255,255,0.7)'
-      ctx.beginPath(); ctx.moveTo(-w/2,h/2); ctx.lineTo(-w/2+4,h/2+5); ctx.stroke()
-      ctx.beginPath(); ctx.moveTo(w/2,h/2); ctx.lineTo(w/2-4,h/2+5); ctx.stroke()
-      ctx.lineWidth=0.7; ctx.strokeStyle='rgba(255,255,255,0.35)'
-      for(let i=1;i<3;i++){const nx=-w/2+(w/3)*i;ctx.beginPath();ctx.moveTo(nx,-h/2);ctx.lineTo(nx,h/2);ctx.stroke()}
-      ctx.beginPath();ctx.moveTo(-w/2,h/2-4);ctx.lineTo(w/2,h/2-4);ctx.stroke()
+      const hw=12,hh=7
+      ctx.strokeStyle='rgba(255,255,255,0.08)';ctx.lineWidth=1.5
+      ctx.beginPath();ctx.moveTo(-hw-2,hh+4);ctx.lineTo(hw+2,hh+4);ctx.stroke()
+      // Red de diamante
+      ctx.save();ctx.beginPath();ctx.rect(-hw,-hh,hw*2,hh*2);ctx.clip()
+      ctx.strokeStyle='rgba(255,255,255,0.2)';ctx.lineWidth=0.5
+      for(let x=-30;x<35;x+=4){ctx.beginPath();ctx.moveTo(-hw+x,-hh);ctx.lineTo(-hw+x+hh*2,hh);ctx.stroke();ctx.beginPath();ctx.moveTo(-hw+x,-hh);ctx.lineTo(-hw+x-hh*2,hh);ctx.stroke()}
+      ctx.restore()
+      // Cajas de profundidad trasera (3D mini)
+      ctx.strokeStyle='rgba(255,255,255,0.45)';ctx.lineWidth=1.4;ctx.lineCap='round'
+      ctx.beginPath();ctx.moveTo(-hw,hh);ctx.lineTo(-hw+4,hh-4);ctx.stroke()
+      ctx.beginPath();ctx.moveTo(hw,hh);ctx.lineTo(hw+4,hh-4);ctx.stroke()
+      ctx.beginPath();ctx.moveTo(-hw+4,hh-4);ctx.lineTo(hw+4,hh-4);ctx.stroke()
+      ctx.strokeStyle='rgba(255,255,255,0.3)';ctx.lineWidth=1.2
+      ctx.beginPath();ctx.moveTo(-hw,-hh);ctx.lineTo(-hw+4,-hh-4);ctx.stroke()
+      ctx.beginPath();ctx.moveTo(hw,-hh);ctx.lineTo(hw+4,-hh-4);ctx.stroke()
+      ctx.beginPath();ctx.moveTo(-hw+4,-hh-4);ctx.lineTo(hw+4,-hh-4);ctx.stroke()
+      // Patas de suporte
+      ctx.strokeStyle='rgba(255,255,255,0.75)';ctx.lineWidth=2
+      ctx.beginPath();ctx.moveTo(-hw,hh);ctx.lineTo(-hw-3,hh+5);ctx.stroke()
+      ctx.beginPath();ctx.moveTo(hw,hh);ctx.lineTo(hw+3,hh+5);ctx.stroke()
+      // Marco frontal
+      ctx.strokeStyle='#ffffff';ctx.lineWidth=2.8;ctx.lineCap='round';ctx.lineJoin='round'
+      ctx.beginPath();ctx.moveTo(-hw,hh);ctx.lineTo(-hw,-hh);ctx.lineTo(hw,-hh);ctx.lineTo(hw,hh);ctx.stroke()
+      ctx.strokeStyle='rgba(255,255,255,0.42)';ctx.lineWidth=0.9
+      ctx.beginPath();ctx.moveTo(-hw+1.4,hh);ctx.lineTo(-hw+1.4,-hh+1.4);ctx.lineTo(hw-1.4,-hh+1.4);ctx.lineTo(hw-1.4,hh);ctx.stroke()
       break
     }
     case 'goal_arc': {
-      // Portería de arco / portátil curva
-      const w=22, h=11
-      ctx.strokeStyle='#ffffff'; ctx.lineWidth=2
+      const hw=13,yt=4,yb=8,yc=-10
+      ctx.strokeStyle='rgba(255,255,255,0.08)';ctx.lineWidth=1.5
+      ctx.beginPath();ctx.moveTo(-hw-2,yb+2);ctx.lineTo(hw+2,yb+2);ctx.stroke()
+      // Red dentro del arco
+      ctx.save();ctx.beginPath()
+      ctx.moveTo(-hw,yb);ctx.lineTo(-hw,yt)
+      ctx.bezierCurveTo(-hw,yc,hw,yc,hw,yt)
+      ctx.lineTo(hw,yb);ctx.closePath();ctx.clip()
+      ctx.strokeStyle='rgba(255,255,255,0.2)';ctx.lineWidth=0.5
+      for(let x=-35;x<40;x+=5){ctx.beginPath();ctx.moveTo(-hw+x,-25);ctx.lineTo(-hw+x+35,25);ctx.stroke();ctx.beginPath();ctx.moveTo(-hw+x,-25);ctx.lineTo(-hw+x-35,25);ctx.stroke()}
+      ctx.restore()
+      // Profundidad trasera (muestra que es portátil)
+      ctx.strokeStyle='rgba(255,255,255,0.45)';ctx.lineWidth=1.5;ctx.lineCap='round'
+      ctx.beginPath();ctx.moveTo(-hw,yb);ctx.lineTo(-hw+4,yb+4);ctx.stroke()
+      ctx.beginPath();ctx.moveTo(hw,yb);ctx.lineTo(hw+4,yb+4);ctx.stroke()
+      ctx.beginPath();ctx.moveTo(-hw+4,yb+4);ctx.lineTo(hw+4,yb+4);ctx.stroke()
+      // Marco del arco
+      ctx.strokeStyle='#ffffff';ctx.lineWidth=3;ctx.lineCap='round';ctx.lineJoin='round'
       ctx.beginPath()
-      ctx.moveTo(-w/2,h/2); ctx.lineTo(-w/2,-h/4)
-      ctx.bezierCurveTo(-w/2,-h*1.15,w/2,-h*1.15,w/2,-h/4)
-      ctx.lineTo(w/2,h/2)
+      ctx.moveTo(-hw,yb);ctx.lineTo(-hw,yt)
+      ctx.bezierCurveTo(-hw,yc,hw,yc,hw,yt)
+      ctx.lineTo(hw,yb)
       ctx.stroke()
-      ctx.lineWidth=0.7; ctx.strokeStyle='rgba(255,255,255,0.35)'
-      ctx.beginPath();ctx.moveTo(0,-h/2);ctx.lineTo(0,h/2);ctx.stroke()
-      ctx.beginPath();ctx.moveTo(-w/2,h/4);ctx.lineTo(w/2,h/4);ctx.stroke()
-      ctx.beginPath();ctx.moveTo(-w/2,h/2);ctx.lineTo(w/2,h/2);ctx.stroke()
+      // Brillo del arco
+      ctx.strokeStyle='rgba(255,255,255,0.42)';ctx.lineWidth=0.9
+      ctx.beginPath()
+      ctx.moveTo(-hw+1.5,yb);ctx.lineTo(-hw+1.5,yt+1.5)
+      ctx.bezierCurveTo(-hw+1.5,yc+2,hw-1.5,yc+2,hw-1.5,yt+1.5)
+      ctx.lineTo(hw-1.5,yb)
+      ctx.stroke()
       break
     }
     case 'cone': {
