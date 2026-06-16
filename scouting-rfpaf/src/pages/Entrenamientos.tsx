@@ -357,8 +357,9 @@ function TacticalBoard({ onCapture, onRegisterCapture }: TacticalBoardProps) {
   const [selPlayer, setSelPlayer] = useState<SelPlayer | null>(null)
   const [placedAccessories, setPlacedAccessories] = useState<PlacedAccessory[]>([])
   const [selAcc, setSelAcc] = useState<SelAcc | null>(null)
+  const [selectedAccUid, setSelectedAccUid] = useState<string | null>(null)
   const playerDragRef = useRef<{ uid: string; ox: number; oy: number } | null>(null)
-  const accDragRef = useRef<{ uid: string; ox: number; oy: number; rotating?: boolean; startAngle?: number; startRot?: number } | null>(null)
+  const accDragRef = useRef<{ uid: string; ox: number; oy: number; rotating?: boolean; startAngle?: number; startRot?: number; resizing?: boolean; startDist?: number; startSize?: string } | null>(null)
   const textDragRef = useRef<{ idx: number; ox: number; oy: number } | null>(null)
   const [openTeams, setOpenTeams] = useState<Set<TeamId>>(new Set())
   const toggleTeam = (tid: TeamId) =>
@@ -397,8 +398,16 @@ function TacticalBoard({ onCapture, onRegisterCapture }: TacticalBoardProps) {
     const pos=getPos(e)
     if(e.button===2){
       const hitP=nearPlayer(pos); if(hitP){ setPlacedPlayers(prev=>prev.filter(p=>p.uid!==hitP.uid)); return }
-      const hitA=nearAccessory(pos); if(hitA){ setPlacedAccessories(prev=>prev.filter(a=>a.uid!==hitA.uid)); return }
+      const hitA=nearAccessory(pos); if(hitA){ setPlacedAccessories(prev=>prev.filter(a=>a.uid!==hitA.uid)); setSelectedAccUid(null); return }
       return
+    }
+    if(e.ctrlKey||e.metaKey){
+      const hitA=nearAccessory(pos); if(hitA){
+        const acc = placedAccessories.find(a => a.uid === hitA.uid)!
+        const dist = Math.hypot(pos.x - acc.x, pos.y - acc.y)
+        accDragRef.current={uid:hitA.uid,ox:pos.x,oy:pos.y,resizing:true,startDist:dist,startSize:acc.size}
+        return
+      }
     }
     if(e.shiftKey){
       const hitA=nearAccessory(pos); if(hitA){
@@ -409,7 +418,7 @@ function TacticalBoard({ onCapture, onRegisterCapture }: TacticalBoardProps) {
       }
     }
     const hitP=nearPlayer(pos); if(hitP){ playerDragRef.current={uid:hitP.uid,ox:pos.x-hitP.x,oy:pos.y-hitP.y}; return }
-    const hitA=nearAccessory(pos); if(hitA){ accDragRef.current={uid:hitA.uid,ox:pos.x-hitA.x,oy:pos.y-hitA.y}; return }
+    const hitA=nearAccessory(pos); if(hitA){ setSelectedAccUid(hitA.uid); accDragRef.current={uid:hitA.uid,ox:pos.x-hitA.x,oy:pos.y-hitA.y}; return }
     if(!selPlayer&&!selAcc){ const idx=findTextAt(pos); if(idx!==-1){ textDragRef.current={idx,ox:pos.x-shapes[idx].start!.x,oy:pos.y-shapes[idx].start!.y}; setDraggedTextIdx(idx); return } }
     if(selPlayer){ setPlacedPlayers(prev=>[...prev,{uid:uuidv4(),team:selPlayer.team,number:selPlayer.number,x:pos.x,y:pos.y}]); return }
     if(selAcc){ setPlacedAccessories(prev=>[...prev,{uid:uuidv4(),type:selAcc.type,x:pos.x,y:pos.y,rotation:0,color:selAcc.color,size:selAcc.size}]); return }
@@ -423,9 +432,19 @@ function TacticalBoard({ onCapture, onRegisterCapture }: TacticalBoardProps) {
     if(textDragRef.current){ const{idx,ox,oy}=textDragRef.current; setShapes(prev=>prev.map((s,i)=>i!==idx?s:{...s,start:{x:pos.x-ox,y:pos.y-oy}})); return }
     if(playerDragRef.current){ const{uid,ox,oy}=playerDragRef.current; setPlacedPlayers(prev=>prev.map(p=>p.uid===uid?{...p,x:pos.x-ox,y:pos.y-oy}:p)); return }
     if(accDragRef.current){
-      const{uid,ox,oy,rotating,startAngle,startRot}=accDragRef.current
+      const{uid,ox,oy,rotating,startAngle,startRot,resizing,startDist,startSize}=accDragRef.current
+      const acc = placedAccessories.find(a => a.uid === uid)!
+      if(resizing && startDist !== undefined && startSize !== undefined){
+        const newDist = Math.hypot(pos.x - acc.x, pos.y - acc.y)
+        const ratio = newDist / startDist
+        let newSize: 's'|'m'|'l' = startSize as any
+        if(ratio > 1.2) newSize = 'l'
+        else if(ratio > 0.85) newSize = 'm'
+        else newSize = 's'
+        setPlacedAccessories(prev=>prev.map(a=>a.uid===uid?{...a,size:newSize}:a))
+        return
+      }
       if(rotating && startAngle !== undefined && startRot !== undefined){
-        const acc = placedAccessories.find(a => a.uid === uid)!
         const newAngle = Math.atan2(pos.y - acc.y, pos.x - acc.x) * 180 / Math.PI
         const rotation = startRot + (newAngle - startAngle)
         setPlacedAccessories(prev=>prev.map(a=>a.uid===uid?{...a,rotation:rotation%360}:a))
@@ -570,6 +589,24 @@ function TacticalBoard({ onCapture, onRegisterCapture }: TacticalBoardProps) {
             </button>
           </div>
         )}
+        {selectedAccUid && (
+          <div className="px-3 py-2 border-t border-white/5 pt-2">
+            <p className="text-white/40 text-[10px] uppercase tracking-widest font-semibold mb-2">Tamaño del accesorio</p>
+            <div className="flex gap-1.5">
+              {(['s', 'm', 'l'] as const).map(size => (
+                <button key={size} type="button"
+                  onClick={() => setPlacedAccessories(prev=>prev.map(a=>a.uid===selectedAccUid?{...a,size}:a))}
+                  className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                    placedAccessories.find(a=>a.uid===selectedAccUid)?.size === size
+                      ? 'bg-rfpaf-blue text-white shadow-sm'
+                      : 'bg-white/10 text-white/70 hover:bg-white/20 hover:text-white'
+                  }`}>
+                  {size === 's' ? 'Pequeño' : size === 'm' ? 'Medio' : 'Grande'}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Drawing toolbar */}
@@ -613,7 +650,7 @@ function TacticalBoard({ onCapture, onRegisterCapture }: TacticalBoardProps) {
         </button>
         <div className="w-px h-5 bg-white/20 mx-0.5"/>
         <span className="text-[10px] text-white/40 px-2 py-1.5 flex items-center gap-1">
-          💡 <kbd className="bg-white/10 px-1.5 py-0.5 rounded text-[9px] font-mono">Shift</kbd> + arrastra accesorios para girar
+          💡 <kbd className="bg-white/10 px-1.5 py-0.5 rounded text-[9px] font-mono">Shift</kbd> + arrastra para girar | <kbd className="bg-white/10 px-1.5 py-0.5 rounded text-[9px] font-mono">Ctrl</kbd> + arrastra para tamaño
         </span>
         <div className="w-px h-5 bg-white/20 mx-0.5"/>
         <button type="button" onClick={exportPNG}
