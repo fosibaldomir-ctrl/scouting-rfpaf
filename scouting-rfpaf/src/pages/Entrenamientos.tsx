@@ -37,7 +37,7 @@ type TeamId = 1 | 2 | 3
 interface PlacedPlayer { uid: string; team: TeamId; number: number; x: number; y: number }
 interface SelPlayer { team: TeamId; number: number }
 
-type AccessoryType = 'goal_front' | 'goal_3d_r' | 'goal_3d_l' | 'goal_side' | 'goal_mini' | 'goal_arc' | 'cone' | 'mushroom' | 'ladder' | 'hurdle' | 'mannequin' | 'barrier' | 'ball_bw' | 'ball_blue' | 'ball_red'
+type AccessoryType = 'goal_front' | 'goal_3d_r' | 'goal_3d_l' | 'goal_side' | 'goal_mini' | 'goal_arc' | 'cone' | 'mushroom_blue' | 'mushroom_red' | 'mushroom_yellow' | 'ladder' | 'hurdle' | 'mannequin' | 'barrier' | 'ball_bw' | 'ball_blue' | 'ball_red'
 interface PlacedAccessory { uid: string; type: AccessoryType; x: number; y: number; rotation: number; color?: string; scale: number }
 interface SelAcc { type: AccessoryType; color?: string }
 
@@ -238,11 +238,29 @@ function drawAccessory(ctx: CanvasRenderingContext2D, a: PlacedAccessory, draggi
       ctx.beginPath(); ctx.moveTo(-4.5,1); ctx.lineTo(4.5,1); ctx.stroke()
       break
     }
-    case 'mushroom': {
-      const c=clr||'#f97316'
-      ctx.fillStyle=c; ctx.strokeStyle='rgba(0,0,0,0.25)'; ctx.lineWidth=1.2
-      ctx.beginPath(); ctx.ellipse(0,0,12,5.5,0,0,Math.PI*2); ctx.fill(); ctx.stroke()
-      ctx.fillStyle='rgba(255,255,255,0.2)'; ctx.beginPath(); ctx.ellipse(-2,-1,5,2,-0.3,0,Math.PI*2); ctx.fill()
+    case 'mushroom_blue': case 'mushroom_red': case 'mushroom_yellow': {
+      const [cMain,cDark,cHL] = a.type==='mushroom_blue'
+        ? ['#1976d2','#0d47a1','#90caf9']
+        : a.type==='mushroom_red'
+        ? ['#e53935','#b71c1c','#ef9a9a']
+        : ['#f9a825','#e65100','#fff59d']
+      // Sombra en el suelo
+      ctx.fillStyle='rgba(0,0,0,0.18)'; ctx.beginPath(); ctx.ellipse(1,7,12,3.5,0,0,Math.PI*2); ctx.fill()
+      // Borde inferior (da grosor/profundidad)
+      ctx.fillStyle=cDark; ctx.beginPath(); ctx.ellipse(0,3.5,12.5,5,0,0,Math.PI*2); ctx.fill()
+      // Cara superior del disco
+      ctx.fillStyle=cMain; ctx.beginPath(); ctx.ellipse(0,0,13,5.5,0,0,Math.PI*2); ctx.fill()
+      // Contorno fino
+      ctx.strokeStyle='rgba(0,0,0,0.2)'; ctx.lineWidth=0.7
+      ctx.beginPath(); ctx.ellipse(0,0,13,5.5,0,0,Math.PI*2); ctx.stroke()
+      // Domo central (aro/rebaje)
+      ctx.fillStyle=cDark; ctx.beginPath(); ctx.ellipse(0,0.5,5,2.5,0,0,Math.PI*2); ctx.fill()
+      ctx.fillStyle=cMain; ctx.beginPath(); ctx.ellipse(0,-0.2,4,1.8,0,0,Math.PI*2); ctx.fill()
+      ctx.fillStyle='rgba(0,0,0,0.28)'; ctx.beginPath(); ctx.ellipse(0,0.5,3,1.3,0,0,Math.PI*2); ctx.fill()
+      // Brillo superior izquierdo
+      ctx.fillStyle='rgba(255,255,255,0.28)'; ctx.beginPath(); ctx.ellipse(-5,-2,4,1.5,-0.3,0,Math.PI*2); ctx.fill()
+      ctx.fillStyle=cHL; ctx.globalAlpha=0.18; ctx.beginPath(); ctx.ellipse(0,-1.5,7,2,0,0,Math.PI*2); ctx.fill()
+      ctx.globalAlpha=1
       break
     }
     case 'ladder': {
@@ -583,7 +601,6 @@ const PITCH_OPTIONS: { id: PitchType; label: string }[] = [
 
 const ACCESSORY_LIST: { type: AccessoryType; label: string }[] = [
   { type:'cone', label:'Conos' },
-  { type:'mushroom', label:'Setas' },
   { type:'ladder', label:'Escalera' },
   { type:'hurdle', label:'Valla' },
   { type:'mannequin', label:'Maniquí' },
@@ -597,6 +614,12 @@ const GOAL_LIST: { type: AccessoryType; label: string; initRot: number }[] = [
   { type:'goal_side',   label:'Lateral',        initRot:  90 },
   { type:'goal_mini',   label:'Mini',           initRot: -22 },
   { type:'goal_arc',    label:'Portátil',       initRot: -18 },
+]
+
+const MUSHROOM_LIST: { type: AccessoryType; label: string }[] = [
+  { type:'mushroom_blue',   label:'Seta Azul' },
+  { type:'mushroom_red',    label:'Seta Roja' },
+  { type:'mushroom_yellow', label:'Seta Amarilla' },
 ]
 
 const BALL_LIST: { type: AccessoryType; label: string }[] = [
@@ -625,6 +648,7 @@ function TacticalBoard({ onCapture, onRegisterCapture }: TacticalBoardProps) {
   const [pitchType, setPitchType] = useState<PitchType>('full')
   const [ballMenuOpen, setBallMenuOpen] = useState(false)
   const [goalMenuOpen, setGoalMenuOpen] = useState(false)
+  const [mushroomMenuOpen, setMushroomMenuOpen] = useState(false)
   const [placedPlayers, setPlacedPlayers] = useState<PlacedPlayer[]>([])
   const [selPlayer, setSelPlayer] = useState<SelPlayer | null>(null)
   const [placedAccessories, setPlacedAccessories] = useState<PlacedAccessory[]>([])
@@ -851,15 +875,35 @@ function TacticalBoard({ onCapture, onRegisterCapture }: TacticalBoardProps) {
             const isSel = selAcc?.type === acc.type
             return (
               <button key={acc.type} type="button"
-                onClick={() => { setSelAcc(isSel ? null : { type: acc.type }); setSelPlayer(null); setBallMenuOpen(false); setGoalMenuOpen(false) }}
+                onClick={() => { setSelAcc(isSel ? null : { type: acc.type }); setSelPlayer(null); setBallMenuOpen(false); setGoalMenuOpen(false); setMushroomMenuOpen(false) }}
                 className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all border ${isSel ? 'bg-rfpaf-blue text-white border-rfpaf-blue shadow-sm' : 'bg-white/10 text-white/70 border-white/10 hover:bg-white/20 hover:text-white'}`}>
                 {acc.label}
               </button>
             )
           })}
+          {/* Setas dropdown */}
+          <button type="button"
+            onClick={() => { setMushroomMenuOpen(v => !v); setGoalMenuOpen(false); setBallMenuOpen(false); setSelPlayer(null) }}
+            className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all border ${
+              MUSHROOM_LIST.some(m => selAcc?.type === m.type)
+                ? 'bg-rfpaf-blue text-white border-rfpaf-blue shadow-sm'
+                : 'bg-white/10 text-white/70 border-white/10 hover:bg-white/20 hover:text-white'
+            }`}>
+            Setas <ChevronDown className={`w-3 h-3 transition-transform duration-200 ${mushroomMenuOpen ? 'rotate-180' : ''}`}/>
+          </button>
+          {mushroomMenuOpen && MUSHROOM_LIST.map(m => {
+            const isSel = selAcc?.type === m.type
+            return (
+              <button key={m.type} type="button"
+                onClick={() => { setSelAcc(isSel ? null : { type: m.type }); setMushroomMenuOpen(false) }}
+                className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all border ${isSel ? 'bg-rfpaf-blue text-white border-rfpaf-blue shadow-sm' : 'bg-white/10 text-white/70 border-white/10 hover:bg-white/20 hover:text-white'}`}>
+                {m.label}
+              </button>
+            )
+          })}
           {/* Porterías dropdown */}
           <button type="button"
-            onClick={() => { setGoalMenuOpen(v => !v); setBallMenuOpen(false); setSelPlayer(null) }}
+            onClick={() => { setGoalMenuOpen(v => !v); setBallMenuOpen(false); setMushroomMenuOpen(false); setSelPlayer(null) }}
             className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all border ${
               GOAL_LIST.some(g => selAcc?.type === g.type)
                 ? 'bg-rfpaf-blue text-white border-rfpaf-blue shadow-sm'
@@ -879,7 +923,7 @@ function TacticalBoard({ onCapture, onRegisterCapture }: TacticalBoardProps) {
           })}
           {/* Balones dropdown */}
           <button type="button"
-            onClick={() => { setBallMenuOpen(v => !v); setGoalMenuOpen(false); setSelPlayer(null) }}
+            onClick={() => { setBallMenuOpen(v => !v); setGoalMenuOpen(false); setMushroomMenuOpen(false); setSelPlayer(null) }}
             className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all border ${
               BALL_LIST.some(b => selAcc?.type === b.type)
                 ? 'bg-rfpaf-blue text-white border-rfpaf-blue shadow-sm'
