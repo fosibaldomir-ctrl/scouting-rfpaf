@@ -696,9 +696,11 @@ function TacticalBoard({ onCapture, onRegisterCapture }: TacticalBoardProps) {
 
   useEffect(() => { redraw() }, [redraw])
 
-  const getPos = (e: React.MouseEvent<HTMLCanvasElement>): Point => {
+  const getPos = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>): Point => {
     const canvas=canvasRef.current!; const rect=canvas.getBoundingClientRect()
-    return { x:(e.clientX-rect.left)*(canvas.width/rect.width), y:(e.clientY-rect.top)*(canvas.height/rect.height) }
+    const clientX = 'clientX' in e ? e.clientX : e.touches[0].clientX
+    const clientY = 'clientY' in e ? e.clientY : e.touches[0].clientY
+    return { x:(clientX-rect.left)*(canvas.width/rect.width), y:(clientY-rect.top)*(canvas.height/rect.height) }
   }
 
   const nearPlayer = (pos: Point) => placedPlayers.find(p=>Math.hypot(p.x-pos.x,p.y-pos.y)<=PLAYER_R+3)
@@ -771,6 +773,21 @@ function TacticalBoard({ onCapture, onRegisterCapture }: TacticalBoardProps) {
 
   const onMouseUp = () => {
     if(textDragRef.current){ textDragRef.current=null; setDraggedTextIdx(null); return }
+
+  const onTouchStart = (e: React.TouchEvent<HTMLCanvasElement>) => {
+    e.preventDefault()
+    onMouseDown(e as any)
+  }
+
+  const onTouchMove = (e: React.TouchEvent<HTMLCanvasElement>) => {
+    e.preventDefault()
+    onMouseMove(e as any)
+  }
+
+  const onTouchEnd = (e: React.TouchEvent<HTMLCanvasElement>) => {
+    e.preventDefault()
+    onMouseUp()
+  }
     if(playerDragRef.current){ playerDragRef.current=null; return }
     if(accDragRef.current){ accDragRef.current=null; return }
     if(!isDrawing||!currentShape) return
@@ -1034,6 +1051,7 @@ function TacticalBoard({ onCapture, onRegisterCapture }: TacticalBoardProps) {
       {/* Canvas */}
       <canvas ref={canvasRef} width={680} height={460}
         onMouseDown={onMouseDown} onMouseMove={onMouseMove} onMouseUp={onMouseUp} onMouseLeave={onMouseUp}
+        onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}
         onContextMenu={e=>{e.preventDefault();onMouseDown(e)}}
         className={`w-full rounded-lg border border-white/10 select-none ${cursorClass}`}
         style={{touchAction:'none'}}/>
