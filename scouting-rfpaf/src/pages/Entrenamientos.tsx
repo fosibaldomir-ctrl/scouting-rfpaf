@@ -358,7 +358,7 @@ function TacticalBoard({ onCapture, onRegisterCapture }: TacticalBoardProps) {
   const [placedAccessories, setPlacedAccessories] = useState<PlacedAccessory[]>([])
   const [selAcc, setSelAcc] = useState<SelAcc | null>(null)
   const playerDragRef = useRef<{ uid: string; ox: number; oy: number } | null>(null)
-  const accDragRef = useRef<{ uid: string; ox: number; oy: number } | null>(null)
+  const accDragRef = useRef<{ uid: string; ox: number; oy: number; rotating?: boolean; startAngle?: number; startRot?: number } | null>(null)
   const textDragRef = useRef<{ idx: number; ox: number; oy: number } | null>(null)
   const [openTeams, setOpenTeams] = useState<Set<TeamId>>(new Set())
   const toggleTeam = (tid: TeamId) =>
@@ -400,6 +400,14 @@ function TacticalBoard({ onCapture, onRegisterCapture }: TacticalBoardProps) {
       const hitA=nearAccessory(pos); if(hitA){ setPlacedAccessories(prev=>prev.filter(a=>a.uid!==hitA.uid)); return }
       return
     }
+    if(e.shiftKey){
+      const hitA=nearAccessory(pos); if(hitA){
+        const acc = placedAccessories.find(a => a.uid === hitA.uid)!
+        const angle = Math.atan2(pos.y - acc.y, pos.x - acc.x) * 180 / Math.PI
+        accDragRef.current={uid:hitA.uid,ox:pos.x,oy:pos.y,rotating:true,startAngle:angle,startRot:acc.rotation}
+        return
+      }
+    }
     const hitP=nearPlayer(pos); if(hitP){ playerDragRef.current={uid:hitP.uid,ox:pos.x-hitP.x,oy:pos.y-hitP.y}; return }
     const hitA=nearAccessory(pos); if(hitA){ accDragRef.current={uid:hitA.uid,ox:pos.x-hitA.x,oy:pos.y-hitA.y}; return }
     if(!selPlayer&&!selAcc){ const idx=findTextAt(pos); if(idx!==-1){ textDragRef.current={idx,ox:pos.x-shapes[idx].start!.x,oy:pos.y-shapes[idx].start!.y}; setDraggedTextIdx(idx); return } }
@@ -414,7 +422,18 @@ function TacticalBoard({ onCapture, onRegisterCapture }: TacticalBoardProps) {
     const pos=getPos(e)
     if(textDragRef.current){ const{idx,ox,oy}=textDragRef.current; setShapes(prev=>prev.map((s,i)=>i!==idx?s:{...s,start:{x:pos.x-ox,y:pos.y-oy}})); return }
     if(playerDragRef.current){ const{uid,ox,oy}=playerDragRef.current; setPlacedPlayers(prev=>prev.map(p=>p.uid===uid?{...p,x:pos.x-ox,y:pos.y-oy}:p)); return }
-    if(accDragRef.current){ const{uid,ox,oy}=accDragRef.current; setPlacedAccessories(prev=>prev.map(a=>a.uid===uid?{...a,x:pos.x-ox,y:pos.y-oy}:a)); return }
+    if(accDragRef.current){
+      const{uid,ox,oy,rotating,startAngle,startRot}=accDragRef.current
+      if(rotating && startAngle !== undefined && startRot !== undefined){
+        const acc = placedAccessories.find(a => a.uid === uid)!
+        const newAngle = Math.atan2(pos.y - acc.y, pos.x - acc.x) * 180 / Math.PI
+        const rotation = startRot + (newAngle - startAngle)
+        setPlacedAccessories(prev=>prev.map(a=>a.uid===uid?{...a,rotation:rotation%360}:a))
+        return
+      }
+      setPlacedAccessories(prev=>prev.map(a=>a.uid===uid?{...a,x:pos.x-ox,y:pos.y-oy}:a))
+      return
+    }
     if(!isDrawing||!currentShape) return
     setCurrentShape(prev=>{ if(!prev) return prev; if(prev.type==='freehand') return{...prev,points:[...(prev.points??[]),pos]}; return{...prev,end:pos} })
   }
@@ -592,6 +611,11 @@ function TacticalBoard({ onCapture, onRegisterCapture }: TacticalBoardProps) {
           className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs bg-red-500/30 text-red-300 hover:bg-red-500/50 hover:text-white transition-all">
           <Eraser className="w-3.5 h-3.5"/> Limpiar
         </button>
+        <div className="w-px h-5 bg-white/20 mx-0.5"/>
+        <span className="text-[10px] text-white/40 px-2 py-1.5 flex items-center gap-1">
+          💡 <kbd className="bg-white/10 px-1.5 py-0.5 rounded text-[9px] font-mono">Shift</kbd> + arrastra accesorios para girar
+        </span>
+        <div className="w-px h-5 bg-white/20 mx-0.5"/>
         <button type="button" onClick={exportPNG}
           className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs bg-white/10 text-white/70 hover:bg-white/20 hover:text-white transition-all">
           <Download className="w-3.5 h-3.5"/> PNG
