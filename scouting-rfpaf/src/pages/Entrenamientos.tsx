@@ -555,7 +555,7 @@ function TacticalBoard({ onCapture, onRegisterCapture }: TacticalBoardProps) {
             const isSel = selAcc?.type === acc.type
             return (
               <button key={acc.type} type="button"
-                onClick={() => { setSelAcc(isSel ? null : { type: acc.type }); setSelPlayer(null) }}
+                onClick={() => { setSelAcc(isSel ? null : { type: acc.type, size: 'l' }); setSelPlayer(null) }}
                 className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all border ${isSel ? 'bg-rfpaf-blue text-white border-rfpaf-blue shadow-sm' : 'bg-white/10 text-white/70 border-white/10 hover:bg-white/20 hover:text-white'}`}>
                 {acc.label}
               </button>
