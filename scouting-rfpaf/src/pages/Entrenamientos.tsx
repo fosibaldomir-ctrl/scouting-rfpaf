@@ -457,33 +457,48 @@ function TacticalBoard({ onCapture, onRegisterCapture }: TacticalBoardProps) {
     if(textDragRef.current){ const{idx,ox,oy}=textDragRef.current; setShapes(prev=>prev.map((s,i)=>i!==idx?s:{...s,start:{x:pos.x-ox,y:pos.y-oy}})); return }
     if(playerDragRef.current){ const{uid,ox,oy}=playerDragRef.current; setPlacedPlayers(prev=>prev.map(p=>p.uid===uid?{...p,x:pos.x-ox,y:pos.y-oy}:p)); return }
     if(accDragRef.current){
-      const{uid,startX,startY,accX,accY,mode,startDist,startAngle,startRot,startSize}=accDragRef.current
-      const acc = placedAccessories.find(a => a.uid === uid)!
+      const{uid,startX,startY,accX,accY,mode}=accDragRef.current
+      const acc = placedAccessories.find(a => a.uid === uid)
+      if(!acc) return
+
       const dx = pos.x - startX
       const dy = pos.y - startY
       const dist = Math.hypot(dx, dy)
 
-      let currentMode = mode
-      if(!currentMode && dist > 10){
-        const radialDist = Math.hypot(pos.x - accX, pos.y - accY)
-        const angle = Math.atan2(pos.y - accY, pos.x - accX)
-        const movementAngle = Math.atan2(dy, dx)
-        const angleDiff = Math.abs(movementAngle - angle)
-        currentMode = angleDiff > Math.PI / 4 && angleDiff < 3 * Math.PI / 4 ? 'rotate' : 'resize'
-        accDragRef.current = {...accDragRef.current, mode: currentMode, startDist: radialDist, startAngle: angle, startRot: acc.rotation, startSize: acc.size}
+      if(!mode && dist > 15){
+        // Determine mode based on movement direction
+        const toAccAngle = Math.atan2(accY - startY, accX - startX)
+        const moveAngle = Math.atan2(dy, dx)
+        let angleDiff = moveAngle - toAccAngle
+        while(angleDiff > Math.PI) angleDiff -= Math.PI * 2
+        while(angleDiff < -Math.PI) angleDiff += Math.PI * 2
+
+        // If movement is perpendicular to radial direction -> rotate, else -> resize
+        const isRotate = Math.abs(angleDiff) > Math.PI / 4 && Math.abs(angleDiff) < 3 * Math.PI / 4
+        const newMode = isRotate ? 'rotate' : 'resize'
+        accDragRef.current = {
+          ...accDragRef.current,
+          mode: newMode,
+          startDist: Math.hypot(startX - accX, startY - accY),
+          startAngle: Math.atan2(startY - accY, startX - accX),
+          startRot: acc.rotation ?? 0,
+          startSize: acc.size
+        }
       }
 
-      if(currentMode === 'rotate'){
-        const newAngle = Math.atan2(pos.y - accY, pos.x - accX)
-        const rotation = (startRot ?? 0) + (newAngle - (startAngle ?? 0)) * 180 / Math.PI
-        setPlacedAccessories(prev=>prev.map(a=>a.uid===uid?{...a,rotation:rotation}:a))
-      } else if(currentMode === 'resize'){
-        const newDist = Math.hypot(pos.x - accX, pos.y - accY)
-        const ratio = newDist / (startDist ?? 1)
-        let newSize: 's'|'m'|'l' = startSize as any || 'l'
+      if(accDragRef.current.mode === 'rotate'){
+        const startAngle = accDragRef.current.startAngle ?? Math.atan2(startY - accY, startX - accX)
+        const currentAngle = Math.atan2(pos.y - accY, pos.x - accX)
+        const angleDelta = (currentAngle - startAngle) * 180 / Math.PI
+        const newRotation = (accDragRef.current.startRot ?? 0) + angleDelta
+        setPlacedAccessories(prev=>prev.map(a=>a.uid===uid?{...a,rotation:newRotation}:a))
+      } else if(accDragRef.current.mode === 'resize'){
+        const currentDist = Math.hypot(pos.x - accX, pos.y - accY)
+        const ratio = currentDist / (accDragRef.current.startDist ?? 50)
+        let newSize: 's'|'m'|'l' = 'm'
         if(ratio > 1.3) newSize = 'l'
-        else if(ratio > 0.9) newSize = 'm'
-        else newSize = 's'
+        else if(ratio < 0.8) newSize = 's'
+        else newSize = 'm'
         setPlacedAccessories(prev=>prev.map(a=>a.uid===uid?{...a,size:newSize}:a))
       }
       return
