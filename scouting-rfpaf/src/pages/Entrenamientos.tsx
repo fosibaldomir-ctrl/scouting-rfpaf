@@ -1551,8 +1551,12 @@ function BibliotecaTab() {
   const [filtroDuracion, setFiltroDuracion] = useState('')
   const [filtroMaterial, setFiltroMaterial] = useState('')
   const [selEjercicio, setSelEjercicio] = useState<Ejercicio | null>(null)
+  const [crearEjercicioOpen, setCrearEjercicioOpen] = useState(false)
+  const [ejercicios, setEjercicios] = useState<Ejercicio[]>([...EJERCICIOS_PREDEFINIDOS])
+  const [formEj, setFormEj] = useState({tipo:'',duracion:'',numJugadores:'',material:'',descripcion:'',imagen:'',video:''})
+  const captureForEjRef = useRef<(()=>string|null)|null>(null)
 
-  const ejerciciosFiltrados = EJERCICIOS_PREDEFINIDOS.filter(ej => {
+  const ejerciciosFiltrados = ejercicios.filter(ej => {
     const matchTipo = !filtroTipo || ej.tipo === filtroTipo
     const matchJugadores = !filtroJugadores || ej.numJugadores === filtroJugadores
     const matchMaterial = !filtroMaterial || ej.material === filtroMaterial
@@ -1571,9 +1575,14 @@ function BibliotecaTab() {
 
   return (
     <div className="space-y-5">
-      {/* Filtros */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-3">
+      {/* Filtros + Botón crear */}
+      <div className="flex items-end gap-3">
+        <button type="button" onClick={()=>setCrearEjercicioOpen(true)}
+          className="flex items-center gap-2 px-4 py-2.5 bg-rfpaf-blue text-white rounded-lg text-sm font-semibold hover:bg-rfpaf-blue/90 transition-colors whitespace-nowrap">
+          <Plus className="w-4 h-4"/> Crear ejercicio
+        </button>
+        <div className="flex-1 bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3">
           <div>
             <label className="block text-xs font-semibold text-gray-600 mb-1.5 uppercase tracking-wider">Búsqueda</label>
             <input type="text" value={searchText} onChange={e=>setSearchText(e.target.value)} placeholder="Escribe para buscar…"
@@ -1617,6 +1626,7 @@ function BibliotecaTab() {
               className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors font-medium text-gray-600">
               Limpiar
             </button>
+          </div>
           </div>
         </div>
       </div>
@@ -1725,6 +1735,93 @@ function BibliotecaTab() {
           )}
         </div>
       </div>
+
+      {/* Modal crear nuevo ejercicio */}
+      {crearEjercicioOpen && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b border-gray-200 p-4 flex items-center justify-between">
+              <h2 className="text-lg font-bold text-gray-900">Crear nuevo ejercicio</h2>
+              <button onClick={()=>{setCrearEjercicioOpen(false);setFormEj({tipo:'',duracion:'',numJugadores:'',material:'',descripcion:'',imagen:'',video:''})}} className="text-gray-500 hover:text-gray-700">
+                ✕
+              </button>
+            </div>
+            <div className="p-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Pizarra Táctica para capturar imagen */}
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 mb-2 uppercase tracking-wider">Capturar imagen desde Pizarra</label>
+                <div className="border-2 border-dashed border-rfpaf-blue rounded-lg overflow-hidden">
+                  <TacticalBoard onRegisterCapture={fn=>captureForEjRef.current=fn}/>
+                </div>
+                <button type="button" onClick={()=>{const img=captureForEjRef.current?.();if(img)setFormEj(f=>({...f,imagen:img}))}}
+                  className="w-full mt-2 px-3 py-2 bg-rfpaf-blue text-white rounded-lg text-sm font-semibold hover:bg-rfpaf-blue/90 transition-colors">
+                  Capturar imagen
+                </button>
+              </div>
+
+              {/* Formulario */}
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-xs font-semibold text-gray-600 mb-1">Tipo</label>
+                  <select value={formEj.tipo} onChange={e=>setFormEj(f=>({...f,tipo:e.target.value}))}
+                    className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-rfpaf-blue/30">
+                    <option value="">Seleccionar…</option>
+                    {FILTER_TIPOS.map(t=><option key={t} value={t}>{t}</option>)}
+                  </select>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-600 mb-1">Duración (min)</label>
+                    <input type="number" value={formEj.duracion} onChange={e=>setFormEj(f=>({...f,duracion:e.target.value}))}
+                      placeholder="15" min="1" className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-rfpaf-blue/30"/>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-600 mb-1">Jugadores</label>
+                    <select value={formEj.numJugadores} onChange={e=>setFormEj(f=>({...f,numJugadores:e.target.value}))}
+                      className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-rfpaf-blue/30">
+                      <option value="">Seleccionar…</option>
+                      {FILTER_JUGADORES.map(j=><option key={j} value={j}>{j}</option>)}
+                    </select>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-600 mb-1">Material</label>
+                  <input type="text" value={formEj.material} onChange={e=>setFormEj(f=>({...f,material:e.target.value}))}
+                    placeholder="Conos, balones, petos…" className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-rfpaf-blue/30"/>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-600 mb-1">Descripción</label>
+                  <textarea value={formEj.descripcion} onChange={e=>setFormEj(f=>({...f,descripcion:e.target.value}))}
+                    placeholder="Descripción del ejercicio…" rows={4}
+                    className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-rfpaf-blue/30 resize-none"/>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-600 mb-1">Video URL (opcional)</label>
+                  <input type="url" value={formEj.video} onChange={e=>setFormEj(f=>({...f,video:e.target.value}))}
+                    placeholder="YouTube o Vimeo…" className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-rfpaf-blue/30"/>
+                </div>
+                <div className="flex gap-2 pt-2">
+                  <button type="button" onClick={()=>{
+                    if(!formEj.tipo||!formEj.duracion||!formEj.numJugadores||!formEj.descripcion){alert('Rellena los campos obligatorios');return}
+                    const newEj={id:uuidv4(),...formEj,creadoEn:new Date().toISOString()};
+                    setEjercicios(prev=>[newEj,...prev]);
+                    setCrearEjercicioOpen(false);
+                    setFormEj({tipo:'',duracion:'',numJugadores:'',material:'',descripcion:'',imagen:'',video:''});
+                    captureForEjRef.current=null
+                  }}
+                    className="flex-1 px-4 py-2 bg-rfpaf-blue text-white rounded-lg text-sm font-semibold hover:bg-rfpaf-blue/90 transition-colors">
+                    Guardar ejercicio
+                  </button>
+                  <button type="button" onClick={()=>{setCrearEjercicioOpen(false);setFormEj({tipo:'',duracion:'',numJugadores:'',material:'',descripcion:'',imagen:'',video:''})}}
+                    className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg text-sm font-semibold hover:bg-gray-300 transition-colors">
+                    Cancelar
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
