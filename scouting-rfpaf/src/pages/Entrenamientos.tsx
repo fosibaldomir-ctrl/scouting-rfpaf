@@ -1564,7 +1564,7 @@ function BibliotecaTab() {
   // const [selEjercicio, setSelEjercicio] = useState<EjercicioDB | null>(null) // No longer needed
   const [crearEjercicioOpen, setCrearEjercicioOpen] = useState(false)
   const [ejercicios, setEjercicios] = useState<EjercicioDB[]>([])
-  const [formEj, setFormEj] = useState({tipo:'',duracion:'',num_jugadores:'',material:'',descripcion:'',imagen:'',video:''})
+  const [formEj, setFormEj] = useState({tipo:'',duracion:'',num_jugadores:'',material:'',titulo:'',descripcion:'',imagen:'',video:''})
   const captureForEjRef = useRef<(()=>string|null)|null>(null)
 
   useEffect(() => {
@@ -1732,7 +1732,7 @@ function BibliotecaTab() {
           <div className="bg-white rounded-xl shadow-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
             <div className="sticky top-0 bg-white border-b border-gray-200 p-4 flex items-center justify-between">
               <h2 className="text-lg font-bold text-gray-900">Crear nuevo ejercicio</h2>
-              <button onClick={()=>{setCrearEjercicioOpen(false);setFormEj({tipo:'',duracion:'',num_jugadores:'',material:'',descripcion:'',imagen:'',video:''})}} className="text-gray-500 hover:text-gray-700">
+              <button onClick={()=>{setCrearEjercicioOpen(false);setFormEj({tipo:'',duracion:'',num_jugadores:'',material:'',titulo:'',descripcion:'',imagen:'',video:''})}} className="text-gray-500 hover:text-gray-700">
                 ✕
               </button>
             </div>
@@ -1770,7 +1770,10 @@ function BibliotecaTab() {
                     <select value={formEj.num_jugadores} onChange={e=>setFormEj(f=>({...f,num_jugadores:e.target.value}))}
                       className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-rfpaf-blue/30">
                       <option value="">Seleccionar…</option>
-                      {FILTER_JUGADORES.map(j=><option key={j} value={j}>{j}</option>)}
+                      {[...Array(22)].map((_, i) => <option key={i+1} value={String(i+1)}>{i+1}</option>)}
+                      <option value="1 comodín">1 comodín</option>
+                      <option value="2 comodines">2 comodines</option>
+                      <option value="3 comodines">3 comodines</option>
                     </select>
                   </div>
                 </div>
@@ -1780,9 +1783,14 @@ function BibliotecaTab() {
                     placeholder="Conos, balones, petos…" className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-rfpaf-blue/30"/>
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-gray-600 mb-1">Descripción</label>
+                  <label className="block text-xs font-semibold text-gray-600 mb-1">Título del ejercicio</label>
+                  <input type="text" value={formEj.titulo} onChange={e=>setFormEj(f=>({...f,titulo:e.target.value}))}
+                    placeholder="Nombre corto del ejercicio…" className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-rfpaf-blue/30"/>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-600 mb-1">Descripción detallada</label>
                   <textarea value={formEj.descripcion} onChange={e=>setFormEj(f=>({...f,descripcion:e.target.value}))}
-                    placeholder="Descripción del ejercicio…" rows={4}
+                    placeholder="Descripción y objetivos del ejercicio…" rows={4}
                     className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-rfpaf-blue/30 resize-none"/>
                 </div>
                 <div>
@@ -1792,7 +1800,7 @@ function BibliotecaTab() {
                 </div>
                 <div className="flex gap-2 pt-2">
                   <button type="button" onClick={async ()=>{
-                    if(!formEj.tipo||!formEj.duracion||!formEj.num_jugadores||!formEj.descripcion){alert('Rellena los campos obligatorios');return}
+                    if(!formEj.tipo||!formEj.duracion||!formEj.num_jugadores||!formEj.titulo){alert('Rellena los campos obligatorios');return}
                     console.log('Saving exercise:', formEj);
 
                     // Guardar ejercicio con imagen base64 directamente
@@ -1811,7 +1819,7 @@ function BibliotecaTab() {
                       setEjercicios(prev=>[newEj,...prev]);
                       alert('✅ Ejercicio guardado exitosamente');
                       setCrearEjercicioOpen(false);
-                      setFormEj({tipo:'',duracion:'',num_jugadores:'',material:'',descripcion:'',imagen:'',video:''});
+                      setFormEj({tipo:'',duracion:'',num_jugadores:'',material:'',titulo:'',descripcion:'',imagen:'',video:''});
                       captureForEjRef.current=null
                     } else {
                       console.log('Failed to save exercise');
@@ -1821,7 +1829,7 @@ function BibliotecaTab() {
                     className="flex-1 px-4 py-2 bg-rfpaf-blue text-white rounded-lg text-sm font-semibold hover:bg-rfpaf-blue/90 transition-colors">
                     Guardar ejercicio
                   </button>
-                  <button type="button" onClick={()=>{setCrearEjercicioOpen(false);setFormEj({tipo:'',duracion:'',num_jugadores:'',material:'',descripcion:'',imagen:'',video:''})}}
+                  <button type="button" onClick={()=>{setCrearEjercicioOpen(false);setFormEj({tipo:'',duracion:'',num_jugadores:'',material:'',titulo:'',descripcion:'',imagen:'',video:''})}}
                     className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg text-sm font-semibold hover:bg-gray-300 transition-colors">
                     Cancelar
                   </button>
