@@ -37,7 +37,7 @@ type TeamId = 1 | 2 | 3
 interface PlacedPlayer { uid: string; team: TeamId; number: number; x: number; y: number }
 interface SelPlayer { team: TeamId; number: number }
 
-type AccessoryType = 'goal' | 'cone' | 'mushroom' | 'ladder' | 'hurdle' | 'mannequin' | 'barrier' | 'ball'
+type AccessoryType = 'goal' | 'cone' | 'mushroom' | 'ladder' | 'hurdle' | 'mannequin' | 'barrier' | 'ball_bw' | 'ball_blue' | 'ball_red'
 interface PlacedAccessory { uid: string; type: AccessoryType; x: number; y: number; rotation: number; color?: string; scale: number }
 interface SelAcc { type: AccessoryType; color?: string }
 
@@ -126,13 +126,34 @@ function drawAccessory(ctx: CanvasRenderingContext2D, a: PlacedAccessory, draggi
       for(let i=1;i<4;i++){const dx=-bw/2+(bw/4)*i;ctx.beginPath();ctx.moveTo(dx,-bh/2);ctx.lineTo(dx,bh/2);ctx.stroke()}
       break
     }
-    case 'ball': {
-      const br=8
-      ctx.fillStyle='#ffffff'; ctx.strokeStyle='#111'; ctx.lineWidth=1.2
+    case 'ball_bw':
+    case 'ball_blue':
+    case 'ball_red': {
+      const br=12
+      const patchClr=a.type==='ball_bw'?'#1a1a1a':a.type==='ball_blue'?'#1d4ed8':'#dc2626'
+      // Base circle
+      ctx.fillStyle='#f0f0f0'; ctx.strokeStyle='#555'; ctx.lineWidth=1
       ctx.beginPath(); ctx.arc(0,0,br,0,Math.PI*2); ctx.fill(); ctx.stroke()
-      ctx.fillStyle='#222'; ctx.beginPath(); ctx.arc(0,0,2.5,0,Math.PI*2); ctx.fill()
-      ctx.strokeStyle='#333'; ctx.lineWidth=0.9
-      for(let i=0;i<5;i++){const ang=(i*Math.PI*2)/5-Math.PI/2;ctx.beginPath();ctx.moveTo(2.5*Math.cos(ang),2.5*Math.sin(ang));ctx.lineTo(br*Math.cos(ang),br*Math.sin(ang));ctx.stroke()}
+      // Patches clipped to circle
+      ctx.save()
+      ctx.beginPath(); ctx.arc(0,0,br,0,Math.PI*2); ctx.clip()
+      ctx.fillStyle=patchClr; ctx.strokeStyle='rgba(0,0,0,0.12)'; ctx.lineWidth=0.5
+      // Center pentagon
+      ctx.beginPath()
+      for(let i=0;i<5;i++){const ang=(i*Math.PI*2)/5-Math.PI/2;const px=br*0.3*Math.cos(ang);const py=br*0.3*Math.sin(ang);i===0?ctx.moveTo(px,py):ctx.lineTo(px,py)}
+      ctx.closePath(); ctx.fill(); ctx.stroke()
+      // 5 outer pentagons
+      for(let k=0;k<5;k++){
+        const kang=(k*Math.PI*2)/5-Math.PI/2
+        const cx=br*0.7*Math.cos(kang); const cy=br*0.7*Math.sin(kang)
+        ctx.beginPath()
+        for(let j=0;j<5;j++){const jang=(j*Math.PI*2)/5+kang+Math.PI/5;ctx.lineTo(cx+br*0.27*Math.cos(jang),cy+br*0.27*Math.sin(jang))}
+        ctx.closePath(); ctx.fill(); ctx.stroke()
+      }
+      ctx.restore()
+      // Highlight
+      ctx.fillStyle='rgba(255,255,255,0.55)'
+      ctx.beginPath(); ctx.ellipse(-br*0.28,-br*0.32,br*0.2,br*0.13,-Math.PI/4,0,Math.PI*2); ctx.fill()
       break
     }
   }
@@ -412,7 +433,9 @@ const ACCESSORY_LIST: { type: AccessoryType; label: string }[] = [
   { type:'mannequin', label:'Maniquí' },
   { type:'barrier', label:'Barrera' },
   { type:'goal', label:'Portería' },
-  { type:'ball', label:'Balón' },
+  { type:'ball_bw', label:'Balón B/N' },
+  { type:'ball_blue', label:'Balón Azul' },
+  { type:'ball_red', label:'Balón Rojo' },
 ]
 
 interface TacticalBoardProps {
