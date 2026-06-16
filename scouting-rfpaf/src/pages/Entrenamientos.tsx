@@ -1561,7 +1561,7 @@ function BibliotecaTab() {
   const [filtroJugadores, setFiltroJugadores] = useState('')
   const [filtroDuracion, setFiltroDuracion] = useState('')
   const [filtroMaterial, setFiltroMaterial] = useState('')
-  const [selEjercicio, setSelEjercicio] = useState<EjercicioDB | null>(null)
+  // const [selEjercicio, setSelEjercicio] = useState<EjercicioDB | null>(null) // No longer needed
   const [crearEjercicioOpen, setCrearEjercicioOpen] = useState(false)
   const [ejercicios, setEjercicios] = useState<EjercicioDB[]>([])
   const [formEj, setFormEj] = useState({tipo:'',duracion:'',num_jugadores:'',material:'',descripcion:'',imagen:'',video:''})
@@ -1650,118 +1650,80 @@ function BibliotecaTab() {
         </div>
       </div>
 
-      {/* Resultados + Preview */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-        {/* Lista de ejercicios */}
-        <div className="lg:col-span-1">
-          <p className="text-xs font-semibold text-gray-500 mb-3 uppercase tracking-wider">{ejerciciosFiltrados.length} ejercicio{ejerciciosFiltrados.length!==1?'s':''}</p>
-          {ejerciciosFiltrados.length === 0 ? (
-            <div className="text-center py-8 text-gray-400">
-              <FileText className="w-8 h-8 mx-auto mb-2 opacity-30"/>
-              <p className="text-sm font-medium">Sin ejercicios</p>
-              <p className="text-xs mt-1 opacity-70">Ajusta los filtros</p>
-            </div>
-          ) : (
-            <div className="space-y-2 max-h-[600px] overflow-y-auto">
-              {ejerciciosFiltrados.map(ej => (
-                <button key={ej.id} onClick={()=>setSelEjercicio(ej)}
-                  className={`w-full text-left p-3 rounded-lg border-2 transition-all ${
-                    selEjercicio?.id === ej.id
-                      ? 'bg-rfpaf-blue/10 border-rfpaf-blue shadow-md'
-                      : 'bg-white border-gray-200 hover:border-gray-300 hover:shadow'
-                  }`}>
-                  <div className="flex items-start justify-between mb-1">
-                    <span className="inline-block bg-rfpaf-blue/20 text-rfpaf-blue text-xs font-bold px-2 py-0.5 rounded">{ej.tipo}</span>
-                    <span className="text-xs text-gray-500">{ej.duracion}min</span>
-                  </div>
-                  <p className="text-sm font-medium text-gray-800 line-clamp-2">{ej.descripcion}</p>
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Vista previa detallada */}
-        <div className="lg:col-span-2">
-          {selEjercicio ? (
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-              {/* Imagen/Video */}
-              {selEjercicio.video ? (
-                <div className="w-full aspect-video bg-gray-900">
-                  <iframe src={selEjercicio.video} className="w-full h-full" allowFullScreen/>
-                </div>
-              ) : selEjercicio.imagen ? (
-                <div className="w-full bg-gray-100 flex items-center justify-center overflow-hidden" style={{maxHeight: '400px'}}>
-                  <img
-                    src={selEjercicio.imagen.startsWith('data:') ? selEjercicio.imagen : `data:image/png;base64,${selEjercicio.imagen}`}
-                    alt={selEjercicio.tipo}
-                    className="w-full h-full object-contain"
-                    style={{maxWidth: '100%'}}
-                  />
-                </div>
-              ) : (
-                <div className="w-full h-64 bg-gradient-to-br from-rfpaf-blue/10 to-rfpaf-blue/5 flex items-center justify-center">
-                  <Video className="w-12 h-12 text-rfpaf-blue/30"/>
-                </div>
-              )}
-
-              {/* Contenido */}
-              <div className="p-6 space-y-5">
-                {/* Título y tipo */}
-                <div>
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="inline-block bg-rfpaf-blue text-white text-xs font-bold px-3 py-1 rounded-full">{selEjercicio.tipo}</span>
-                    <span className="text-xs text-gray-500">#{selEjercicio.id}</span>
-                  </div>
-                  <h3 className="text-xl font-bold text-gray-900">{selEjercicio.descripcion}</h3>
+      {/* Resultados - Grid de tarjetas */}
+      <div>
+        <p className="text-xs font-semibold text-gray-500 mb-4 uppercase tracking-wider">{ejerciciosFiltrados.length} ejercicio{ejerciciosFiltrados.length!==1?'s':''}</p>
+        {ejerciciosFiltrados.length === 0 ? (
+          <div className="text-center py-12 text-gray-400 bg-white rounded-xl border border-gray-200">
+            <FileText className="w-8 h-8 mx-auto mb-2 opacity-30"/>
+            <p className="text-sm font-medium">Sin ejercicios</p>
+            <p className="text-xs mt-1 opacity-70">Ajusta los filtros</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {ejerciciosFiltrados.map(ej => (
+              <div key={ej.id} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow cursor-pointer"
+                >
+                {/* Imagen/Video */}
+                <div className="relative">
+                  {ej.video ? (
+                    <div className="w-full aspect-video bg-gray-900">
+                      <iframe src={ej.video} className="w-full h-full" allowFullScreen/>
+                    </div>
+                  ) : ej.imagen ? (
+                    <div className="w-full aspect-video bg-gray-100 flex items-center justify-center overflow-hidden">
+                      <img
+                        src={ej.imagen.startsWith('data:') ? ej.imagen : `data:image/png;base64,${ej.imagen}`}
+                        alt={ej.tipo}
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                  ) : (
+                    <div className="w-full aspect-video bg-gradient-to-br from-rfpaf-blue/10 to-rfpaf-blue/5 flex items-center justify-center">
+                      <Video className="w-8 h-8 text-rfpaf-blue/30"/>
+                    </div>
+                  )}
+                  <span className="absolute top-2 left-2 inline-block bg-rfpaf-blue text-white text-xs font-bold px-2.5 py-1 rounded-full">{ej.tipo}</span>
                 </div>
 
-                {/* Datos clave */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="bg-blue-50 rounded-lg p-3 border border-blue-100">
-                    <p className="text-xs text-gray-600 font-semibold uppercase tracking-wider mb-1">Duración</p>
-                    <p className="text-2xl font-bold text-rfpaf-blue">{selEjercicio.duracion}<span className="text-sm">min</span></p>
+                {/* Contenido */}
+                <div className="p-4 space-y-3">
+                  {/* Descripción */}
+                  <div>
+                    <h3 className="font-semibold text-gray-900 line-clamp-2 text-sm">{ej.descripcion}</h3>
+                    <span className="text-xs text-gray-500">#{ej.id}</span>
                   </div>
-                  <div className="bg-green-50 rounded-lg p-3 border border-green-100">
-                    <p className="text-xs text-gray-600 font-semibold uppercase tracking-wider mb-1">Jugadores</p>
-                    <p className="text-lg font-bold text-green-700">{selEjercicio.num_jugadores}</p>
-                  </div>
-                </div>
 
-                {/* Material */}
-                {selEjercicio.material && (
-                  <div className="border-t border-gray-200 pt-4">
-                    <p className="text-xs font-semibold text-gray-600 uppercase tracking-wider mb-2">Material necesario</p>
-                    <div className="flex flex-wrap gap-2">
-                      {selEjercicio.material.split(',').map(m => (
-                        <span key={m.trim()} className="bg-orange-100 text-orange-800 text-xs font-semibold px-3 py-1 rounded-full">
-                          {m.trim()}
-                        </span>
-                      ))}
+                  {/* Datos clave */}
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="bg-blue-50 rounded-lg p-2 border border-blue-100 text-center">
+                      <p className="text-xs text-gray-600 font-semibold uppercase tracking-wider">Duración</p>
+                      <p className="text-lg font-bold text-rfpaf-blue">{ej.duracion}<span className="text-xs">min</span></p>
+                    </div>
+                    <div className="bg-green-50 rounded-lg p-2 border border-green-100 text-center">
+                      <p className="text-xs text-gray-600 font-semibold uppercase tracking-wider">Jugadores</p>
+                      <p className="text-base font-bold text-green-700">{ej.num_jugadores}</p>
                     </div>
                   </div>
-                )}
 
-                {/* Video URL si existe */}
-                {selEjercicio.video && !selEjercicio.video.includes('embed') && (
-                  <div className="border-t border-gray-200 pt-4">
-                    <a href={selEjercicio.video} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 text-rfpaf-blue hover:text-rfpaf-blue/80 font-semibold">
-                      <Video className="w-4 h-4"/> Ver en YouTube
-                    </a>
-                  </div>
-                )}
+                  {/* Material */}
+                  {ej.material && (
+                    <div className="border-t border-gray-200 pt-2">
+                      <p className="text-xs font-semibold text-gray-600 uppercase tracking-wider mb-1.5">Material</p>
+                      <div className="flex flex-wrap gap-1">
+                        {ej.material.split(',').map(m => (
+                          <span key={m.trim()} className="bg-orange-100 text-orange-800 text-xs font-semibold px-2 py-0.5 rounded">
+                            {m.trim()}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-          ) : (
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 h-96 flex items-center justify-center text-gray-400">
-              <div className="text-center">
-                <BookOpen className="w-12 h-12 mx-auto mb-2 opacity-30"/>
-                <p className="text-sm font-medium">Selecciona un ejercicio</p>
-                <p className="text-xs mt-1 opacity-70">para ver la vista previa detallada</p>
-              </div>
-            </div>
-          )}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Modal crear nuevo ejercicio */}
