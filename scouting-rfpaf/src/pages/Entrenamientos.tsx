@@ -1594,14 +1594,21 @@ function BibliotecaTab() {
 
   return (
     <div className="space-y-5">
-      {/* Filtros + Botón crear */}
-      <div className="flex items-end gap-3">
+      {/* Título y botón crear */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold text-gray-900">Biblioteca de Ejercicios</h2>
+          <p className="text-sm text-gray-500 mt-1">Gestiona y organiza los ejercicios de entrenamiento</p>
+        </div>
         <button type="button" onClick={()=>setCrearEjercicioOpen(true)}
-          className="flex items-center gap-2 px-4 py-2.5 bg-rfpaf-blue text-white rounded-lg text-sm font-semibold hover:bg-rfpaf-blue/90 transition-colors whitespace-nowrap">
+          className="flex items-center gap-2 px-5 py-2.5 bg-rfpaf-blue text-white rounded-lg text-sm font-semibold hover:bg-rfpaf-blue/90 transition-colors whitespace-nowrap shadow-sm">
           <Plus className="w-4 h-4"/> Crear ejercicio
         </button>
-        <div className="flex-1 bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3">
+      </div>
+
+      {/* Filtros */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3">
           <div>
             <label className="block text-xs font-semibold text-gray-600 mb-1.5 uppercase tracking-wider">Búsqueda</label>
             <input type="text" value={searchText} onChange={e=>setSearchText(e.target.value)} placeholder="Escribe para buscar…"
@@ -1647,7 +1654,6 @@ function BibliotecaTab() {
             </button>
           </div>
           </div>
-        </div>
       </div>
 
       {/* Resultados - Grid de tarjetas */}
