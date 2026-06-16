@@ -1528,15 +1528,127 @@ function EjercicioCard({ ej, onDelete }: { ej: Ejercicio; onDelete: (id: string)
 }
 
 const TIPOS_EJERCICIO = ['Técnico','Táctico','Físico','Rondo','Partido reducido','Calentamiento','Posesión','Pressing','Otro']
+
+const FILTER_TIPOS = ['Calentamiento', 'Técnico', 'Táctico', 'Físico', 'Fuerza', 'Agilidad']
+const FILTER_JUGADORES = ['1', '2-4', '5-8', '9-11']
+const FILTER_DURACION = ['5-10', '10-20', '20+']
+const FILTER_MATERIAL = ['Sin material', 'Conos', 'Balones', 'Petos', 'Vallas', 'Escalera', 'Otro']
+
+const EJERCICIOS_PREDEFINIDOS: Ejercicio[] = [
+  { id:'ej1', tipo:'Calentamiento', duracion:'10', numJugadores:'11', material:'Balones', descripcion:'Toque de balón en movimiento en todo el campo', imagen:null, video:'https://www.youtube.com/embed/dQw4w9WgXcQ', creadoEn:new Date().toISOString() },
+  { id:'ej2', tipo:'Técnico', duracion:'15', numJugadores:'5-8', material:'Conos', descripcion:'Control orientado con cambio de dirección', imagen:null, video:null, creadoEn:new Date().toISOString() },
+  { id:'ej3', tipo:'Táctico', duracion:'20', numJugadores:'9-11', material:'Balones', descripcion:'Posesión en zona con presión defensiva', imagen:null, video:null, creadoEn:new Date().toISOString() },
+  { id:'ej4', tipo:'Físico', duracion:'12', numJugadores:'2-4', material:'Vallas', descripcion:'Cambios de dirección rápidos', imagen:null, video:null, creadoEn:new Date().toISOString() },
+  { id:'ej5', tipo:'Fuerza', duracion:'15', numJugadores:'1', material:'Sin material', descripcion:'Ejercicios de piernas y core', imagen:null, video:null, creadoEn:new Date().toISOString() },
+  { id:'ej6', tipo:'Agilidad', duracion:'10', numJugadores:'5-8', material:'Conos', descripcion:'Carrera lateral y cambios rápidos', imagen:null, video:null, creadoEn:new Date().toISOString() },
+]
 const FORM_EMPTY = { tipo:'',duracion:'',descripcion:'',numJugadores:'',material:'',imagen:null as string|null,video:'' }
 
 function BibliotecaTab() {
+  const [searchText, setSearchText] = useState('')
+  const [filtroTipo, setFiltroTipo] = useState('')
+  const [filtroJugadores, setFiltroJugadores] = useState('')
+  const [filtroDuracion, setFiltroDuracion] = useState('')
+  const [filtroMaterial, setFiltroMaterial] = useState('')
+
+  const ejerciciosFiltrados = EJERCICIOS_PREDEFINIDOS.filter(ej => {
+    const matchTipo = !filtroTipo || ej.tipo === filtroTipo
+    const matchJugadores = !filtroJugadores || ej.numJugadores === filtroJugadores
+    const matchMaterial = !filtroMaterial || ej.material === filtroMaterial
+    const matchSearch = !searchText || ej.descripcion.toLowerCase().includes(searchText.toLowerCase()) || ej.tipo.toLowerCase().includes(searchText.toLowerCase())
+
+    let matchDuracion = true
+    if (filtroDuracion) {
+      const dur = parseInt(ej.duracion)
+      if (filtroDuracion === '5-10') matchDuracion = dur >= 5 && dur <= 10
+      else if (filtroDuracion === '10-20') matchDuracion = dur > 10 && dur <= 20
+      else if (filtroDuracion === '20+') matchDuracion = dur > 20
+    }
+
+    return matchTipo && matchJugadores && matchMaterial && matchSearch && matchDuracion
+  })
+
   return (
-    <div className="max-w-3xl">
-      <div className="text-center py-14 text-gray-400">
-        <BookOpen className="w-10 h-10 mx-auto mb-2 opacity-30"/>
-        <p className="text-sm font-medium">Biblioteca de Ejercicios</p>
-        <p className="text-xs mt-1 opacity-70">Próximamente: listado de ejercicios predefinidos</p>
+    <div className="space-y-5">
+      {/* Filtros */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-3">
+          <div>
+            <label className="block text-xs font-semibold text-gray-600 mb-1.5 uppercase tracking-wider">Búsqueda</label>
+            <input type="text" value={searchText} onChange={e=>setSearchText(e.target.value)} placeholder="Escribe para buscar…"
+              className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-rfpaf-blue/30"/>
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-gray-600 mb-1.5 uppercase tracking-wider">Tipo</label>
+            <select value={filtroTipo} onChange={e=>setFiltroTipo(e.target.value)}
+              className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-rfpaf-blue/30">
+              <option value="">Todos</option>
+              {FILTER_TIPOS.map(t=><option key={t} value={t}>{t}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-gray-600 mb-1.5 uppercase tracking-wider">Jugadores</label>
+            <select value={filtroJugadores} onChange={e=>setFiltroJugadores(e.target.value)}
+              className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-rfpaf-blue/30">
+              <option value="">Todos</option>
+              {FILTER_JUGADORES.map(j=><option key={j} value={j}>{j}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-gray-600 mb-1.5 uppercase tracking-wider">Duración</label>
+            <select value={filtroDuracion} onChange={e=>setFiltroDuracion(e.target.value)}
+              className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-rfpaf-blue/30">
+              <option value="">Todos</option>
+              {FILTER_DURACION.map(d=><option key={d} value={d}>{d} min</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-gray-600 mb-1.5 uppercase tracking-wider">Material</label>
+            <select value={filtroMaterial} onChange={e=>setFiltroMaterial(e.target.value)}
+              className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-rfpaf-blue/30">
+              <option value="">Todos</option>
+              {FILTER_MATERIAL.map(m=><option key={m} value={m}>{m}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-gray-600 mb-1.5 uppercase tracking-wider">&nbsp;</label>
+            <button type="button" onClick={()=>{setSearchText('');setFiltroTipo('');setFiltroJugadores('');setFiltroDuracion('');setFiltroMaterial('')}}
+              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors font-medium text-gray-600">
+              Limpiar
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Resultados */}
+      <div>
+        <p className="text-xs font-semibold text-gray-500 mb-3 uppercase tracking-wider">{ejerciciosFiltrados.length} ejercicio{ejerciciosFiltrados.length!==1?'s':''}</p>
+        {ejerciciosFiltrados.length === 0 ? (
+          <div className="text-center py-14 text-gray-400">
+            <FileText className="w-10 h-10 mx-auto mb-2 opacity-30"/>
+            <p className="text-sm font-medium">Sin ejercicios que coincidan</p>
+            <p className="text-xs mt-1 opacity-70">Intenta ajustar los filtros</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {ejerciciosFiltrados.map(ej => (
+              <div key={ej.id} className="bg-white rounded-lg border border-gray-200 overflow-hidden hover:shadow-md transition-shadow">
+                {ej.imagen && <img src={ej.imagen} alt={ej.tipo} className="w-full h-32 object-cover"/>}
+                <div className="p-3">
+                  <div className="flex items-start justify-between mb-2">
+                    <span className="inline-block bg-rfpaf-blue/10 text-rfpaf-blue text-xs font-bold px-2 py-1 rounded">{ej.tipo}</span>
+                    <span className="text-xs text-gray-500">{ej.duracion} min</span>
+                  </div>
+                  <p className="text-sm font-medium text-gray-800 mb-2 line-clamp-2">{ej.descripcion}</p>
+                  <div className="space-y-1 text-xs text-gray-600 border-t border-gray-100 pt-2">
+                    <p>👥 {ej.numJugadores} jugadores</p>
+                    <p>📦 {ej.material}</p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   )
