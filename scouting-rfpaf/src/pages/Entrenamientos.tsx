@@ -1532,8 +1532,12 @@ const FORM_EMPTY = { tipo:'',duracion:'',descripcion:'',numJugadores:'',material
 
 function BibliotecaTab() {
   return (
-    <div>
-      <TacticalBoard/>
+    <div className="max-w-3xl">
+      <div className="text-center py-14 text-gray-400">
+        <BookOpen className="w-10 h-10 mx-auto mb-2 opacity-30"/>
+        <p className="text-sm font-medium">Biblioteca de Ejercicios</p>
+        <p className="text-xs mt-1 opacity-70">Próximamente: listado de ejercicios predefinidos</p>
+      </div>
     </div>
   )
 }
