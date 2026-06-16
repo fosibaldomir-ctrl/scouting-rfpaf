@@ -433,6 +433,9 @@ const ACCESSORY_LIST: { type: AccessoryType; label: string }[] = [
   { type:'mannequin', label:'Maniquí' },
   { type:'barrier', label:'Barrera' },
   { type:'goal', label:'Portería' },
+]
+
+const BALL_LIST: { type: AccessoryType; label: string }[] = [
   { type:'ball_bw', label:'Balón B/N' },
   { type:'ball_blue', label:'Balón Azul' },
   { type:'ball_red', label:'Balón Rojo' },
@@ -456,6 +459,7 @@ function TacticalBoard({ onCapture, onRegisterCapture }: TacticalBoardProps) {
   const [textPos, setTextPos] = useState<Point | null>(null)
   const [draggedTextIdx, setDraggedTextIdx] = useState<number | null>(null)
   const [pitchType, setPitchType] = useState<PitchType>('full')
+  const [ballMenuOpen, setBallMenuOpen] = useState(false)
   const [placedPlayers, setPlacedPlayers] = useState<PlacedPlayer[]>([])
   const [selPlayer, setSelPlayer] = useState<SelPlayer | null>(null)
   const [placedAccessories, setPlacedAccessories] = useState<PlacedAccessory[]>([])
@@ -682,12 +686,38 @@ function TacticalBoard({ onCapture, onRegisterCapture }: TacticalBoardProps) {
             const isSel = selAcc?.type === acc.type
             return (
               <button key={acc.type} type="button"
-                onClick={() => { setSelAcc(isSel ? null : { type: acc.type }); setSelPlayer(null) }}
+                onClick={() => { setSelAcc(isSel ? null : { type: acc.type }); setSelPlayer(null); setBallMenuOpen(false) }}
                 className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all border ${isSel ? 'bg-rfpaf-blue text-white border-rfpaf-blue shadow-sm' : 'bg-white/10 text-white/70 border-white/10 hover:bg-white/20 hover:text-white'}`}>
                 {acc.label}
               </button>
             )
           })}
+          {/* Ball dropdown */}
+          <div className="relative">
+            <button type="button"
+              onClick={() => { setBallMenuOpen(v => !v); setSelPlayer(null) }}
+              className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all border ${
+                BALL_LIST.some(b => selAcc?.type === b.type)
+                  ? 'bg-rfpaf-blue text-white border-rfpaf-blue shadow-sm'
+                  : 'bg-white/10 text-white/70 border-white/10 hover:bg-white/20 hover:text-white'
+              }`}>
+              Balones <ChevronDown className={`w-3 h-3 transition-transform duration-200 ${ballMenuOpen ? 'rotate-180' : ''}`}/>
+            </button>
+            {ballMenuOpen && (
+              <div className="absolute top-full left-0 mt-1 bg-gray-800 border border-white/15 rounded-lg shadow-xl z-20 overflow-hidden min-w-[110px]">
+                {BALL_LIST.map(b => {
+                  const isSel = selAcc?.type === b.type
+                  return (
+                    <button key={b.type} type="button"
+                      onClick={() => { setSelAcc(isSel ? null : { type: b.type }); setBallMenuOpen(false) }}
+                      className={`w-full text-left px-3 py-1.5 text-xs transition-colors ${isSel ? 'bg-rfpaf-blue text-white' : 'text-white/70 hover:bg-white/10 hover:text-white'}`}>
+                      {b.label}
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+          </div>
         </div>
         {placedAccessories.length > 0 && (
           <div className="px-3 pb-2 border-t border-white/5 pt-2">
