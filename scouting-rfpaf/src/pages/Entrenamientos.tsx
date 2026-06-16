@@ -281,12 +281,21 @@ function drawAccessory(ctx: CanvasRenderingContext2D, a: PlacedAccessory, draggi
       break
     }
     case 'mannequin': {
-      ctx.strokeStyle='#c2410c'; ctx.lineWidth=2.2
-      ctx.beginPath(); ctx.moveTo(0,-4); ctx.lineTo(0,7); ctx.stroke()
-      ctx.beginPath(); ctx.moveTo(-7,0); ctx.lineTo(7,0); ctx.stroke()
-      ctx.beginPath(); ctx.moveTo(0,7); ctx.lineTo(-5,14); ctx.stroke()
-      ctx.beginPath(); ctx.moveTo(0,7); ctx.lineTo(5,14); ctx.stroke()
-      ctx.fillStyle='#f97316'; ctx.beginPath(); ctx.arc(0,-9,4.5,0,Math.PI*2); ctx.fill(); ctx.stroke()
+      ctx.strokeStyle='#f59e0b'; ctx.lineWidth=1.8; ctx.lineCap='round'; ctx.lineJoin='round'
+      // Cabeza
+      ctx.beginPath(); ctx.arc(0,-17,3.5,0,Math.PI*2); ctx.stroke()
+      // Cuello corto
+      ctx.beginPath(); ctx.moveTo(0,-13.5); ctx.lineTo(0,-11); ctx.stroke()
+      // Marco del torso
+      ctx.strokeRect(-6,-11,12,15)
+      // Divisores verticales internos (3 secciones)
+      ctx.beginPath(); ctx.moveTo(-2,-11); ctx.lineTo(-2,4); ctx.stroke()
+      ctx.beginPath(); ctx.moveTo(2,-11); ctx.lineTo(2,4); ctx.stroke()
+      // Brazos (cruzan el torso y se extienden a los lados)
+      ctx.beginPath(); ctx.moveTo(-12,-3); ctx.lineTo(12,-3); ctx.stroke()
+      // Piernas rectas
+      ctx.beginPath(); ctx.moveTo(-3,4); ctx.lineTo(-3,17); ctx.stroke()
+      ctx.beginPath(); ctx.moveTo(3,4); ctx.lineTo(3,17); ctx.stroke()
       break
     }
     case 'barrier': {
@@ -603,7 +612,7 @@ const ACCESSORY_LIST: { type: AccessoryType; label: string }[] = [
   { type:'cone', label:'Conos' },
   { type:'ladder', label:'Escalera' },
   { type:'hurdle', label:'Valla' },
-  { type:'mannequin', label:'Maniquí' },
+  { type:'mannequin', label:'Muñeco' },
   { type:'barrier', label:'Barrera' },
 ]
 
