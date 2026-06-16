@@ -773,6 +773,11 @@ function TacticalBoard({ onCapture, onRegisterCapture }: TacticalBoardProps) {
 
   const onMouseUp = () => {
     if(textDragRef.current){ textDragRef.current=null; setDraggedTextIdx(null); return }
+    if(playerDragRef.current){ playerDragRef.current=null; return }
+    if(accDragRef.current){ accDragRef.current=null; return }
+    if(!isDrawing||!currentShape) return
+    setIsDrawing(false); setShapes(prev=>[...prev,currentShape]); setCurrentShape(null)
+  }
 
   const onTouchStart = (e: React.TouchEvent<HTMLCanvasElement>) => {
     e.preventDefault()
@@ -787,11 +792,6 @@ function TacticalBoard({ onCapture, onRegisterCapture }: TacticalBoardProps) {
   const onTouchEnd = (e: React.TouchEvent<HTMLCanvasElement>) => {
     e.preventDefault()
     onMouseUp()
-  }
-    if(playerDragRef.current){ playerDragRef.current=null; return }
-    if(accDragRef.current){ accDragRef.current=null; return }
-    if(!isDrawing||!currentShape) return
-    setIsDrawing(false); setShapes(prev=>[...prev,currentShape]); setCurrentShape(null)
   }
 
   const handleAddText = () => {
