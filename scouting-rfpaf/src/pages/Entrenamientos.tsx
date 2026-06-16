@@ -1673,7 +1673,14 @@ function BibliotecaTab() {
                   <iframe src={selEjercicio.video} className="w-full h-full" allowFullScreen/>
                 </div>
               ) : selEjercicio.imagen ? (
-                <img src={selEjercicio.imagen} alt={selEjercicio.tipo} className="w-full h-64 object-cover"/>
+                <div className="w-full bg-gray-100 flex items-center justify-center overflow-hidden" style={{maxHeight: '400px'}}>
+                  <img
+                    src={selEjercicio.imagen.startsWith('data:') ? selEjercicio.imagen : `data:image/png;base64,${selEjercicio.imagen}`}
+                    alt={selEjercicio.tipo}
+                    className="w-full h-full object-contain"
+                    style={{maxWidth: '100%'}}
+                  />
+                </div>
               ) : (
                 <div className="w-full h-64 bg-gradient-to-br from-rfpaf-blue/10 to-rfpaf-blue/5 flex items-center justify-center">
                   <Video className="w-12 h-12 text-rfpaf-blue/30"/>
