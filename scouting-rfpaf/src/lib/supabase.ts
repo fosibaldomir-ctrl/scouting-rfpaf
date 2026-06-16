@@ -14,6 +14,7 @@ export interface EjercicioDB {
   duracion: number
   num_jugadores: string
   material: string | null
+  titulo: string
   descripcion: string
   imagen: string | null
   video: string | null

@@ -1809,6 +1809,7 @@ function BibliotecaTab() {
                       duracion:parseInt(formEj.duracion),
                       num_jugadores:formEj.num_jugadores,
                       material:formEj.material||null,
+                      titulo:formEj.titulo,
                       descripcion:formEj.descripcion,
                       imagen:formEj.imagen||null,
                       video:formEj.video||null
