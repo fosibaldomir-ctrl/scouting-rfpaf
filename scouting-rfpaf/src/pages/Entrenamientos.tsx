@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
-import { fetchEjercicios, createEjercicio, uploadEjercicioImage } from '../lib/supabase'
+import { fetchEjercicios, createEjercicio } from '../lib/supabase'
 import type { EjercicioDB } from '../lib/supabase'
 import { v4 as uuidv4 } from 'uuid'
 import {
@@ -1808,23 +1808,14 @@ function BibliotecaTab() {
                     if(!formEj.tipo||!formEj.duracion||!formEj.num_jugadores||!formEj.descripcion){alert('Rellena los campos obligatorios');return}
                     console.log('Saving exercise:', formEj);
 
-                    // Subir imagen a Storage si existe
-                    let imagenUrl: string | null = null
-                    if(formEj.imagen){
-                      console.log('Uploading image...');
-                      const tempId = `temp-${Date.now()}`;
-                      imagenUrl = await uploadEjercicioImage(formEj.imagen, tempId);
-                      console.log('Image uploaded:', imagenUrl);
-                    }
-
-                    // Guardar ejercicio con URL de imagen
+                    // Guardar ejercicio con imagen base64 directamente
                     const newEj = await createEjercicio({
                       tipo:formEj.tipo,
                       duracion:parseInt(formEj.duracion),
                       num_jugadores:formEj.num_jugadores,
                       material:formEj.material||null,
                       descripcion:formEj.descripcion,
-                      imagen:imagenUrl,
+                      imagen:formEj.imagen||null,
                       video:formEj.video||null
                     });
 
