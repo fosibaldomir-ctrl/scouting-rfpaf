@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
-import { fetchEjercicios, createEjercicio } from '../lib/supabase'
+import { fetchEjercicios, createEjercicio, uploadEjercicioImage } from '../lib/supabase'
 import type { EjercicioDB } from '../lib/supabase'
 import { v4 as uuidv4 } from 'uuid'
 import {
@@ -1807,7 +1807,27 @@ function BibliotecaTab() {
                   <button type="button" onClick={async ()=>{
                     if(!formEj.tipo||!formEj.duracion||!formEj.num_jugadores||!formEj.descripcion){alert('Rellena los campos obligatorios');return}
                     console.log('Saving exercise:', formEj);
-                    const newEj = await createEjercicio({tipo:formEj.tipo,duracion:parseInt(formEj.duracion),num_jugadores:formEj.num_jugadores,material:formEj.material||null,descripcion:formEj.descripcion,imagen:formEj.imagen||null,video:formEj.video||null});
+
+                    // Subir imagen a Storage si existe
+                    let imagenUrl: string | null = null
+                    if(formEj.imagen){
+                      console.log('Uploading image...');
+                      const tempId = `temp-${Date.now()}`;
+                      imagenUrl = await uploadEjercicioImage(formEj.imagen, tempId);
+                      console.log('Image uploaded:', imagenUrl);
+                    }
+
+                    // Guardar ejercicio con URL de imagen
+                    const newEj = await createEjercicio({
+                      tipo:formEj.tipo,
+                      duracion:parseInt(formEj.duracion),
+                      num_jugadores:formEj.num_jugadores,
+                      material:formEj.material||null,
+                      descripcion:formEj.descripcion,
+                      imagen:imagenUrl,
+                      video:formEj.video||null
+                    });
+
                     if(newEj){
                       console.log('Exercise saved successfully');
                       setEjercicios(prev=>[newEj,...prev]);
@@ -1817,6 +1837,7 @@ function BibliotecaTab() {
                       captureForEjRef.current=null
                     } else {
                       console.log('Failed to save exercise');
+                      alert('❌ Error al guardar el ejercicio');
                     }
                   }}
                     className="flex-1 px-4 py-2 bg-rfpaf-blue text-white rounded-lg text-sm font-semibold hover:bg-rfpaf-blue/90 transition-colors">

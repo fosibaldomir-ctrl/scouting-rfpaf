@@ -33,6 +33,38 @@ export async function fetchEjercicios(): Promise<EjercicioDB[]> {
   return data || []
 }
 
+export async function uploadEjercicioImage(base64: string, ejercicioId: string): Promise<string | null> {
+  try {
+    if (!base64) return null
+
+    const fileName = `ejercicio-${ejercicioId}-${Date.now()}.png`
+    const base64Data = base64.replace(/^data:image\/\w+;base64,/, '')
+    const binaryData = atob(base64Data)
+    const bytes = new Uint8Array(binaryData.length)
+    for (let i = 0; i < binaryData.length; i++) {
+      bytes[i] = binaryData.charCodeAt(i)
+    }
+
+    const { error } = await supabase.storage
+      .from('ejercicios')
+      .upload(fileName, bytes, { contentType: 'image/png' })
+
+    if (error) {
+      console.error('Storage error:', error)
+      return null
+    }
+
+    const { data: publicUrl } = supabase.storage
+      .from('ejercicios')
+      .getPublicUrl(fileName)
+
+    return publicUrl.publicUrl
+  } catch (err) {
+    console.error('Exception uploading image:', err)
+    return null
+  }
+}
+
 export async function createEjercicio(ejercicio: Omit<EjercicioDB, 'id' | 'creado_en'>): Promise<EjercicioDB | null> {
   try {
     console.log('Creating ejercicio:', ejercicio)
