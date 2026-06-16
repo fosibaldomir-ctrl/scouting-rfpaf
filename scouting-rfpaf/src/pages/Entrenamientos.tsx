@@ -54,10 +54,6 @@ const TEAMS: Record<TeamId, { bg: string; border: string; text: string; label: s
 }
 const PLAYER_R = 15
 const ACC_HIT_R = 20
-const ACC_COLORS = ['#f97316','#fbbf24','#ef4444','#3b82f6','#ffffff','#22c55e']
-const ACC_COLOR_LABEL: Record<string,string> = {
-  '#f97316':'Naranja','#fbbf24':'Amarillo','#ef4444':'Rojo','#3b82f6':'Azul','#ffffff':'Blanco','#22c55e':'Verde'
-}
 
 function drawAccessory(ctx: CanvasRenderingContext2D, a: PlacedAccessory, dragging: boolean) {
   ctx.save()
@@ -328,6 +324,17 @@ const PITCH_OPTIONS: { id: PitchType; label: string }[] = [
   { id:'blank', label:'Sin líneas' },
 ]
 
+const ACCESSORY_LIST: { type: AccessoryType; label: string }[] = [
+  { type:'cone', label:'Conos' },
+  { type:'mushroom', label:'Setas' },
+  { type:'ladder', label:'Escalera' },
+  { type:'hurdle', label:'Valla' },
+  { type:'mannequin', label:'Maniquí' },
+  { type:'barrier', label:'Barrera' },
+  { type:'goal', label:'Portería' },
+  { type:'ball', label:'Balón' },
+]
+
 interface TacticalBoardProps {
   onCapture?: (png: string) => void
   onRegisterCapture?: (fn: () => string | null) => void
@@ -526,10 +533,10 @@ function TacticalBoard({ onCapture, onRegisterCapture }: TacticalBoardProps) {
         <p className="text-white/40 text-[10px] uppercase tracking-widest font-semibold px-3 pt-2.5 pb-2">Biblioteca de accesorios</p>
         <div className="flex flex-wrap gap-1.5 px-3 pb-3">
           {ACCESSORY_LIST.map(acc => {
-            const isSel = selAccessory === acc.type
+            const isSel = selAcc?.type === acc.type
             return (
               <button key={acc.type} type="button"
-                onClick={() => { setSelAccessory(isSel ? null : acc.type); setSelPlayer(null) }}
+                onClick={() => { setSelAcc(isSel ? null : { type: acc.type }); setSelPlayer(null) }}
                 className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all border ${isSel ? 'bg-rfpaf-blue text-white border-rfpaf-blue shadow-sm' : 'bg-white/10 text-white/70 border-white/10 hover:bg-white/20 hover:text-white'}`}>
                 {acc.label}
               </button>
@@ -548,14 +555,14 @@ function TacticalBoard({ onCapture, onRegisterCapture }: TacticalBoardProps) {
 
       {/* Drawing toolbar */}
       <div className="flex flex-wrap items-center gap-1.5">
-        {(selPlayer || selAccessory) && (
-          <button type="button" onClick={() => { setSelPlayer(null); setSelAccessory(null) }}
+        {(selPlayer || selAcc) && (
+          <button type="button" onClick={() => { setSelPlayer(null); setSelAcc(null) }}
             className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-yellow-500/30 text-yellow-300 hover:bg-yellow-500/50 transition-all">
             <UserX className="w-3.5 h-3.5"/> Cancelar
           </button>
         )}
         {DRAW_TOOLS.map(t=>(
-          <button key={t.id} type="button" onClick={()=>{setTool(t.id);setSelPlayer(null)}}
+          <button key={t.id} type="button" onClick={()=>{setTool(t.id);setSelPlayer(null);setSelAcc(null)}}
             className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all ${tool===t.id&&!selPlayer?'bg-rfpaf-blue text-white shadow-sm':'bg-white/10 text-white/70 hover:bg-white/20 hover:text-white'}`}>
             {t.icon}<span>{t.label}</span>
           </button>
