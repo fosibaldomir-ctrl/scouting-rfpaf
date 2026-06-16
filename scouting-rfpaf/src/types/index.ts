@@ -123,5 +123,6 @@ export interface Convocatoria {
   fecha: string      // YYYY-MM-DD
   hora: string       // HH:MM
   jugadoras: JugadoraConvocada[]
+  pdfUrl?: string | null
   creadoEn: string
 }

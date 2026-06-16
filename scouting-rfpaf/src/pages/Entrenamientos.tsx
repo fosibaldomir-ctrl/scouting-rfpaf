@@ -28,14 +28,18 @@ interface Sesion {
   capturas: string[]; ejercicios: EjercicioSesion[]
 }
 
-type DrawTool = 'freehand' | 'line' | 'arrow' | 'circle' | 'rect' | 'text'
+type DrawTool = 'freehand' | 'line' | 'arrow' | 'curve' | 'curvearrow' | 'circle' | 'rect' | 'text'
 type PitchType = 'full' | 'half' | 'blank'
 interface Point { x: number; y: number }
-interface Shape { type: DrawTool; color: string; width: number; start?: Point; end?: Point; points?: Point[]; text?: string }
+interface Shape { type: DrawTool; color: string; width: number; dashed?: boolean; start?: Point; end?: Point; points?: Point[]; text?: string }
 
 type TeamId = 1 | 2 | 3
 interface PlacedPlayer { uid: string; team: TeamId; number: number; x: number; y: number }
 interface SelPlayer { team: TeamId; number: number }
+
+type AccessoryType = 'goal' | 'cone' | 'mushroom' | 'ladder' | 'hurdle' | 'mannequin' | 'barrier' | 'ball'
+interface PlacedAccessory { uid: string; type: AccessoryType; x: number; y: number; rotation: number; color?: string; size?: 's'|'m'|'l' }
+interface SelAcc { type: AccessoryType; color?: string; size?: 's'|'m'|'l' }
 
 type Tab = 'biblioteca' | 'sesion'
 
@@ -49,6 +53,93 @@ const TEAMS: Record<TeamId, { bg: string; border: string; text: string; label: s
   3: { bg: '#ca8a04', border: '#a16207', text: '#000000', label: 'Equipo C' },
 }
 const PLAYER_R = 15
+const ACC_HIT_R = 20
+const ACC_COLORS = ['#f97316','#fbbf24','#ef4444','#3b82f6','#ffffff','#22c55e']
+const ACC_COLOR_LABEL: Record<string,string> = {
+  '#f97316':'Naranja','#fbbf24':'Amarillo','#ef4444':'Rojo','#3b82f6':'Azul','#ffffff':'Blanco','#22c55e':'Verde'
+}
+
+function drawAccessory(ctx: CanvasRenderingContext2D, a: PlacedAccessory, dragging: boolean) {
+  ctx.save()
+  ctx.translate(a.x, a.y)
+  if (a.rotation) ctx.rotate(a.rotation * Math.PI / 180)
+  ctx.lineCap = 'round'; ctx.lineJoin = 'round'
+  ctx.shadowColor = dragging ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)'
+  ctx.shadowBlur = dragging ? 12 : 5; ctx.shadowOffsetY = dragging ? 0 : 2
+  const clr = a.color
+  switch (a.type) {
+    case 'goal': {
+      const sz=a.size; const w=sz==='s'?22:sz==='l'?54:36; const h=sz==='s'?13:sz==='l'?23:19
+      ctx.strokeStyle='#ffffff'; ctx.lineWidth=2.5
+      ctx.beginPath(); ctx.moveTo(-w/2,h/2); ctx.lineTo(-w/2,-h/2); ctx.lineTo(w/2,-h/2); ctx.lineTo(w/2,h/2); ctx.stroke()
+      ctx.lineWidth=0.8; ctx.strokeStyle='rgba(255,255,255,0.35)'
+      for(let i=1;i<4;i++){const nx=-w/2+(w/4)*i;ctx.beginPath();ctx.moveTo(nx,-h/2);ctx.lineTo(nx,h/2);ctx.stroke()}
+      ctx.beginPath();ctx.moveTo(-w/2,0);ctx.lineTo(w/2,0);ctx.stroke()
+      break
+    }
+    case 'cone': {
+      const c=clr||'#f97316'
+      ctx.fillStyle=c; ctx.strokeStyle='rgba(0,0,0,0.25)'; ctx.lineWidth=1
+      ctx.beginPath(); ctx.moveTo(0,-12); ctx.lineTo(-8,8); ctx.lineTo(8,8); ctx.closePath(); ctx.fill(); ctx.stroke()
+      ctx.strokeStyle='rgba(255,255,255,0.55)'; ctx.lineWidth=1.5
+      ctx.beginPath(); ctx.moveTo(-4.5,1); ctx.lineTo(4.5,1); ctx.stroke()
+      break
+    }
+    case 'mushroom': {
+      const c=clr||'#f97316'
+      ctx.fillStyle=c; ctx.strokeStyle='rgba(0,0,0,0.25)'; ctx.lineWidth=1.2
+      ctx.beginPath(); ctx.ellipse(0,0,12,5.5,0,0,Math.PI*2); ctx.fill(); ctx.stroke()
+      ctx.fillStyle='rgba(255,255,255,0.2)'; ctx.beginPath(); ctx.ellipse(-2,-1,5,2,-0.3,0,Math.PI*2); ctx.fill()
+      break
+    }
+    case 'ladder': {
+      const lw=14,sh=9,steps=4,totalH=steps*sh
+      ctx.strokeStyle='#fbbf24'; ctx.lineWidth=2
+      ctx.beginPath(); ctx.moveTo(-lw/2,-totalH/2); ctx.lineTo(-lw/2,totalH/2); ctx.stroke()
+      ctx.beginPath(); ctx.moveTo(lw/2,-totalH/2); ctx.lineTo(lw/2,totalH/2); ctx.stroke()
+      ctx.lineWidth=1.5
+      for(let i=0;i<=steps;i++){const ry=-totalH/2+i*sh;ctx.beginPath();ctx.moveTo(-lw/2,ry);ctx.lineTo(lw/2,ry);ctx.stroke()}
+      break
+    }
+    case 'hurdle': {
+      const hw=22,ph=16
+      ctx.strokeStyle='#ef4444'; ctx.lineWidth=2
+      ctx.beginPath(); ctx.moveTo(-hw/2,ph/2); ctx.lineTo(-hw/2,-ph/2); ctx.stroke()
+      ctx.beginPath(); ctx.moveTo(hw/2,ph/2); ctx.lineTo(hw/2,-ph/2); ctx.stroke()
+      ctx.lineWidth=2.5; ctx.beginPath(); ctx.moveTo(-hw/2,-2); ctx.lineTo(hw/2,-2); ctx.stroke()
+      break
+    }
+    case 'mannequin': {
+      ctx.strokeStyle='#c2410c'; ctx.lineWidth=2.2
+      ctx.beginPath(); ctx.moveTo(0,-4); ctx.lineTo(0,7); ctx.stroke()
+      ctx.beginPath(); ctx.moveTo(-7,0); ctx.lineTo(7,0); ctx.stroke()
+      ctx.beginPath(); ctx.moveTo(0,7); ctx.lineTo(-5,14); ctx.stroke()
+      ctx.beginPath(); ctx.moveTo(0,7); ctx.lineTo(5,14); ctx.stroke()
+      ctx.fillStyle='#f97316'; ctx.beginPath(); ctx.arc(0,-9,4.5,0,Math.PI*2); ctx.fill(); ctx.stroke()
+      break
+    }
+    case 'barrier': {
+      const bw=32,bh=11
+      ctx.fillStyle='#818cf8'; ctx.strokeStyle='#6366f1'; ctx.lineWidth=1.5
+      ctx.beginPath(); if(ctx.roundRect)ctx.roundRect(-bw/2,-bh/2,bw,bh,2); else ctx.rect(-bw/2,-bh/2,bw,bh)
+      ctx.fill(); ctx.stroke()
+      ctx.strokeStyle='rgba(255,255,255,0.3)'; ctx.lineWidth=1
+      for(let i=1;i<4;i++){const dx=-bw/2+(bw/4)*i;ctx.beginPath();ctx.moveTo(dx,-bh/2);ctx.lineTo(dx,bh/2);ctx.stroke()}
+      break
+    }
+    case 'ball': {
+      const br=8
+      ctx.fillStyle='#ffffff'; ctx.strokeStyle='#111'; ctx.lineWidth=1.2
+      ctx.beginPath(); ctx.arc(0,0,br,0,Math.PI*2); ctx.fill(); ctx.stroke()
+      ctx.fillStyle='#222'; ctx.beginPath(); ctx.arc(0,0,2.5,0,Math.PI*2); ctx.fill()
+      ctx.strokeStyle='#333'; ctx.lineWidth=0.9
+      for(let i=0;i<5;i++){const ang=(i*Math.PI*2)/5-Math.PI/2;ctx.beginPath();ctx.moveTo(2.5*Math.cos(ang),2.5*Math.sin(ang));ctx.lineTo(br*Math.cos(ang),br*Math.sin(ang));ctx.stroke()}
+      break
+    }
+  }
+  ctx.restore()
+}
+
 const PALETTE = [
   '#ffffff','#facc15','#f87171','#4ade80',
   '#60a5fa','#e879f9','#fb923c','#000000',
@@ -59,6 +150,13 @@ const PALETTE = [
 /* ═══════════════════════════════════════
    CANVAS DRAW HELPERS
 ═══════════════════════════════════════ */
+
+function getCurveCP(a: Point, b: Point): Point {
+  const dx = b.x - a.x, dy = b.y - a.y
+  const len = Math.hypot(dx, dy)
+  if (len < 1) return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }
+  return { x: (a.x + b.x) / 2 - dy * 0.28, y: (a.y + b.y) / 2 + dx * 0.28 }
+}
 
 function drawArrowhead(ctx: CanvasRenderingContext2D, from: Point, to: Point, len = 14) {
   const a = Math.atan2(to.y - from.y, to.x - from.x)
@@ -73,6 +171,7 @@ function drawArrowhead(ctx: CanvasRenderingContext2D, from: Point, to: Point, le
 function drawShape(ctx: CanvasRenderingContext2D, s: Shape) {
   ctx.strokeStyle = s.color; ctx.fillStyle = s.color; ctx.lineWidth = s.width
   ctx.lineJoin = 'round'; ctx.lineCap = 'round'
+  ctx.setLineDash(s.dashed ? [s.width * 3 + 4, s.width * 2 + 3] : [])
   switch (s.type) {
     case 'freehand':
       if (!s.points || s.points.length < 2) return
@@ -85,6 +184,18 @@ function drawShape(ctx: CanvasRenderingContext2D, s: Shape) {
       if (!s.start || !s.end) return
       ctx.beginPath(); ctx.moveTo(s.start.x, s.start.y); ctx.lineTo(s.end.x, s.end.y); ctx.stroke()
       drawArrowhead(ctx, s.start, s.end); break
+    case 'curve':
+      if (!s.start || !s.end) return
+      { const cp = getCurveCP(s.start, s.end)
+        ctx.beginPath(); ctx.moveTo(s.start.x, s.start.y)
+        ctx.quadraticCurveTo(cp.x, cp.y, s.end.x, s.end.y); ctx.stroke(); break }
+    case 'curvearrow':
+      if (!s.start || !s.end) return
+      { const cp = getCurveCP(s.start, s.end)
+        ctx.beginPath(); ctx.moveTo(s.start.x, s.start.y)
+        ctx.quadraticCurveTo(cp.x, cp.y, s.end.x, s.end.y); ctx.stroke()
+        ctx.setLineDash([])
+        drawArrowhead(ctx, cp, s.end); break }
     case 'circle':
       if (!s.start || !s.end) return
       { const rx = Math.abs(s.end.x - s.start.x) / 2, ry = Math.abs(s.end.y - s.start.y) / 2
@@ -94,8 +205,10 @@ function drawShape(ctx: CanvasRenderingContext2D, s: Shape) {
       ctx.beginPath(); ctx.strokeRect(s.start.x,s.start.y,s.end.x-s.start.x,s.end.y-s.start.y); break
     case 'text':
       if (!s.start || !s.text) return
+      ctx.setLineDash([])
       ctx.font = `bold ${s.width*5+10}px sans-serif`; ctx.fillText(s.text, s.start.x, s.start.y); break
   }
+  ctx.setLineDash([])
 }
 
 function drawTextHandle(ctx: CanvasRenderingContext2D, s: Shape) {
@@ -225,6 +338,7 @@ function TacticalBoard({ onCapture, onRegisterCapture }: TacticalBoardProps) {
   const [tool, setTool] = useState<DrawTool>('freehand')
   const [color, setColor] = useState('#ffffff')
   const [strokeWidth, setStrokeWidth] = useState(3)
+  const [dashed, setDashed] = useState(false)
   const [shapes, setShapes] = useState<Shape[]>([])
   const [isDrawing, setIsDrawing] = useState(false)
   const [currentShape, setCurrentShape] = useState<Shape | null>(null)
@@ -234,7 +348,10 @@ function TacticalBoard({ onCapture, onRegisterCapture }: TacticalBoardProps) {
   const [pitchType, setPitchType] = useState<PitchType>('full')
   const [placedPlayers, setPlacedPlayers] = useState<PlacedPlayer[]>([])
   const [selPlayer, setSelPlayer] = useState<SelPlayer | null>(null)
+  const [placedAccessories, setPlacedAccessories] = useState<PlacedAccessory[]>([])
+  const [selAcc, setSelAcc] = useState<SelAcc | null>(null)
   const playerDragRef = useRef<{ uid: string; ox: number; oy: number } | null>(null)
+  const accDragRef = useRef<{ uid: string; ox: number; oy: number } | null>(null)
   const textDragRef = useRef<{ idx: number; ox: number; oy: number } | null>(null)
   const [openTeams, setOpenTeams] = useState<Set<TeamId>>(new Set())
   const toggleTeam = (tid: TeamId) =>
@@ -255,8 +372,9 @@ function TacticalBoard({ onCapture, onRegisterCapture }: TacticalBoardProps) {
     drawPitch(ctx,canvas.width,canvas.height,pitchType)
     shapes.forEach((s,i)=>{drawShape(ctx,s); if(i===draggedTextIdx) drawTextHandle(ctx,s)})
     if(currentShape) drawShape(ctx,currentShape)
+    placedAccessories.forEach(a=>drawAccessory(ctx,a,accDragRef.current?.uid===a.uid))
     placedPlayers.forEach(p=>drawPlacedPlayer(ctx,p,playerDragRef.current?.uid===p.uid))
-  }, [shapes,currentShape,placedPlayers,draggedTextIdx,pitchType])
+  }, [shapes,currentShape,placedPlayers,placedAccessories,draggedTextIdx,pitchType])
 
   useEffect(() => { redraw() }, [redraw])
 
@@ -266,22 +384,30 @@ function TacticalBoard({ onCapture, onRegisterCapture }: TacticalBoardProps) {
   }
 
   const nearPlayer = (pos: Point) => placedPlayers.find(p=>Math.hypot(p.x-pos.x,p.y-pos.y)<=PLAYER_R+3)
+  const nearAccessory = (pos: Point) => placedAccessories.find(a=>Math.hypot(a.x-pos.x,a.y-pos.y)<=ACC_HIT_R)
 
   const onMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const pos=getPos(e)
-    if(e.button===2){ const hit=nearPlayer(pos); if(hit) setPlacedPlayers(prev=>prev.filter(p=>p.uid!==hit.uid)); return }
+    if(e.button===2){
+      const hitP=nearPlayer(pos); if(hitP){ setPlacedPlayers(prev=>prev.filter(p=>p.uid!==hitP.uid)); return }
+      const hitA=nearAccessory(pos); if(hitA){ setPlacedAccessories(prev=>prev.filter(a=>a.uid!==hitA.uid)); return }
+      return
+    }
     const hitP=nearPlayer(pos); if(hitP){ playerDragRef.current={uid:hitP.uid,ox:pos.x-hitP.x,oy:pos.y-hitP.y}; return }
-    if(!selPlayer){ const idx=findTextAt(pos); if(idx!==-1){ textDragRef.current={idx,ox:pos.x-shapes[idx].start!.x,oy:pos.y-shapes[idx].start!.y}; setDraggedTextIdx(idx); return } }
+    const hitA=nearAccessory(pos); if(hitA){ accDragRef.current={uid:hitA.uid,ox:pos.x-hitA.x,oy:pos.y-hitA.y}; return }
+    if(!selPlayer&&!selAcc){ const idx=findTextAt(pos); if(idx!==-1){ textDragRef.current={idx,ox:pos.x-shapes[idx].start!.x,oy:pos.y-shapes[idx].start!.y}; setDraggedTextIdx(idx); return } }
     if(selPlayer){ setPlacedPlayers(prev=>[...prev,{uid:uuidv4(),team:selPlayer.team,number:selPlayer.number,x:pos.x,y:pos.y}]); return }
+    if(selAcc){ setPlacedAccessories(prev=>[...prev,{uid:uuidv4(),type:selAcc.type,x:pos.x,y:pos.y,rotation:0,color:selAcc.color,size:selAcc.size}]); return }
     if(tool==='text'){ setTextPos(pos); return }
     setIsDrawing(true)
-    setCurrentShape({type:tool,color,width:strokeWidth,start:pos,end:pos,points:tool==='freehand'?[pos]:undefined})
+    setCurrentShape({type:tool,color,width:strokeWidth,dashed,start:pos,end:pos,points:tool==='freehand'?[pos]:undefined})
   }
 
   const onMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const pos=getPos(e)
     if(textDragRef.current){ const{idx,ox,oy}=textDragRef.current; setShapes(prev=>prev.map((s,i)=>i!==idx?s:{...s,start:{x:pos.x-ox,y:pos.y-oy}})); return }
     if(playerDragRef.current){ const{uid,ox,oy}=playerDragRef.current; setPlacedPlayers(prev=>prev.map(p=>p.uid===uid?{...p,x:pos.x-ox,y:pos.y-oy}:p)); return }
+    if(accDragRef.current){ const{uid,ox,oy}=accDragRef.current; setPlacedAccessories(prev=>prev.map(a=>a.uid===uid?{...a,x:pos.x-ox,y:pos.y-oy}:a)); return }
     if(!isDrawing||!currentShape) return
     setCurrentShape(prev=>{ if(!prev) return prev; if(prev.type==='freehand') return{...prev,points:[...(prev.points??[]),pos]}; return{...prev,end:pos} })
   }
@@ -289,6 +415,7 @@ function TacticalBoard({ onCapture, onRegisterCapture }: TacticalBoardProps) {
   const onMouseUp = () => {
     if(textDragRef.current){ textDragRef.current=null; setDraggedTextIdx(null); return }
     if(playerDragRef.current){ playerDragRef.current=null; return }
+    if(accDragRef.current){ accDragRef.current=null; return }
     if(!isDrawing||!currentShape) return
     setIsDrawing(false); setShapes(prev=>[...prev,currentShape]); setCurrentShape(null)
   }
@@ -313,10 +440,24 @@ function TacticalBoard({ onCapture, onRegisterCapture }: TacticalBoardProps) {
     const a=document.createElement('a'); a.download='pizarra-tactica.png'; a.href=canvas.toDataURL('image/png'); a.click()
   }
 
+  const CurveIcon = () => (
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M1 12 Q7 1 13 12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" fill="none"/>
+    </svg>
+  )
+  const CurveArrowIcon = () => (
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M1 12 Q7 1 13 7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" fill="none"/>
+      <path d="M10.5 4.5 L13 7 L10.5 9.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+    </svg>
+  )
+
   const DRAW_TOOLS: { id: DrawTool; icon: React.ReactNode; label: string }[] = [
     {id:'freehand',icon:<Pencil className="w-3.5 h-3.5"/>,label:'Libre'},
     {id:'line',icon:<Minus className="w-3.5 h-3.5"/>,label:'Línea'},
     {id:'arrow',icon:<ArrowRight className="w-3.5 h-3.5"/>,label:'Flecha'},
+    {id:'curve',icon:<CurveIcon/>,label:'Curva'},
+    {id:'curvearrow',icon:<CurveArrowIcon/>,label:'Flecha curva'},
     {id:'circle',icon:<Circle className="w-3.5 h-3.5"/>,label:'Círculo'},
     {id:'rect',icon:<Square className="w-3.5 h-3.5"/>,label:'Rect.'},
     {id:'text',icon:<Type className="w-3.5 h-3.5"/>,label:'Texto'},
@@ -324,7 +465,7 @@ function TacticalBoard({ onCapture, onRegisterCapture }: TacticalBoardProps) {
 
   const isOnPitch = (team: TeamId, n: number) => placedPlayers.some(p=>p.team===team&&p.number===n)
   const countOnPitch = (team: TeamId) => placedPlayers.filter(p=>p.team===team).length
-  const cursorClass = selPlayer?'cursor-cell':draggedTextIdx!==null?'cursor-grabbing':'cursor-crosshair'
+  const cursorClass = (selPlayer||selAcc)?'cursor-cell':draggedTextIdx!==null?'cursor-grabbing':'cursor-crosshair'
 
   return (
     <div className="bg-gray-800 rounded-xl p-4 flex flex-col gap-3">
@@ -380,10 +521,35 @@ function TacticalBoard({ onCapture, onRegisterCapture }: TacticalBoardProps) {
         </div>
       </div>
 
+      {/* Accessories panel */}
+      <div className="bg-gray-900/60 rounded-xl overflow-hidden border border-white/5">
+        <p className="text-white/40 text-[10px] uppercase tracking-widest font-semibold px-3 pt-2.5 pb-2">Biblioteca de accesorios</p>
+        <div className="flex flex-wrap gap-1.5 px-3 pb-3">
+          {ACCESSORY_LIST.map(acc => {
+            const isSel = selAccessory === acc.type
+            return (
+              <button key={acc.type} type="button"
+                onClick={() => { setSelAccessory(isSel ? null : acc.type); setSelPlayer(null) }}
+                className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all border ${isSel ? 'bg-rfpaf-blue text-white border-rfpaf-blue shadow-sm' : 'bg-white/10 text-white/70 border-white/10 hover:bg-white/20 hover:text-white'}`}>
+                {acc.label}
+              </button>
+            )
+          })}
+        </div>
+        {placedAccessories.length > 0 && (
+          <div className="px-3 pb-2 border-t border-white/5 pt-2">
+            <button type="button" onClick={() => setPlacedAccessories([])}
+              className="flex items-center gap-1 text-[10px] text-white/30 hover:text-red-400 transition-colors">
+              <Eraser className="w-3 h-3"/> Quitar todos los accesorios
+            </button>
+          </div>
+        )}
+      </div>
+
       {/* Drawing toolbar */}
       <div className="flex flex-wrap items-center gap-1.5">
-        {selPlayer&&(
-          <button type="button" onClick={()=>setSelPlayer(null)}
+        {(selPlayer || selAccessory) && (
+          <button type="button" onClick={() => { setSelPlayer(null); setSelAccessory(null) }}
             className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-yellow-500/30 text-yellow-300 hover:bg-yellow-500/50 transition-all">
             <UserX className="w-3.5 h-3.5"/> Cancelar
           </button>
@@ -400,12 +566,22 @@ function TacticalBoard({ onCapture, onRegisterCapture }: TacticalBoardProps) {
           className="bg-white/10 text-white text-xs rounded-lg px-2 py-1.5 border border-white/20 focus:outline-none">
           <option value={2}>Fino</option><option value={3}>Normal</option><option value={5}>Grueso</option><option value={8}>Extra</option>
         </select>
+        <button type="button" onClick={()=>setDashed(d=>!d)}
+          className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all ${dashed?'bg-rfpaf-blue text-white shadow-sm':'bg-white/10 text-white/70 hover:bg-white/20 hover:text-white'}`}
+          title="Línea discontinua">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg" className="flex-shrink-0">
+            <line x1="1" y1="7" x2="4" y2="7" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+            <line x1="6" y1="7" x2="9" y2="7" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+            <line x1="11" y1="7" x2="13" y2="7" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+          </svg>
+          <span>Discontinua</span>
+        </button>
         <div className="w-px h-5 bg-white/20 mx-0.5"/>
         <button type="button" onClick={()=>setShapes(prev=>prev.slice(0,-1))}
           className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs bg-white/10 text-white/70 hover:bg-white/20 hover:text-white transition-all">
           <Undo2 className="w-3.5 h-3.5"/> Deshacer
         </button>
-        <button type="button" onClick={()=>{setShapes([]);setPlacedPlayers([])}}
+        <button type="button" onClick={()=>{setShapes([]);setPlacedPlayers([]);setPlacedAccessories([])}}
           className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs bg-red-500/30 text-red-300 hover:bg-red-500/50 hover:text-white transition-all">
           <Eraser className="w-3.5 h-3.5"/> Limpiar
         </button>
@@ -467,7 +643,7 @@ async function exportSesionPDF(sesion: Sesion) {
         ${sesion.ejercicios.map(ej => `
           <div style="border:1px solid #dbeafe;border-radius:8px;overflow:hidden;margin-bottom:12px;page-break-inside:avoid">
             <div style="background:#eff6ff;padding:7px 12px;display:flex;align-items:center;gap:10px;border-bottom:1px solid #dbeafe">
-              <span style="background:#1e40af;color:#fff;border-radius:50%;width:22px;height:22px;display:inline-flex;align-items:center;justify-content:center;font-weight:800;font-size:11px;flex-shrink:0">${ej.orden}</span>
+              <span style="background:#1e40af;color:#fff;border-radius:50%;width:22px;height:22px;display:inline-block;line-height:22px;text-align:center;font-weight:800;font-size:11px;flex-shrink:0;vertical-align:middle">${ej.orden}</span>
               <span style="font-weight:700;color:#1e293b;font-size:12px">${ej.tipo||'Ejercicio'}</span>
               <span style="margin-left:auto;font-size:10px;color:#64748b">
                 ${ej.duracion?`${ej.duracion} min`:''}${ej.duracion&&ej.numJugadores?' · ':''}${ej.numJugadores?`${ej.numJugadores} jugadoras`:''}

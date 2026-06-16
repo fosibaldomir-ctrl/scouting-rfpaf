@@ -71,30 +71,40 @@ export default function ConvocatoriaPDFTemplate({ convocatoria, clubEscudos }: P
       {/* Header */}
       <div style={{
         background: 'linear-gradient(135deg, #1a3a6b 0%, #2563eb 100%)',
-        padding: '28px 40px',
+        padding: '24px 40px',
         color: '#ffffff',
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div>
-            <p style={{ margin: 0, fontSize: 11, fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', opacity: 0.75 }}>
-              Real Federación de Fútbol · Principado de Asturias
-            </p>
-            <h1 style={{ margin: '6px 0 0', fontSize: 26, fontWeight: 800, letterSpacing: 1 }}>
-              CONVOCATORIA
-            </h1>
-            <p style={{ margin: '4px 0 0', fontSize: 15, opacity: 0.9, fontWeight: 500 }}>
-              {convocatoria.nombre}
-            </p>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 20 }}>
+          {/* Logo + texto */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 20, flex: 1 }}>
+            <img
+              src="https://files.asturfutbol.es/pnfg/img/web_responsive_2/ESP/logo(rffpa).png"
+              alt="RFPAF"
+              crossOrigin="anonymous"
+              style={{ width: 72, height: 90, objectFit: 'contain', flexShrink: 0, filter: 'drop-shadow(0 2px 6px rgba(0,0,0,0.35))' }}
+            />
+            <div>
+              <p style={{ margin: 0, fontSize: 10, fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', opacity: 0.75 }}>
+                Real Federación de Fútbol · Principado de Asturias
+              </p>
+              <h1 style={{ margin: '5px 0 0', fontSize: 28, fontWeight: 800, letterSpacing: 1 }}>
+                CONVOCATORIA
+              </h1>
+              <p style={{ margin: '4px 0 0', fontSize: 15, opacity: 0.9, fontWeight: 500 }}>
+                {convocatoria.nombre}
+              </p>
+            </div>
           </div>
-          <div style={{ textAlign: 'right' }}>
+          {/* Fecha / Hora */}
+          <div style={{ textAlign: 'center', flexShrink: 0 }}>
             <div style={{
               background: 'rgba(255,255,255,0.15)',
               borderRadius: 12,
-              padding: '12px 20px',
+              padding: '12px 22px',
               border: '1px solid rgba(255,255,255,0.25)',
             }}>
-              <p style={{ margin: 0, fontSize: 11, opacity: 0.75, textTransform: 'uppercase', letterSpacing: 1 }}>Fecha</p>
-              <p style={{ margin: '2px 0 0', fontSize: 18, fontWeight: 700 }}>
+              <p style={{ margin: 0, fontSize: 10, opacity: 0.75, textTransform: 'uppercase', letterSpacing: 1 }}>Fecha</p>
+              <p style={{ margin: '3px 0 0', fontSize: 19, fontWeight: 700 }}>
                 {formatFecha(convocatoria.fecha)}
               </p>
               <p style={{ margin: '4px 0 0', fontSize: 14, fontWeight: 600, opacity: 0.9 }}>

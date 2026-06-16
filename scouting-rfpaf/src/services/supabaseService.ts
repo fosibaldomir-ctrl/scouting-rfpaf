@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabase'
-import type { FichaJugadora, Club, Observador, CategoriaItem, PartidoCalendario } from '../types'
+import type { FichaJugadora, Club, Observador, CategoriaItem, PartidoCalendario, Convocatoria } from '../types'
 
 export const supabaseService = {
   async getFichas(): Promise<FichaJugadora[]> {
@@ -300,5 +300,79 @@ export const supabaseService = {
       return false
     }
     return true
+  },
+
+  async getConvocatorias(): Promise<Convocatoria[]> {
+    const { data, error } = await supabase
+      .from('convocatorias')
+      .select('*')
+      .order('creado_en', { ascending: false })
+    if (error) {
+      console.error('Error al cargar convocatorias:', error)
+      return []
+    }
+    return (data || []).map((c: any) => ({
+      id: c.id,
+      nombre: c.nombre,
+      fecha: c.fecha,
+      hora: c.hora,
+      jugadoras: c.jugadoras ?? [],
+      pdfUrl: c.pdf_url ?? null,
+      creadoEn: c.creado_en,
+    }))
+  },
+
+  async addConvocatoria(c: Convocatoria): Promise<boolean> {
+    const { error } = await supabase.from('convocatorias').insert([{
+      id: c.id,
+      nombre: c.nombre,
+      fecha: c.fecha,
+      hora: c.hora,
+      jugadoras: c.jugadoras,
+      pdf_url: c.pdfUrl ?? null,
+      creado_en: c.creadoEn,
+    }])
+    if (error) {
+      console.error('Error al guardar convocatoria:', error)
+      return false
+    }
+    return true
+  },
+
+  async updateConvocatoria(id: string, data: Partial<Convocatoria>): Promise<boolean> {
+    const payload: Record<string, unknown> = {}
+    if (data.nombre !== undefined) payload.nombre = data.nombre
+    if (data.fecha !== undefined) payload.fecha = data.fecha
+    if (data.hora !== undefined) payload.hora = data.hora
+    if (data.jugadoras !== undefined) payload.jugadoras = data.jugadoras
+    if (data.pdfUrl !== undefined) payload.pdf_url = data.pdfUrl
+    const { error } = await supabase.from('convocatorias').update(payload).eq('id', id)
+    if (error) {
+      console.error('Error al actualizar convocatoria:', error)
+      return false
+    }
+    return true
+  },
+
+  async deleteConvocatoria(id: string): Promise<boolean> {
+    const { error } = await supabase.from('convocatorias').delete().eq('id', id)
+    if (error) {
+      console.error('Error al eliminar convocatoria:', error)
+      return false
+    }
+    return true
+  },
+
+  async uploadConvocatoriaPDF(convocatoriaId: string, blob: Blob): Promise<string | null> {
+    const filename = `convocatoria-${convocatoriaId}-${Date.now()}.pdf`
+    const { error } = await supabase.storage
+      .from('convocatorias-pdfs')
+      .upload(filename, blob, { contentType: 'application/pdf', upsert: true })
+    if (error) {
+      console.error('Error al subir PDF a Storage:', error)
+      return null
+    }
+    const { data } = supabase.storage.from('convocatorias-pdfs').getPublicUrl(filename)
+    return data.publicUrl
   },
 }

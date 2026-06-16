@@ -33,11 +33,12 @@ interface AppState {
   deleteClub: (id: string) => Promise<void>
   addCategoria: (cat: CategoriaItem) => Promise<void>
   deleteCategoria: (id: string) => Promise<void>
-  addConvocatoria: (c: Convocatoria) => void
-  updateConvocatoria: (id: string, data: Partial<Convocatoria>) => void
-  deleteConvocatoria: (id: string) => void
-  addJugadoraToConvocatoria: (convocatoriaId: string, jugadora: JugadoraConvocada) => void
-  removeJugadoraFromConvocatoria: (convocatoriaId: string, fichaId: string) => void
+  setConvocatorias: (convocatorias: Convocatoria[]) => void
+  addConvocatoria: (c: Convocatoria) => Promise<void>
+  updateConvocatoria: (id: string, data: Partial<Convocatoria>) => Promise<void>
+  deleteConvocatoria: (id: string) => Promise<void>
+  addJugadoraToConvocatoria: (convocatoriaId: string, jugadora: JugadoraConvocada) => Promise<void>
+  removeJugadoraFromConvocatoria: (convocatoriaId: string, fichaId: string) => Promise<void>
 }
 
 export const useStore = create<AppState>()(
@@ -133,34 +134,48 @@ export const useStore = create<AppState>()(
         await supabaseService.deleteCategoria(id)
       },
 
-      addConvocatoria: (c) =>
-        set((state) => ({ convocatorias: [...state.convocatorias, c] })),
+      setConvocatorias: (convocatorias: Convocatoria[]): void => { set({ convocatorias }) },
 
-      updateConvocatoria: (id, data) =>
+      addConvocatoria: async (c: Convocatoria): Promise<void> => {
+        set((state) => ({ convocatorias: [...state.convocatorias, c] }))
+        await supabaseService.addConvocatoria(c)
+      },
+
+      updateConvocatoria: async (id: string, data: Partial<Convocatoria>): Promise<void> => {
         set((state) => ({
           convocatorias: state.convocatorias.map((c) => (c.id === id ? { ...c, ...data } : c)),
-        })),
+        }))
+        await supabaseService.updateConvocatoria(id, data)
+      },
 
-      deleteConvocatoria: (id) =>
-        set((state) => ({ convocatorias: state.convocatorias.filter((c) => c.id !== id) })),
+      deleteConvocatoria: async (id: string): Promise<void> => {
+        set((state) => ({ convocatorias: state.convocatorias.filter((c) => c.id !== id) }))
+        await supabaseService.deleteConvocatoria(id)
+      },
 
-      addJugadoraToConvocatoria: (convocatoriaId, jugadora) =>
+      addJugadoraToConvocatoria: async (convocatoriaId: string, jugadora: JugadoraConvocada): Promise<void> => {
+        const conv = get().convocatorias.find((c) => c.id === convocatoriaId)
+        if (!conv || conv.jugadoras.length >= 22 || conv.jugadoras.some((j) => j.fichaId === jugadora.fichaId)) return
+        const newJugadoras = [...conv.jugadoras, jugadora]
         set((state) => ({
           convocatorias: state.convocatorias.map((c) =>
-            c.id === convocatoriaId && c.jugadoras.length < 22 && !c.jugadoras.some((j) => j.fichaId === jugadora.fichaId)
-              ? { ...c, jugadoras: [...c.jugadoras, jugadora] }
-              : c
+            c.id === convocatoriaId ? { ...c, jugadoras: newJugadoras } : c
           ),
-        })),
+        }))
+        await supabaseService.updateConvocatoria(convocatoriaId, { jugadoras: newJugadoras })
+      },
 
-      removeJugadoraFromConvocatoria: (convocatoriaId, fichaId) =>
+      removeJugadoraFromConvocatoria: async (convocatoriaId: string, fichaId: string): Promise<void> => {
+        const conv = get().convocatorias.find((c) => c.id === convocatoriaId)
+        if (!conv) return
+        const newJugadoras = conv.jugadoras.filter((j) => j.fichaId !== fichaId)
         set((state) => ({
           convocatorias: state.convocatorias.map((c) =>
-            c.id === convocatoriaId
-              ? { ...c, jugadoras: c.jugadoras.filter((j) => j.fichaId !== fichaId) }
-              : c
+            c.id === convocatoriaId ? { ...c, jugadoras: newJugadoras } : c
           ),
-        })),
+        }))
+        await supabaseService.updateConvocatoria(convocatoriaId, { jugadoras: newJugadoras })
+      },
     }),
     {
       name: 'rfpaf-scouting-storage',

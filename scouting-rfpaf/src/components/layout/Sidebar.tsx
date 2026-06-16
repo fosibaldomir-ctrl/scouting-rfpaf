@@ -1,5 +1,5 @@
 import { NavLink, useNavigate } from 'react-router-dom'
-import { LayoutDashboard, Database, PlusCircle, Settings, LogOut, LayoutGrid, X, CalendarDays, ChevronDown, Dumbbell } from 'lucide-react'
+import { LayoutDashboard, Database, PlusCircle, Settings, LogOut, LayoutGrid, X, CalendarDays, ChevronDown, Dumbbell, ClipboardList } from 'lucide-react'
 import { useState } from 'react'
 import { useStore } from '../../store/useStore'
 import RFPAFLogo from '../RFPAFLogo'
@@ -14,6 +14,7 @@ const scoutingItems = [
   { to: '/base-datos', icon: Database, label: 'Base de Datos' },
   { to: '/campograma', icon: LayoutGrid, label: 'Campograma' },
   { to: '/calendario', icon: CalendarDays, label: 'Calendario' },
+  { to: '/convocatorias', icon: ClipboardList, label: 'Convocatorias' },
 ]
 
 const extraItems = [

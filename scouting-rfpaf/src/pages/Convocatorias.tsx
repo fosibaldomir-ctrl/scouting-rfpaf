@@ -3,6 +3,7 @@ import { Plus, Trash2, Download, ArrowLeft, Search, X, Users, Calendar, Clock, C
 import { useStore } from '../store/useStore'
 import type { Convocatoria, JugadoraConvocada } from '../types'
 import ConvocatoriaPDFTemplate from '../components/pdf/ConvocatoriaPDFTemplate'
+import { supabaseService } from '../services/supabaseService'
 
 export default function Convocatorias() {
   const {
@@ -89,6 +90,8 @@ export default function Convocatorias() {
     addJugadoraToConvocatoria(selectedId, jugadora)
   }
 
+  const [uploadingPDF, setUploadingPDF] = useState(false)
+
   const handleExportPDF = async () => {
     if (!pdfRef.current || !selected) return
     const el = pdfRef.current
@@ -114,9 +117,21 @@ export default function Convocatorias() {
         yOffset += pdfH
         remaining -= pdfH
       }
-      pdf.save(`convocatoria-${selected.fecha}-${selected.nombre.replace(/\s+/g, '_')}.pdf`)
+
+      // Descarga en el navegador
+      const filename = `convocatoria-${selected.fecha}-${selected.nombre.replace(/\s+/g, '_')}.pdf`
+      pdf.save(filename)
+
+      // Subir a Supabase Storage y guardar URL
+      setUploadingPDF(true)
+      const blob = pdf.output('blob')
+      const pdfUrl = await supabaseService.uploadConvocatoriaPDF(selected.id, blob)
+      if (pdfUrl) {
+        await updateConvocatoria(selected.id, { pdfUrl })
+      }
     } finally {
       el.style.cssText = prevCss
+      setUploadingPDF(false)
     }
   }
 
@@ -134,9 +149,13 @@ export default function Convocatorias() {
             Volver a convocatorias
           </button>
           <div className="flex gap-2">
-            <button onClick={handleExportPDF} className="btn-secondary flex items-center gap-2 text-sm">
-              <Download className="w-4 h-4" />
-              <span className="hidden sm:inline">Descargar PDF</span>
+            <button
+              onClick={handleExportPDF}
+              disabled={uploadingPDF}
+              className="btn-secondary flex items-center gap-2 text-sm disabled:opacity-60"
+            >
+              <Download className={`w-4 h-4 ${uploadingPDF ? 'animate-bounce' : ''}`} />
+              <span className="hidden sm:inline">{uploadingPDF ? 'Guardando…' : 'Descargar PDF'}</span>
               <span className="sm:hidden">PDF</span>
             </button>
             <button
