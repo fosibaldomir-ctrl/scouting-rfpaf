@@ -1535,15 +1535,6 @@ const FILTER_TIPOS = ['Calentamiento', 'Técnico', 'Táctico', 'Físico', 'Fuerz
 const FILTER_JUGADORES = ['1', '2-4', '5-8', '9-11']
 const FILTER_DURACION = ['5-10', '10-20', '20+']
 const FILTER_MATERIAL = ['Sin material', 'Conos', 'Balones', 'Petos', 'Vallas', 'Escalera', 'Otro']
-
-const EJERCICIOS_PREDEFINIDOS: Ejercicio[] = [
-  { id:'ej1', tipo:'Calentamiento', duracion:'10', numJugadores:'11', material:'Balones', descripcion:'Toque de balón en movimiento en todo el campo', imagen:null, video:'https://www.youtube.com/embed/dQw4w9WgXcQ', creadoEn:new Date().toISOString() },
-  { id:'ej2', tipo:'Técnico', duracion:'15', numJugadores:'5-8', material:'Conos', descripcion:'Control orientado con cambio de dirección', imagen:null, video:null, creadoEn:new Date().toISOString() },
-  { id:'ej3', tipo:'Táctico', duracion:'20', numJugadores:'9-11', material:'Balones', descripcion:'Posesión en zona con presión defensiva', imagen:null, video:null, creadoEn:new Date().toISOString() },
-  { id:'ej4', tipo:'Físico', duracion:'12', numJugadores:'2-4', material:'Vallas', descripcion:'Cambios de dirección rápidos', imagen:null, video:null, creadoEn:new Date().toISOString() },
-  { id:'ej5', tipo:'Fuerza', duracion:'15', numJugadores:'1', material:'Sin material', descripcion:'Ejercicios de piernas y core', imagen:null, video:null, creadoEn:new Date().toISOString() },
-  { id:'ej6', tipo:'Agilidad', duracion:'10', numJugadores:'5-8', material:'Conos', descripcion:'Carrera lateral y cambios rápidos', imagen:null, video:null, creadoEn:new Date().toISOString() },
-]
 const FORM_EMPTY = { tipo:'',duracion:'',descripcion:'',numJugadores:'',material:'',imagen:null as string|null,video:'' }
 
 function BibliotecaTab() {
@@ -1555,16 +1546,13 @@ function BibliotecaTab() {
   const [selEjercicio, setSelEjercicio] = useState<EjercicioDB | null>(null)
   const [crearEjercicioOpen, setCrearEjercicioOpen] = useState(false)
   const [ejercicios, setEjercicios] = useState<EjercicioDB[]>([])
-  const [loading, setLoading] = useState(true)
   const [formEj, setFormEj] = useState({tipo:'',duracion:'',num_jugadores:'',material:'',descripcion:'',imagen:'',video:''})
   const captureForEjRef = useRef<(()=>string|null)|null>(null)
 
   useEffect(() => {
     const loadEjercicios = async () => {
-      setLoading(true)
       const data = await fetchEjercicios()
       setEjercicios(data)
-      setLoading(false)
     }
     loadEjercicios()
   }, [])
