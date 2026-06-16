@@ -35,9 +35,16 @@ export async function fetchEjercicios(): Promise<EjercicioDB[]> {
 
 export async function uploadEjercicioImage(base64: string, ejercicioId: string): Promise<string | null> {
   try {
-    if (!base64) return null
+    console.log('uploadEjercicioImage called with:', { ejercicioId, base64Length: base64?.length })
+
+    if (!base64) {
+      console.warn('No base64 image provided')
+      return null
+    }
 
     const fileName = `ejercicio-${ejercicioId}-${Date.now()}.png`
+    console.log('Uploading file:', fileName)
+
     const base64Data = base64.replace(/^data:image\/\w+;base64,/, '')
     const binaryData = atob(base64Data)
     const bytes = new Uint8Array(binaryData.length)
@@ -45,22 +52,29 @@ export async function uploadEjercicioImage(base64: string, ejercicioId: string):
       bytes[i] = binaryData.charCodeAt(i)
     }
 
-    const { error } = await supabase.storage
+    console.log('Converted to bytes, length:', bytes.length)
+
+    const { data, error } = await supabase.storage
       .from('ejercicios')
       .upload(fileName, bytes, { contentType: 'image/png' })
 
     if (error) {
-      console.error('Storage error:', error)
+      console.error('Storage upload error:', error.message, error)
+      alert(`Error al subir imagen: ${error.message}`)
       return null
     }
+
+    console.log('File uploaded successfully:', data)
 
     const { data: publicUrl } = supabase.storage
       .from('ejercicios')
       .getPublicUrl(fileName)
 
+    console.log('Public URL:', publicUrl.publicUrl)
     return publicUrl.publicUrl
   } catch (err) {
     console.error('Exception uploading image:', err)
+    alert(`Excepción al subir imagen: ${err instanceof Error ? err.message : 'Unknown'}`)
     return null
   }
 }
