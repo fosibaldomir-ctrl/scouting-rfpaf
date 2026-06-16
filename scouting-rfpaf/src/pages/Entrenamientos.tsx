@@ -41,7 +41,7 @@ type AccessoryType = 'goal_front' | 'goal_3d_r' | 'goal_3d_l' | 'goal_side' | 'g
 interface PlacedAccessory { uid: string; type: AccessoryType; x: number; y: number; rotation: number; color?: string; scale: number }
 interface SelAcc { type: AccessoryType; color?: string }
 
-type Tab = 'biblioteca' | 'sesion'
+type Tab = 'videoteca' | 'sesion'
 
 /* ═══════════════════════════════════════
    PLAYER CONSTANTS
@@ -1530,7 +1530,7 @@ function EjercicioCard({ ej, onDelete }: { ej: Ejercicio; onDelete: (id: string)
 const TIPOS_EJERCICIO = ['Técnico','Táctico','Físico','Rondo','Partido reducido','Calentamiento','Posesión','Pressing','Otro']
 const FORM_EMPTY = { tipo:'',duracion:'',descripcion:'',numJugadores:'',material:'',imagen:null as string|null,video:'' }
 
-function BibliotecaTab() {
+function VideotecaTab() {
   const [formOpen, setFormOpen] = useState(false)
   const [ejercicios, setEjercicios] = useState<Ejercicio[]>([])
   const [form, setForm] = useState(FORM_EMPTY)
@@ -1547,93 +1547,88 @@ function BibliotecaTab() {
   }
 
   return (
-    <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
-      <div className="space-y-4">
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-          <button type="button" onClick={()=>setFormOpen(o=>!o)}
-            className="w-full flex items-center justify-between p-4 hover:bg-gray-50 transition-colors">
-            <span className="flex items-center gap-2 font-semibold text-gray-800 text-sm">
-              <Plus className="w-4 h-4 text-rfpaf-blue"/> Nuevo Ejercicio
-            </span>
-            <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${formOpen?'rotate-180':''}`}/>
-          </button>
-          {formOpen&&(
-            <form onSubmit={handleSubmit} className="px-4 pb-4 border-t border-gray-100 space-y-3 pt-3">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">Tipo de ejercicio</label>
-                  <select value={form.tipo} onChange={e=>setForm(f=>({...f,tipo:e.target.value}))}
-                    className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-rfpaf-blue/30">
-                    <option value="">Seleccionar…</option>
-                    {TIPOS_EJERCICIO.map(t=><option key={t} value={t}>{t}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">Duración (min)</label>
-                  <input type="number" value={form.duracion} onChange={e=>setForm(f=>({...f,duracion:e.target.value}))}
-                    placeholder="15" min={1} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-rfpaf-blue/30"/>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">Nº Jugadoras</label>
-                  <input type="number" value={form.numJugadores} onChange={e=>setForm(f=>({...f,numJugadores:e.target.value}))}
-                    placeholder="11" min={1} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-rfpaf-blue/30"/>
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">Material</label>
-                  <input type="text" value={form.material} onChange={e=>setForm(f=>({...f,material:e.target.value}))}
-                    placeholder="Conos, petos…" className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-rfpaf-blue/30"/>
-                </div>
+    <div className="space-y-4 max-w-3xl">
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <button type="button" onClick={()=>setFormOpen(o=>!o)}
+          className="w-full flex items-center justify-between p-4 hover:bg-gray-50 transition-colors">
+          <span className="flex items-center gap-2 font-semibold text-gray-800 text-sm">
+            <Plus className="w-4 h-4 text-rfpaf-blue"/> Nuevo Ejercicio
+          </span>
+          <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${formOpen?'rotate-180':''}`}/>
+        </button>
+        {formOpen&&(
+          <form onSubmit={handleSubmit} className="px-4 pb-4 border-t border-gray-100 space-y-3 pt-3">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Tipo de ejercicio</label>
+                <select value={form.tipo} onChange={e=>setForm(f=>({...f,tipo:e.target.value}))}
+                  className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-rfpaf-blue/30">
+                  <option value="">Seleccionar…</option>
+                  {TIPOS_EJERCICIO.map(t=><option key={t} value={t}>{t}</option>)}
+                </select>
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Descripción</label>
-                <textarea value={form.descripcion} onChange={e=>setForm(f=>({...f,descripcion:e.target.value}))}
-                  placeholder="Describe el ejercicio, objetivos, variantes…" rows={3}
-                  className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-rfpaf-blue/30 resize-none"/>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Duración (min)</label>
+                <input type="number" value={form.duracion} onChange={e=>setForm(f=>({...f,duracion:e.target.value}))}
+                  placeholder="15" min={1} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-rfpaf-blue/30"/>
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1 flex items-center gap-1"><Image className="w-3 h-3"/> Imagen</label>
-                  <label className="flex flex-col items-center justify-center w-full h-28 border-2 border-dashed border-gray-200 rounded-lg cursor-pointer hover:border-rfpaf-blue/50 hover:bg-blue-50/40 transition-colors overflow-hidden">
-                    {form.imagen?<img src={form.imagen} alt="Preview" className="w-full h-full object-cover"/>
-                      :<div className="flex flex-col items-center text-gray-400 pointer-events-none"><Image className="w-6 h-6 mb-1"/><span className="text-xs">Subir imagen</span></div>}
-                    <input type="file" accept="image/*" className="hidden" onChange={handleImage}/>
-                  </label>
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1 flex items-center gap-1"><Video className="w-3 h-3"/> Video (URL)</label>
-                  <div className="flex flex-col items-center justify-center w-full h-28 border-2 border-dashed border-gray-200 rounded-lg gap-2 p-3">
-                    <Video className="w-6 h-6 text-gray-400"/>
-                    <input type="url" value={form.video} onChange={e=>setForm(f=>({...f,video:e.target.value}))}
-                      placeholder="YouTube o Vimeo URL…" className="w-full text-xs border border-gray-200 rounded-md px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-rfpaf-blue/30"/>
-                  </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Nº Jugadoras</label>
+                <input type="number" value={form.numJugadores} onChange={e=>setForm(f=>({...f,numJugadores:e.target.value}))}
+                  placeholder="11" min={1} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-rfpaf-blue/30"/>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Material</label>
+                <input type="text" value={form.material} onChange={e=>setForm(f=>({...f,material:e.target.value}))}
+                  placeholder="Conos, petos…" className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-rfpaf-blue/30"/>
+              </div>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Descripción</label>
+              <textarea value={form.descripcion} onChange={e=>setForm(f=>({...f,descripcion:e.target.value}))}
+                placeholder="Describe el ejercicio, objetivos, variantes…" rows={3}
+                className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-rfpaf-blue/30 resize-none"/>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1 flex items-center gap-1"><Image className="w-3 h-3"/> Imagen</label>
+                <label className="flex flex-col items-center justify-center w-full h-28 border-2 border-dashed border-gray-200 rounded-lg cursor-pointer hover:border-rfpaf-blue/50 hover:bg-blue-50/40 transition-colors overflow-hidden">
+                  {form.imagen?<img src={form.imagen} alt="Preview" className="w-full h-full object-cover"/>
+                    :<div className="flex flex-col items-center text-gray-400 pointer-events-none"><Image className="w-6 h-6 mb-1"/><span className="text-xs">Subir imagen</span></div>}
+                  <input type="file" accept="image/*" className="hidden" onChange={handleImage}/>
+                </label>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1 flex items-center gap-1"><Video className="w-3 h-3"/> Video (URL)</label>
+                <div className="flex flex-col items-center justify-center w-full h-28 border-2 border-dashed border-gray-200 rounded-lg gap-2 p-3">
+                  <Video className="w-6 h-6 text-gray-400"/>
+                  <input type="url" value={form.video} onChange={e=>setForm(f=>({...f,video:e.target.value}))}
+                    placeholder="YouTube o Vimeo URL…" className="w-full text-xs border border-gray-200 rounded-md px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-rfpaf-blue/30"/>
                 </div>
               </div>
-              <button type="submit" className="w-full py-2.5 bg-rfpaf-blue text-white rounded-lg text-sm font-semibold hover:bg-rfpaf-blue/90 transition-colors">
-                Guardar ejercicio
-              </button>
-            </form>
-          )}
-        </div>
-
-        {ejercicios.length===0?(
-          <div className="text-center py-14 text-gray-400">
-            <FileText className="w-10 h-10 mx-auto mb-2 opacity-30"/>
-            <p className="text-sm font-medium">Sin ejercicios todavía</p>
-            <p className="text-xs mt-1 opacity-70">Crea el primero usando el formulario de arriba</p>
-          </div>
-        ):(
-          <div className="space-y-4">
-            {ejercicios.map(ej=>(
-              <EjercicioCard key={ej.id} ej={ej} onDelete={id=>setEjercicios(prev=>prev.filter(e=>e.id!==id))}/>
-            ))}
-          </div>
+            </div>
+            <button type="submit" className="w-full py-2.5 bg-rfpaf-blue text-white rounded-lg text-sm font-semibold hover:bg-rfpaf-blue/90 transition-colors">
+              Guardar ejercicio
+            </button>
+          </form>
         )}
       </div>
 
-      {/* Right: tactical board without capture */}
-      <TacticalBoard/>
+      {ejercicios.length===0?(
+        <div className="text-center py-14 text-gray-400">
+          <FileText className="w-10 h-10 mx-auto mb-2 opacity-30"/>
+          <p className="text-sm font-medium">Sin ejercicios todavía</p>
+          <p className="text-xs mt-1 opacity-70">Crea el primero usando el formulario de arriba</p>
+        </div>
+      ):(
+        <div className="space-y-4">
+          {ejercicios.map(ej=>(
+            <EjercicioCard key={ej.id} ej={ej} onDelete={id=>setEjercicios(prev=>prev.filter(e=>e.id!==id))}/>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
@@ -1666,17 +1661,17 @@ export default function Entrenamientos() {
         </button>
         <button
           type="button"
-          onClick={() => setTab('biblioteca')}
+          onClick={() => setTab('videoteca')}
           className={`flex items-center gap-2 px-4 py-2.5 text-sm font-semibold border-b-2 transition-colors ${
-            tab==='biblioteca' ? 'border-rfpaf-blue text-rfpaf-blue' : 'border-transparent text-gray-500 hover:text-gray-700'
+            tab==='videoteca' ? 'border-rfpaf-blue text-rfpaf-blue' : 'border-transparent text-gray-500 hover:text-gray-700'
           }`}
         >
-          <BookOpen className="w-4 h-4"/> Biblioteca de Ejercicios
+          <Video className="w-4 h-4"/> Videoteca de Ejercicios
         </button>
       </div>
 
       {/* Tab content */}
-      {tab==='sesion' ? <SesionTab/> : <BibliotecaTab/>}
+      {tab==='sesion' ? <SesionTab/> : <VideotecaTab/>}
     </div>
   )
 }
