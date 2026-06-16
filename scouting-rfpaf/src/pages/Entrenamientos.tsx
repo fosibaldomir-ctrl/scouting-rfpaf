@@ -419,7 +419,7 @@ function TacticalBoard({ onCapture, onRegisterCapture }: TacticalBoardProps) {
       if(selectedAccUid===a.uid) drawAccessoryHandles(ctx,a)
     })
     placedPlayers.forEach(p=>drawPlacedPlayer(ctx,p,playerDragRef.current?.uid===p.uid))
-  }, [shapes,currentShape,placedPlayers,placedAccessories,draggedTextIdx,pitchType])
+  }, [shapes,currentShape,placedPlayers,placedAccessories,draggedTextIdx,pitchType,selectedAccUid])
 
   useEffect(() => { redraw() }, [redraw])
 
