@@ -38,8 +38,8 @@ interface PlacedPlayer { uid: string; team: TeamId; number: number; x: number; y
 interface SelPlayer { team: TeamId; number: number }
 
 type AccessoryType = 'goal' | 'cone' | 'mushroom' | 'ladder' | 'hurdle' | 'mannequin' | 'barrier' | 'ball'
-interface PlacedAccessory { uid: string; type: AccessoryType; x: number; y: number; rotation: number; color?: string; size?: 's'|'m'|'l' }
-interface SelAcc { type: AccessoryType; color?: string; size?: 's'|'m'|'l' }
+interface PlacedAccessory { uid: string; type: AccessoryType; x: number; y: number; rotation: number; color?: string; scale: number }
+interface SelAcc { type: AccessoryType; color?: string }
 
 type Tab = 'biblioteca' | 'sesion'
 
@@ -54,6 +54,9 @@ const TEAMS: Record<TeamId, { bg: string; border: string; text: string; label: s
 }
 const PLAYER_R = 15
 const ACC_HIT_R = 20
+const ACC_LOCAL_HALF = 22
+const HANDLE_R = 7
+const ROT_EXTRA = 22
 
 function drawAccessory(ctx: CanvasRenderingContext2D, a: PlacedAccessory, dragging: boolean) {
   ctx.save()
@@ -62,10 +65,11 @@ function drawAccessory(ctx: CanvasRenderingContext2D, a: PlacedAccessory, draggi
   ctx.lineCap = 'round'; ctx.lineJoin = 'round'
   ctx.shadowColor = dragging ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)'
   ctx.shadowBlur = dragging ? 12 : 5; ctx.shadowOffsetY = dragging ? 0 : 2
+  ctx.scale(a.scale, a.scale)
   const clr = a.color
   switch (a.type) {
     case 'goal': {
-      const sz=a.size; const w=sz==='s'?22:sz==='l'?54:36; const h=sz==='s'?13:sz==='l'?23:19
+      const w=36, h=19
       ctx.strokeStyle='#ffffff'; ctx.lineWidth=2.5
       ctx.beginPath(); ctx.moveTo(-w/2,h/2); ctx.lineTo(-w/2,-h/2); ctx.lineTo(w/2,-h/2); ctx.lineTo(w/2,h/2); ctx.stroke()
       ctx.lineWidth=0.8; ctx.strokeStyle='rgba(255,255,255,0.35)'
@@ -144,37 +148,80 @@ const PALETTE = [
 ]
 
 function drawAccessoryHandles(ctx: CanvasRenderingContext2D, a: PlacedAccessory) {
-  const radius = 45
+  const hw = ACC_LOCAL_HALF * a.scale
+  const hh = ACC_LOCAL_HALF * a.scale
+  const rad = (a.rotation ?? 0) * Math.PI / 180
+
+  ctx.save()
+  ctx.translate(a.x, a.y)
+  ctx.rotate(rad)
+
+  // Bounding box
   ctx.strokeStyle = '#3b82f6'
-  ctx.lineWidth = 2
-  ctx.setLineDash([4, 4])
-  ctx.beginPath()
-  ctx.arc(a.x, a.y, radius, 0, Math.PI * 2)
-  ctx.stroke()
+  ctx.lineWidth = 1.5
+  ctx.setLineDash([5, 4])
+  ctx.strokeRect(-hw, -hh, hw * 2, hh * 2)
   ctx.setLineDash([])
 
-  // Rotate handle (top)
-  const rotAngle = (a.rotation ?? 0) * Math.PI / 180
-  const rotX = a.x + radius * Math.cos(rotAngle)
-  const rotY = a.y + radius * Math.sin(rotAngle)
-  ctx.fillStyle = '#ef4444'
+  // Line from top-center to rotation handle
+  ctx.strokeStyle = 'rgba(59,130,246,0.5)'
+  ctx.lineWidth = 1
   ctx.beginPath()
-  ctx.arc(rotX, rotY, 6, 0, Math.PI * 2)
-  ctx.fill()
-  ctx.strokeStyle = '#ffffff'
-  ctx.lineWidth = 2
+  ctx.moveTo(0, -hh)
+  ctx.lineTo(0, -(hh + ROT_EXTRA))
   ctx.stroke()
 
-  // Resize handle (right)
-  const resizeX = a.x + radius
-  const resizeY = a.y
-  ctx.fillStyle = '#22c55e'
-  ctx.beginPath()
-  ctx.arc(resizeX, resizeY, 6, 0, Math.PI * 2)
-  ctx.fill()
+  // Rotation handle (red, above box)
+  ctx.fillStyle = '#ef4444'
   ctx.strokeStyle = '#ffffff'
   ctx.lineWidth = 2
+  ctx.beginPath()
+  ctx.arc(0, -(hh + ROT_EXTRA), HANDLE_R, 0, Math.PI * 2)
+  ctx.fill()
   ctx.stroke()
+  // Rotation icon inside handle
+  ctx.strokeStyle = '#ffffff'
+  ctx.lineWidth = 1.5
+  ctx.beginPath()
+  ctx.arc(0, -(hh + ROT_EXTRA), 3, -Math.PI * 0.7, Math.PI * 0.7)
+  ctx.stroke()
+
+  // Corner resize handles (green)
+  const corners: [number, number][] = [[-hw, -hh], [hw, -hh], [hw, hh], [-hw, hh]]
+  corners.forEach(([cx, cy]) => {
+    ctx.fillStyle = '#22c55e'
+    ctx.strokeStyle = '#ffffff'
+    ctx.lineWidth = 2
+    ctx.beginPath()
+    ctx.arc(cx, cy, HANDLE_R, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.stroke()
+  })
+
+  ctx.restore()
+}
+
+function getAccHandleHit(pos: Point, a: PlacedAccessory): 'rotation' | 'corner' | 'body' | null {
+  const dx = pos.x - a.x
+  const dy = pos.y - a.y
+  const rad = (a.rotation ?? 0) * Math.PI / 180
+  const cos = Math.cos(rad)
+  const sin = Math.sin(rad)
+  const lx = dx * cos + dy * sin
+  const ly = -dx * sin + dy * cos
+  const hw = ACC_LOCAL_HALF * a.scale
+  const hh = ACC_LOCAL_HALF * a.scale
+  const HIT = 12
+
+  if (Math.hypot(lx, ly + hh + ROT_EXTRA) <= HIT) return 'rotation'
+
+  const corners: [number, number][] = [[-hw, -hh], [hw, -hh], [hw, hh], [-hw, hh]]
+  for (const [cx, cy] of corners) {
+    if (Math.hypot(lx - cx, ly - cy) <= HIT) return 'corner'
+  }
+
+  if (lx >= -hw - 4 && lx <= hw + 4 && ly >= -hh - 4 && ly <= hh + 4) return 'body'
+  return null
 }
 
 /* ═══════════════════════════════════════
@@ -393,7 +440,7 @@ function TacticalBoard({ onCapture, onRegisterCapture }: TacticalBoardProps) {
   const [selAcc, setSelAcc] = useState<SelAcc | null>(null)
   const [selectedAccUid, setSelectedAccUid] = useState<string | null>(null)
   const playerDragRef = useRef<{ uid: string; ox: number; oy: number } | null>(null)
-  const accDragRef = useRef<{ uid: string; startX: number; startY: number; accX: number; accY: number; mode?: 'move'|'resize'|'rotate'; startDist?: number; startAngle?: number; startRot?: number; startSize?: string } | null>(null)
+  const accDragRef = useRef<{ uid: string; startX: number; startY: number; accX: number; accY: number; mode?: 'move'|'resize'|'rotate'; startDist?: number; startAngle?: number; startRot?: number; startScale?: number } | null>(null)
   const textDragRef = useRef<{ idx: number; ox: number; oy: number } | null>(null)
   const [openTeams, setOpenTeams] = useState<Set<TeamId>>(new Set())
   const toggleTeam = (tid: TeamId) =>
@@ -429,7 +476,7 @@ function TacticalBoard({ onCapture, onRegisterCapture }: TacticalBoardProps) {
   }
 
   const nearPlayer = (pos: Point) => placedPlayers.find(p=>Math.hypot(p.x-pos.x,p.y-pos.y)<=PLAYER_R+3)
-  const nearAccessory = (pos: Point) => placedAccessories.find(a=>Math.hypot(a.x-pos.x,a.y-pos.y)<=ACC_HIT_R)
+  const nearAccessory = (pos: Point) => [...placedAccessories].reverse().find(a => getAccHandleHit(pos, a) !== null)
 
   const onMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const pos=getPos(e)
@@ -439,14 +486,33 @@ function TacticalBoard({ onCapture, onRegisterCapture }: TacticalBoardProps) {
       return
     }
     const hitP=nearPlayer(pos); if(hitP){ playerDragRef.current={uid:hitP.uid,ox:pos.x-hitP.x,oy:pos.y-hitP.y}; return }
-    const hitA=nearAccessory(pos); if(hitA){
-      setSelectedAccUid(hitA.uid)
-      accDragRef.current={uid:hitA.uid,startX:pos.x,startY:pos.y,accX:hitA.x,accY:hitA.y}
+
+    // Check accessory handles — prioritize the selected one
+    const orderedAcc = selectedAccUid
+      ? [...placedAccessories.filter(a=>a.uid===selectedAccUid), ...[...placedAccessories].reverse().filter(a=>a.uid!==selectedAccUid)]
+      : [...placedAccessories].reverse()
+    let hitAcc: PlacedAccessory | null = null
+    let hitHandle: 'rotation'|'corner'|'body'|null = null
+    for(const acc of orderedAcc){
+      const h = getAccHandleHit(pos, acc)
+      if(h !== null){ hitAcc = acc; hitHandle = h; break }
+    }
+    if(hitAcc){
+      setSelectedAccUid(hitAcc.uid)
+      accDragRef.current = {
+        uid: hitAcc.uid, startX: pos.x, startY: pos.y, accX: hitAcc.x, accY: hitAcc.y,
+        mode: hitHandle === 'rotation' ? 'rotate' : hitHandle === 'corner' ? 'resize' : 'move',
+        startDist: Math.max(1, Math.hypot(pos.x - hitAcc.x, pos.y - hitAcc.y)),
+        startAngle: Math.atan2(pos.y - hitAcc.y, pos.x - hitAcc.x),
+        startRot: hitAcc.rotation ?? 0,
+        startScale: hitAcc.scale,
+      }
       return
     }
+    setSelectedAccUid(null)
     if(!selPlayer&&!selAcc){ const idx=findTextAt(pos); if(idx!==-1){ textDragRef.current={idx,ox:pos.x-shapes[idx].start!.x,oy:pos.y-shapes[idx].start!.y}; setDraggedTextIdx(idx); return } }
     if(selPlayer){ setPlacedPlayers(prev=>[...prev,{uid:uuidv4(),team:selPlayer.team,number:selPlayer.number,x:pos.x,y:pos.y}]); return }
-    if(selAcc){ setPlacedAccessories(prev=>[...prev,{uid:uuidv4(),type:selAcc.type,x:pos.x,y:pos.y,rotation:0,color:selAcc.color,size:selAcc.size}]); return }
+    if(selAcc){ setPlacedAccessories(prev=>[...prev,{uid:uuidv4(),type:selAcc.type,x:pos.x,y:pos.y,rotation:0,color:selAcc.color,scale:1}]); return }
     if(tool==='text'){ setTextPos(pos); return }
     setIsDrawing(true)
     setCurrentShape({type:tool,color,width:strokeWidth,dashed,start:pos,end:pos,points:tool==='freehand'?[pos]:undefined})
@@ -457,49 +523,19 @@ function TacticalBoard({ onCapture, onRegisterCapture }: TacticalBoardProps) {
     if(textDragRef.current){ const{idx,ox,oy}=textDragRef.current; setShapes(prev=>prev.map((s,i)=>i!==idx?s:{...s,start:{x:pos.x-ox,y:pos.y-oy}})); return }
     if(playerDragRef.current){ const{uid,ox,oy}=playerDragRef.current; setPlacedPlayers(prev=>prev.map(p=>p.uid===uid?{...p,x:pos.x-ox,y:pos.y-oy}:p)); return }
     if(accDragRef.current){
-      const{uid,startX,startY,accX,accY,mode}=accDragRef.current
-      const acc = placedAccessories.find(a => a.uid === uid)
-      if(!acc) return
-
-      const dx = pos.x - startX
-      const dy = pos.y - startY
-      const dist = Math.hypot(dx, dy)
-
-      if(!mode && dist > 15){
-        // Determine mode based on movement direction
-        const toAccAngle = Math.atan2(accY - startY, accX - startX)
-        const moveAngle = Math.atan2(dy, dx)
-        let angleDiff = moveAngle - toAccAngle
-        while(angleDiff > Math.PI) angleDiff -= Math.PI * 2
-        while(angleDiff < -Math.PI) angleDiff += Math.PI * 2
-
-        // If movement is perpendicular to radial direction -> rotate, else -> resize
-        const isRotate = Math.abs(angleDiff) > Math.PI / 4 && Math.abs(angleDiff) < 3 * Math.PI / 4
-        const newMode = isRotate ? 'rotate' : 'resize'
-        accDragRef.current = {
-          ...accDragRef.current,
-          mode: newMode,
-          startDist: Math.hypot(startX - accX, startY - accY),
-          startAngle: Math.atan2(startY - accY, startX - accX),
-          startRot: acc.rotation ?? 0,
-          startSize: acc.size
-        }
-      }
-
-      if(accDragRef.current.mode === 'rotate'){
-        const startAngle = accDragRef.current.startAngle ?? Math.atan2(startY - accY, startX - accX)
+      const drag = accDragRef.current
+      const{uid,startX,startY,accX,accY,mode}=drag
+      if(mode === 'move'){
+        setPlacedAccessories(prev=>prev.map(a=>a.uid===uid?{...a,x:accX+(pos.x-startX),y:accY+(pos.y-startY)}:a))
+      } else if(mode === 'rotate'){
+        const startAngle = drag.startAngle ?? 0
         const currentAngle = Math.atan2(pos.y - accY, pos.x - accX)
         const angleDelta = (currentAngle - startAngle) * 180 / Math.PI
-        const newRotation = (accDragRef.current.startRot ?? 0) + angleDelta
-        setPlacedAccessories(prev=>prev.map(a=>a.uid===uid?{...a,rotation:newRotation}:a))
-      } else if(accDragRef.current.mode === 'resize'){
+        setPlacedAccessories(prev=>prev.map(a=>a.uid===uid?{...a,rotation:(drag.startRot ?? 0)+angleDelta}:a))
+      } else if(mode === 'resize'){
         const currentDist = Math.hypot(pos.x - accX, pos.y - accY)
-        const ratio = currentDist / (accDragRef.current.startDist ?? 50)
-        let newSize: 's'|'m'|'l' = 'm'
-        if(ratio > 1.3) newSize = 'l'
-        else if(ratio < 0.8) newSize = 's'
-        else newSize = 'm'
-        setPlacedAccessories(prev=>prev.map(a=>a.uid===uid?{...a,size:newSize}:a))
+        const newScale = Math.max(0.2, Math.min(6, (drag.startScale ?? 1) * currentDist / (drag.startDist ?? 30)))
+        setPlacedAccessories(prev=>prev.map(a=>a.uid===uid?{...a,scale:newScale}:a))
       }
       return
     }
@@ -624,7 +660,7 @@ function TacticalBoard({ onCapture, onRegisterCapture }: TacticalBoardProps) {
             const isSel = selAcc?.type === acc.type
             return (
               <button key={acc.type} type="button"
-                onClick={() => { setSelAcc(isSel ? null : { type: acc.type, size: 'l' }); setSelPlayer(null) }}
+                onClick={() => { setSelAcc(isSel ? null : { type: acc.type }); setSelPlayer(null) }}
                 className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all border ${isSel ? 'bg-rfpaf-blue text-white border-rfpaf-blue shadow-sm' : 'bg-white/10 text-white/70 border-white/10 hover:bg-white/20 hover:text-white'}`}>
                 {acc.label}
               </button>
@@ -641,20 +677,9 @@ function TacticalBoard({ onCapture, onRegisterCapture }: TacticalBoardProps) {
         )}
         {selectedAccUid && (
           <div className="px-3 py-2 border-t border-white/5 pt-2">
-            <p className="text-white/40 text-[10px] uppercase tracking-widest font-semibold mb-2">Tamaño del accesorio</p>
-            <div className="flex gap-1.5">
-              {(['s', 'm', 'l'] as const).map(size => (
-                <button key={size} type="button"
-                  onClick={() => setPlacedAccessories(prev=>prev.map(a=>a.uid===selectedAccUid?{...a,size}:a))}
-                  className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                    placedAccessories.find(a=>a.uid===selectedAccUid)?.size === size
-                      ? 'bg-rfpaf-blue text-white shadow-sm'
-                      : 'bg-white/10 text-white/70 hover:bg-white/20 hover:text-white'
-                  }`}>
-                  {size === 's' ? 'Pequeño' : size === 'm' ? 'Medio' : 'Grande'}
-                </button>
-              ))}
-            </div>
+            <p className="text-white/35 text-[10px]">
+              Arrastra <span className="text-green-400 font-semibold">esquinas</span> para redimensionar · <span className="text-red-400 font-semibold">handle rojo</span> para girar · centro para mover
+            </p>
           </div>
         )}
       </div>
