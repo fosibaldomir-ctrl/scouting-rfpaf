@@ -34,17 +34,26 @@ export async function fetchEjercicios(): Promise<EjercicioDB[]> {
 }
 
 export async function createEjercicio(ejercicio: Omit<EjercicioDB, 'id' | 'creado_en'>): Promise<EjercicioDB | null> {
-  const { data, error } = await supabase
-    .from('ejercicios')
-    .insert([{ ...ejercicio, creado_en: new Date().toISOString() }])
-    .select()
-    .single()
+  try {
+    console.log('Creating ejercicio:', ejercicio)
+    const { data, error } = await supabase
+      .from('ejercicios')
+      .insert([{ ...ejercicio, creado_en: new Date().toISOString() }])
+      .select()
+      .single()
 
-  if (error) {
-    console.error('Error creating ejercicio:', error)
+    if (error) {
+      console.error('Supabase error:', error.message, error.details, error.hint)
+      alert(`Error al guardar: ${error.message}`)
+      return null
+    }
+    console.log('Ejercicio created successfully:', data)
+    return data
+  } catch (err) {
+    console.error('Exception creating ejercicio:', err)
+    alert(`Error: ${err instanceof Error ? err.message : 'Unknown error'}`)
     return null
   }
-  return data
 }
 
 export async function searchEjercicios(filters: { tipo?: string; num_jugadores?: string; material?: string }): Promise<EjercicioDB[]> {

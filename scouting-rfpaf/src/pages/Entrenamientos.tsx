@@ -1806,11 +1806,18 @@ function BibliotecaTab() {
                 <div className="flex gap-2 pt-2">
                   <button type="button" onClick={async ()=>{
                     if(!formEj.tipo||!formEj.duracion||!formEj.num_jugadores||!formEj.descripcion){alert('Rellena los campos obligatorios');return}
+                    console.log('Saving exercise:', formEj);
                     const newEj = await createEjercicio({tipo:formEj.tipo,duracion:parseInt(formEj.duracion),num_jugadores:formEj.num_jugadores,material:formEj.material||null,descripcion:formEj.descripcion,imagen:formEj.imagen||null,video:formEj.video||null});
-                    if(newEj){setEjercicios(prev=>[newEj,...prev])}
-                    setCrearEjercicioOpen(false);
-                    setFormEj({tipo:'',duracion:'',num_jugadores:'',material:'',descripcion:'',imagen:'',video:''});
-                    captureForEjRef.current=null
+                    if(newEj){
+                      console.log('Exercise saved successfully');
+                      setEjercicios(prev=>[newEj,...prev]);
+                      alert('✅ Ejercicio guardado exitosamente');
+                      setCrearEjercicioOpen(false);
+                      setFormEj({tipo:'',duracion:'',num_jugadores:'',material:'',descripcion:'',imagen:'',video:''});
+                      captureForEjRef.current=null
+                    } else {
+                      console.log('Failed to save exercise');
+                    }
                   }}
                     className="flex-1 px-4 py-2 bg-rfpaf-blue text-white rounded-lg text-sm font-semibold hover:bg-rfpaf-blue/90 transition-colors">
                     Guardar ejercicio
