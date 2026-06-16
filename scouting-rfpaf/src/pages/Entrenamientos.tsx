@@ -1743,16 +1743,40 @@ function BibliotecaTab() {
               </button>
             </div>
             <div className="p-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Pizarra Táctica para capturar imagen */}
-              <div>
-                <label className="block text-xs font-semibold text-gray-600 mb-2 uppercase tracking-wider">Capturar imagen desde Pizarra</label>
-                <div className="border-2 border-dashed border-rfpaf-blue rounded-lg overflow-hidden">
-                  <TacticalBoard onRegisterCapture={fn=>captureForEjRef.current=fn}/>
+              {/* Imagen del ejercicio */}
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-xs font-semibold text-gray-600 mb-2 uppercase tracking-wider">1. Capturar desde Pizarra</label>
+                  <div className="border-2 border-dashed border-rfpaf-blue rounded-lg overflow-hidden">
+                    <TacticalBoard onRegisterCapture={fn=>captureForEjRef.current=fn}/>
+                  </div>
+                  <button type="button" onClick={()=>{const img=captureForEjRef.current?.();if(img)setFormEj(f=>({...f,imagen:img}))}}
+                    className="w-full mt-2 px-3 py-2 bg-rfpaf-blue text-white rounded-lg text-sm font-semibold hover:bg-rfpaf-blue/90 transition-colors">
+                    Capturar imagen
+                  </button>
                 </div>
-                <button type="button" onClick={()=>{const img=captureForEjRef.current?.();if(img)setFormEj(f=>({...f,imagen:img}))}}
-                  className="w-full mt-2 px-3 py-2 bg-rfpaf-blue text-white rounded-lg text-sm font-semibold hover:bg-rfpaf-blue/90 transition-colors">
-                  Capturar imagen
-                </button>
+
+                <div className="border-t border-gray-200 pt-3">
+                  <label className="block text-xs font-semibold text-gray-600 mb-2 uppercase tracking-wider">2. O subir desde archivo</label>
+                  <div className="flex items-center gap-2">
+                    <input type="file" accept="image/*" onChange={async (e)=>{const file=e.target.files?.[0];if(file){const reader=new FileReader();reader.onload=(ev)=>{const img=ev.target?.result;if(typeof img==='string')setFormEj(f=>({...f,imagen:img}))};reader.readAsDataURL(file)}}}
+                      className="flex-1 text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-rfpaf-blue/30 file:bg-rfpaf-blue file:text-white file:border-0 file:px-3 file:py-1 file:rounded file:text-xs file:font-semibold file:cursor-pointer hover:file:bg-rfpaf-blue/90"/>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">JPG, PNG o GIF. Máx 5MB</p>
+                </div>
+
+                {formEj.imagen && (
+                  <div className="border-t border-gray-200 pt-3">
+                    <p className="text-xs font-semibold text-gray-600 mb-2 uppercase tracking-wider">Vista previa</p>
+                    <div className="w-full rounded-lg overflow-hidden bg-gray-100 flex items-center justify-center" style={{maxHeight: '200px'}}>
+                      <img src={formEj.imagen} alt="preview" className="max-w-full max-h-full object-contain"/>
+                    </div>
+                    <button type="button" onClick={()=>setFormEj(f=>({...f,imagen:''}))}
+                      className="w-full mt-2 px-3 py-1.5 text-xs border border-red-300 text-red-600 rounded-lg hover:bg-red-50 transition-colors font-medium">
+                      Remover imagen
+                    </button>
+                  </div>
+                )}
               </div>
 
               {/* Formulario */}
