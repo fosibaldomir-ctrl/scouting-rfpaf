@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { FichaJugadora, Observador, Club, CategoriaItem, PartidoCalendario } from '../types'
+import type { FichaJugadora, Observador, Club, CategoriaItem, PartidoCalendario, Convocatoria, JugadoraConvocada } from '../types'
 import { OBSERVADORES, CATEGORIAS, CLUBES } from '../data/masterData'
 import { supabaseService } from '../services/supabaseService'
 
@@ -10,6 +10,7 @@ interface AppState {
   categorias: CategoriaItem[]
   clubes: Club[]
   partidos: PartidoCalendario[]
+  convocatorias: Convocatoria[]
   currentObservador: string | null
   borrador: Partial<FichaJugadora> | null
 
@@ -32,6 +33,11 @@ interface AppState {
   deleteClub: (id: string) => Promise<void>
   addCategoria: (cat: CategoriaItem) => Promise<void>
   deleteCategoria: (id: string) => Promise<void>
+  addConvocatoria: (c: Convocatoria) => void
+  updateConvocatoria: (id: string, data: Partial<Convocatoria>) => void
+  deleteConvocatoria: (id: string) => void
+  addJugadoraToConvocatoria: (convocatoriaId: string, jugadora: JugadoraConvocada) => void
+  removeJugadoraFromConvocatoria: (convocatoriaId: string, fichaId: string) => void
 }
 
 export const useStore = create<AppState>()(
@@ -42,6 +48,7 @@ export const useStore = create<AppState>()(
       categorias: CATEGORIAS,
       clubes: CLUBES,
       partidos: [],
+      convocatorias: [],
       currentObservador: null,
       borrador: null,
 
@@ -125,6 +132,35 @@ export const useStore = create<AppState>()(
         set((state) => ({ categorias: state.categorias.filter((c) => c.id !== id) }))
         await supabaseService.deleteCategoria(id)
       },
+
+      addConvocatoria: (c) =>
+        set((state) => ({ convocatorias: [...state.convocatorias, c] })),
+
+      updateConvocatoria: (id, data) =>
+        set((state) => ({
+          convocatorias: state.convocatorias.map((c) => (c.id === id ? { ...c, ...data } : c)),
+        })),
+
+      deleteConvocatoria: (id) =>
+        set((state) => ({ convocatorias: state.convocatorias.filter((c) => c.id !== id) })),
+
+      addJugadoraToConvocatoria: (convocatoriaId, jugadora) =>
+        set((state) => ({
+          convocatorias: state.convocatorias.map((c) =>
+            c.id === convocatoriaId && c.jugadoras.length < 22 && !c.jugadoras.some((j) => j.fichaId === jugadora.fichaId)
+              ? { ...c, jugadoras: [...c.jugadoras, jugadora] }
+              : c
+          ),
+        })),
+
+      removeJugadoraFromConvocatoria: (convocatoriaId, fichaId) =>
+        set((state) => ({
+          convocatorias: state.convocatorias.map((c) =>
+            c.id === convocatoriaId
+              ? { ...c, jugadoras: c.jugadoras.filter((j) => j.fichaId !== fichaId) }
+              : c
+          ),
+        })),
     }),
     {
       name: 'rfpaf-scouting-storage',
@@ -134,6 +170,7 @@ export const useStore = create<AppState>()(
         categorias: state.categorias,
         clubes: state.clubes,
         partidos: state.partidos,
+        convocatorias: state.convocatorias,
         currentObservador: state.currentObservador,
         borrador: state.borrador,
       }),

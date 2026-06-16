@@ -1,5 +1,5 @@
 import { NavLink, useNavigate } from 'react-router-dom'
-import { LayoutDashboard, Database, PlusCircle, Settings, LogOut, LayoutGrid, X, CalendarDays, ChevronDown } from 'lucide-react'
+import { LayoutDashboard, Database, PlusCircle, Settings, LogOut, LayoutGrid, X, CalendarDays, ChevronDown, Dumbbell } from 'lucide-react'
 import { useState } from 'react'
 import { useStore } from '../../store/useStore'
 import RFPAFLogo from '../RFPAFLogo'
@@ -14,6 +14,10 @@ const scoutingItems = [
   { to: '/base-datos', icon: Database, label: 'Base de Datos' },
   { to: '/campograma', icon: LayoutGrid, label: 'Campograma' },
   { to: '/calendario', icon: CalendarDays, label: 'Calendario' },
+]
+
+const extraItems = [
+  { to: '/entrenamientos', icon: Dumbbell, label: 'Entrenamientos' },
 ]
 
 interface SidebarProps {
@@ -123,6 +127,25 @@ export default function Sidebar({ mobileOpen, onClose }: SidebarProps) {
               </div>
             )}
           </div>
+
+          {/* Items fuera del grupo Scouting */}
+          {extraItems.map(({ to, icon: Icon, label }) => (
+            <NavLink
+              key={to}
+              to={to}
+              onClick={onClose}
+              className={({ isActive }) =>
+                `flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all mt-1 ${
+                  isActive
+                    ? 'bg-white text-rfpaf-blue shadow-sm'
+                    : 'text-white/80 hover:bg-white/10 hover:text-white'
+                }`
+              }
+            >
+              <Icon className="w-5 h-5 flex-shrink-0" />
+              {label}
+            </NavLink>
+          ))}
         </nav>
 
         {/* User */}

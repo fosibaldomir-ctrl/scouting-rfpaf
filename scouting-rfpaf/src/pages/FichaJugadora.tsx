@@ -1,7 +1,8 @@
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Edit, FileText, Star, Eye } from 'lucide-react'
-import { useRef } from 'react'
+import { ArrowLeft, Edit, FileText, Star, Eye, ClipboardList, Check, X } from 'lucide-react'
+import { useRef, useState } from 'react'
 import { useStore } from '../store/useStore'
+import type { JugadoraConvocada } from '../types'
 import RadarChart from '../components/charts/RadarChart'
 import FichaPDFTemplate from '../components/pdf/FichaPDFTemplate'
 import { DEMARCACIONES_ITEMS } from '../data/masterData'
@@ -41,11 +42,31 @@ function PropuestaBadge({ propuesta }: { propuesta: string }) {
 export default function FichaJugadora() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const { fichas: allFichas, getFicha, observadores, clubes } = useStore()
+  const { fichas: allFichas, getFicha, observadores, clubes, convocatorias, addJugadoraToConvocatoria } = useStore()
   const contentRef = useRef<HTMLDivElement>(null)
   const pdfRef = useRef<HTMLDivElement>(null)
+  const [showConvModal, setShowConvModal] = useState(false)
+  const [addedToId, setAddedToId] = useState<string | null>(null)
 
   const ficha = getFicha(id ?? '')
+
+  const handleAddToConvocatoria = (convocatoriaId: string) => {
+    if (!ficha) return
+    const clubNombre = clubes.find((c) => c.id === ficha.club)?.nombre ?? ficha.club ?? ''
+    const jugadora: JugadoraConvocada = {
+      fichaId: ficha.id,
+      nombre: ficha.nombre,
+      primerApellido: ficha.primerApellido,
+      segundoApellido: ficha.segundoApellido ?? '',
+      fechaNacimiento: ficha.fechaNacimiento,
+      clubId: ficha.club ?? '',
+      clubNombre,
+      foto: ficha.foto,
+    }
+    addJugadoraToConvocatoria(convocatoriaId, jugadora)
+    setAddedToId(convocatoriaId)
+    setTimeout(() => { setShowConvModal(false); setAddedToId(null) }, 900)
+  }
 
   const handleExportPDF = async () => {
     if (!pdfRef.current || !ficha) return
@@ -196,6 +217,14 @@ export default function FichaJugadora() {
           Volver
         </button>
         <div className="flex gap-2">
+          <button
+            onClick={() => setShowConvModal(true)}
+            className="btn-secondary flex items-center gap-2 text-sm"
+            title="Añadir a convocatoria"
+          >
+            <ClipboardList className="w-4 h-4" />
+            <span className="hidden sm:inline">Convocar</span>
+          </button>
           <button onClick={handleExportPDF} className="btn-secondary flex items-center gap-2 text-sm">
             <FileText className="w-4 h-4" />
             <span className="hidden sm:inline">Exportar PDF</span>
@@ -460,6 +489,63 @@ export default function FichaJugadora() {
           </div>
         )}
       </div>
+
+      {/* Modal: Añadir a convocatoria */}
+      {showConvModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl max-w-sm w-full shadow-xl">
+            <div className="flex items-center justify-between p-5 border-b">
+              <div>
+                <h3 className="font-bold text-gray-800">Añadir a convocatoria</h3>
+                <p className="text-xs text-gray-400 mt-0.5">
+                  {ficha.nombre} {ficha.primerApellido}
+                </p>
+              </div>
+              <button onClick={() => setShowConvModal(false)} className="text-gray-400 hover:text-gray-600">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-3 max-h-72 overflow-y-auto">
+              {convocatorias.length === 0 ? (
+                <p className="text-center text-gray-400 py-8 text-sm">
+                  No hay convocatorias creadas.<br />
+                  <span className="text-xs">Ve a Scouting → Convocatorias para crear una.</span>
+                </p>
+              ) : (
+                convocatorias.map((c) => {
+                  const alreadyIn = c.jugadoras.some((j) => j.fichaId === ficha.id)
+                  const full = c.jugadoras.length >= 22
+                  const added = addedToId === c.id
+                  return (
+                    <button
+                      key={c.id}
+                      disabled={alreadyIn || full}
+                      onClick={() => handleAddToConvocatoria(c.id)}
+                      className={`w-full flex items-center justify-between gap-3 px-4 py-3 rounded-lg text-left transition-colors mb-1 ${
+                        alreadyIn || full ? 'opacity-40 cursor-not-allowed' : 'hover:bg-blue-50'
+                      }`}
+                    >
+                      <div>
+                        <p className="font-semibold text-gray-800 text-sm">{c.nombre}</p>
+                        <p className="text-xs text-gray-500 mt-0.5">
+                          {c.fecha ? new Date(c.fecha).toLocaleDateString('es-ES') : '—'} · {c.hora || '—'} · {c.jugadoras.length}/22
+                        </p>
+                      </div>
+                      {added ? (
+                        <Check className="w-4 h-4 text-green-500 flex-shrink-0" />
+                      ) : alreadyIn ? (
+                        <span className="text-xs text-green-600 font-semibold flex-shrink-0">Ya añadida</span>
+                      ) : full ? (
+                        <span className="text-xs text-red-500 flex-shrink-0">Completa</span>
+                      ) : null}
+                    </button>
+                  )
+                })
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Template oculto para exportar PDF */}
       <div

@@ -105,3 +105,23 @@ export interface PartidoCalendario {
   observador: string
   categoria: string
 }
+
+export interface JugadoraConvocada {
+  fichaId: string
+  nombre: string
+  primerApellido: string
+  segundoApellido: string
+  fechaNacimiento: string
+  clubId: string
+  clubNombre: string
+  foto?: string | null
+}
+
+export interface Convocatoria {
+  id: string
+  nombre: string
+  fecha: string      // YYYY-MM-DD
+  hora: string       // HH:MM
+  jugadoras: JugadoraConvocada[]
+  creadoEn: string
+}
