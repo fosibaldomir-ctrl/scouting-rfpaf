@@ -58,189 +58,176 @@ const HANDLE_R = 7
 const ROT_EXTRA = 22
 
 function drawAccessory(ctx: CanvasRenderingContext2D, a: PlacedAccessory, dragging: boolean) {
+  const isGoal = a.type.startsWith('goal')
   ctx.save()
   ctx.translate(a.x, a.y)
-  if (a.rotation) ctx.rotate(a.rotation * Math.PI / 180)
+  if (a.rotation && !isGoal) ctx.rotate(a.rotation * Math.PI / 180)
   ctx.lineCap = 'round'; ctx.lineJoin = 'round'
   ctx.shadowColor = dragging ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)'
   ctx.shadowBlur = dragging ? 12 : 5; ctx.shadowOffsetY = dragging ? 0 : 2
   ctx.scale(a.scale, a.scale)
+  // 3D projection helper used by goal cases
+  const PITCH = 0.38
+  const theta = (a.rotation ?? 0) * Math.PI / 180
+  const cosT = Math.cos(theta), sinT = Math.sin(theta)
+  const cosP = Math.cos(PITCH), sinP = Math.sin(PITCH)
+  const gp = (px: number, py: number, pz: number): [number, number] => {
+    const rx = px * cosT + pz * sinT
+    const rz = -px * sinT + pz * cosT
+    return [rx, -(py * cosP - rz * sinP)]
+  }
   const clr = a.color
   switch (a.type) {
-    case 'goal_front': {
-      const L=-18,R=18,T=-9,B=9
-      // Sombra de suelo
-      ctx.strokeStyle='rgba(255,255,255,0.1)';ctx.lineWidth=1.5
-      ctx.beginPath();ctx.moveTo(L-2,B+2);ctx.lineTo(R+2,B+2);ctx.stroke()
-      // Sugerencia de profundidad trasera
-      ctx.strokeStyle='rgba(255,255,255,0.22)';ctx.lineWidth=1
-      ctx.beginPath();ctx.moveTo(L,T);ctx.lineTo(L+3,T-3);ctx.lineTo(R+3,T-3);ctx.lineTo(R,T);ctx.stroke()
-      // Red de diamante (clip al interior)
-      ctx.save();ctx.beginPath();ctx.rect(L,T,R-L,B-T);ctx.clip()
-      ctx.strokeStyle='rgba(255,255,255,0.2)';ctx.lineWidth=0.55
-      for(let x=L-25;x<R+25;x+=5){ctx.beginPath();ctx.moveTo(x,T);ctx.lineTo(x+(B-T),B);ctx.stroke();ctx.beginPath();ctx.moveTo(x,T);ctx.lineTo(x-(B-T),B);ctx.stroke()}
-      ctx.restore()
-      // Marco (3 lados, sin suelo)
-      ctx.strokeStyle='#ffffff';ctx.lineWidth=3;ctx.lineCap='round';ctx.lineJoin='round'
-      ctx.beginPath();ctx.moveTo(L,B);ctx.lineTo(L,T);ctx.lineTo(R,T);ctx.lineTo(R,B);ctx.stroke()
-      // Brillo en postes (efecto cilíndrico)
-      ctx.strokeStyle='rgba(255,255,255,0.42)';ctx.lineWidth=0.9
-      ctx.beginPath();ctx.moveTo(L+1.4,B);ctx.lineTo(L+1.4,T+1.4);ctx.lineTo(R-1.4,T+1.4);ctx.lineTo(R-1.4,B);ctx.stroke()
-      break
-    }
-    case 'goal_3d_r': {
-      // Front: fl=-18,fr=6,ft=-4,fb=12 | Back: bl=-6,br=18,bt=-12,bb=4
-      const fl=-18,fr=6,ft=-4,fb=12,bl=-6,br=18,bt=-12,bb=4
-      // Sombra suelo
-      ctx.strokeStyle='rgba(255,255,255,0.08)';ctx.lineWidth=1.5
-      ctx.beginPath();ctx.moveTo(fl-1,fb+2);ctx.lineTo(bl,bb+2);ctx.stroke()
-      // Red cara frontal
-      ctx.save();ctx.beginPath();ctx.rect(fl,ft,fr-fl,fb-ft);ctx.clip()
+    case 'goal_front': case 'goal_3d_r': case 'goal_3d_l': case 'goal_side': {
+      // Modelo 3D unificado: la rotación (theta) gira la portería en el eje Y del espacio 3D
+      // theta=0°→vista frontal, theta=±30°→perspectiva 3D, theta=90°→lateral, theta=180°→posterior
+      const hw=18, hh=5.5, hd=7
+      // Proyectar los 8 vértices del prisma
+      const [xTLf,yTLf]=gp(-hw, hh, hd),  [xTRf,yTRf]=gp( hw, hh, hd)
+      const [xBLf,yBLf]=gp(-hw,-hh, hd),  [xBRf,yBRf]=gp( hw,-hh, hd)
+      const [xTLb,yTLb]=gp(-hw, hh,-hd),  [xTRb,yTRb]=gp( hw, hh,-hd)
+      const [xBLb,yBLb]=gp(-hw,-hh,-hd),  [xBRb,yBRb]=gp( hw,-hh,-hd)
+      const ln=(x1:number,y1:number,x2:number,y2:number)=>{ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke()}
+      // ¿Cuál cara está más cerca del observador?
+      const openNear = cosT >= 0  // z=+hd (boca) está frente cuando cosT≥0
+      // --- Cara lejana (tenue) ---
+      ctx.strokeStyle=openNear?'rgba(255,255,255,0.42)':'#ffffff'
+      ctx.lineWidth=openNear?1.6:3; ctx.lineCap='round'; ctx.lineJoin='round'
+      if(openNear){
+        ctx.beginPath();ctx.moveTo(xBLb,yBLb);ctx.lineTo(xTLb,yTLb);ctx.lineTo(xTRb,yTRb);ctx.lineTo(xBRb,yBRb);ctx.stroke()
+        ln(xBLb,yBLb,xBRb,yBRb)
+      } else {
+        ctx.beginPath();ctx.moveTo(xBLf,yBLf);ctx.lineTo(xTLf,yTLf);ctx.lineTo(xTRf,yTRf);ctx.lineTo(xBRf,yBRf);ctx.stroke()
+      }
+      // --- Barras de profundidad ---
+      ctx.strokeStyle='rgba(255,255,255,0.55)'; ctx.lineWidth=1.5
+      ln(xTLf,yTLf,xTLb,yTLb); ln(xTRf,yTRf,xTRb,yTRb)
+      ln(xBLf,yBLf,xBLb,yBLb); ln(xBRf,yBRf,xBRb,yBRb)
+      // --- Red de diamante en la boca (z=+hd), recortada al polígono proyectado ---
+      ctx.save()
+      const np=new Path2D()
+      np.moveTo(xTLf,yTLf);np.lineTo(xTRf,yTRf);np.lineTo(xBRf,yBRf);np.lineTo(xBLf,yBLf);np.closePath()
+      ctx.clip(np)
       ctx.strokeStyle='rgba(255,255,255,0.2)';ctx.lineWidth=0.5
-      for(let x=fl-25;x<fr+25;x+=5){ctx.beginPath();ctx.moveTo(x,ft);ctx.lineTo(x+(fb-ft),fb);ctx.stroke();ctx.beginPath();ctx.moveTo(x,ft);ctx.lineTo(x-(fb-ft),fb);ctx.stroke()}
+      for(let t=-hw-hh*2;t<hw+hh*2;t+=5){
+        const [sx1,sy1]=gp(t+hh*2, hh,hd),[sx2,sy2]=gp(t,-hh,hd)
+        ctx.beginPath();ctx.moveTo(sx1,sy1);ctx.lineTo(sx2,sy2);ctx.stroke()
+        const [sx3,sy3]=gp(t, hh,hd),[sx4,sy4]=gp(t+hh*2,-hh,hd)
+        ctx.beginPath();ctx.moveTo(sx3,sy3);ctx.lineTo(sx4,sy4);ctx.stroke()
+      }
       ctx.restore()
-      // Red cara lateral derecha (cuadrícula en perspectiva)
-      ctx.save();ctx.beginPath();ctx.moveTo(fr,ft);ctx.lineTo(br,bt);ctx.lineTo(br,bb);ctx.lineTo(fr,fb);ctx.closePath();ctx.clip()
-      ctx.strokeStyle='rgba(255,255,255,0.14)';ctx.lineWidth=0.5
-      for(let i=0;i<=5;i++){const v=i/5;ctx.beginPath();ctx.moveTo(fr,ft+v*(fb-ft));ctx.lineTo(br,bt+v*(bb-bt));ctx.stroke()}
-      for(let i=0;i<=4;i++){const u=i/4;ctx.beginPath();ctx.moveTo(fr+u*(br-fr),ft+u*(bt-ft));ctx.lineTo(fr+u*(br-fr),fb+u*(bb-fb));ctx.stroke()}
-      ctx.restore()
-      // Marco trasero (más tenue = profundidad)
-      ctx.strokeStyle='rgba(255,255,255,0.55)';ctx.lineWidth=1.7;ctx.lineCap='round'
-      ctx.beginPath();ctx.moveTo(br,bt);ctx.lineTo(br,bb);ctx.stroke()
-      ctx.beginPath();ctx.moveTo(bl,bt);ctx.lineTo(br,bt);ctx.stroke()
-      // Barras de profundidad superior
-      ctx.strokeStyle='rgba(255,255,255,0.48)';ctx.lineWidth=1.5
-      ctx.beginPath();ctx.moveTo(fl,ft);ctx.lineTo(bl,bt);ctx.stroke()
-      ctx.beginPath();ctx.moveTo(fr,ft);ctx.lineTo(br,bt);ctx.stroke()
-      // Barras de base
-      ctx.strokeStyle='rgba(255,255,255,0.38)';ctx.lineWidth=1.3
-      ctx.beginPath();ctx.moveTo(fl,fb);ctx.lineTo(bl,bb);ctx.stroke()
-      ctx.beginPath();ctx.moveTo(fr,fb);ctx.lineTo(br,bb);ctx.stroke()
-      ctx.beginPath();ctx.moveTo(bl,bb);ctx.lineTo(br,bb);ctx.stroke()
-      // Marco frontal (más brillante y grueso)
-      ctx.strokeStyle='#ffffff';ctx.lineWidth=3;ctx.lineCap='round';ctx.lineJoin='round'
-      ctx.beginPath();ctx.moveTo(fl,fb);ctx.lineTo(fl,ft);ctx.lineTo(fr,ft);ctx.lineTo(fr,fb);ctx.stroke()
-      ctx.strokeStyle='rgba(255,255,255,0.42)';ctx.lineWidth=0.9
-      ctx.beginPath();ctx.moveTo(fl+1.4,fb);ctx.lineTo(fl+1.4,ft+1.4);ctx.lineTo(fr-1.4,ft+1.4);ctx.lineTo(fr-1.4,fb);ctx.stroke()
-      break
-    }
-    case 'goal_3d_l': {
-      // Front: fl=-6,fr=18,ft=-4,fb=12 | Back: bl=-18,br=6,bt=-12,bb=4
-      const fl=-6,fr=18,ft=-4,fb=12,bl=-18,br=6,bt=-12,bb=4
-      ctx.strokeStyle='rgba(255,255,255,0.08)';ctx.lineWidth=1.5
-      ctx.beginPath();ctx.moveTo(br,bb+2);ctx.lineTo(fr+1,fb+2);ctx.stroke()
-      // Red cara frontal
-      ctx.save();ctx.beginPath();ctx.rect(fl,ft,fr-fl,fb-ft);ctx.clip()
-      ctx.strokeStyle='rgba(255,255,255,0.2)';ctx.lineWidth=0.5
-      for(let x=fl-25;x<fr+25;x+=5){ctx.beginPath();ctx.moveTo(x,ft);ctx.lineTo(x+(fb-ft),fb);ctx.stroke();ctx.beginPath();ctx.moveTo(x,ft);ctx.lineTo(x-(fb-ft),fb);ctx.stroke()}
-      ctx.restore()
-      // Red cara lateral izquierda
-      ctx.save();ctx.beginPath();ctx.moveTo(fl,ft);ctx.lineTo(bl,bt);ctx.lineTo(bl,bb);ctx.lineTo(fl,fb);ctx.closePath();ctx.clip()
-      ctx.strokeStyle='rgba(255,255,255,0.14)';ctx.lineWidth=0.5
-      for(let i=0;i<=5;i++){const v=i/5;ctx.beginPath();ctx.moveTo(fl,ft+v*(fb-ft));ctx.lineTo(bl,bt+v*(bb-bt));ctx.stroke()}
-      for(let i=0;i<=4;i++){const u=i/4;ctx.beginPath();ctx.moveTo(fl+u*(bl-fl),ft+u*(bt-ft));ctx.lineTo(fl+u*(bl-fl),fb+u*(bb-fb));ctx.stroke()}
-      ctx.restore()
-      ctx.strokeStyle='rgba(255,255,255,0.55)';ctx.lineWidth=1.7;ctx.lineCap='round'
-      ctx.beginPath();ctx.moveTo(bl,bt);ctx.lineTo(bl,bb);ctx.stroke()
-      ctx.beginPath();ctx.moveTo(bl,bt);ctx.lineTo(br,bt);ctx.stroke()
-      ctx.strokeStyle='rgba(255,255,255,0.48)';ctx.lineWidth=1.5
-      ctx.beginPath();ctx.moveTo(fr,ft);ctx.lineTo(br,bt);ctx.stroke()
-      ctx.beginPath();ctx.moveTo(fl,ft);ctx.lineTo(bl,bt);ctx.stroke()
-      ctx.strokeStyle='rgba(255,255,255,0.38)';ctx.lineWidth=1.3
-      ctx.beginPath();ctx.moveTo(fr,fb);ctx.lineTo(br,bb);ctx.stroke()
-      ctx.beginPath();ctx.moveTo(fl,fb);ctx.lineTo(bl,bb);ctx.stroke()
-      ctx.beginPath();ctx.moveTo(bl,bb);ctx.lineTo(br,bb);ctx.stroke()
-      ctx.strokeStyle='#ffffff';ctx.lineWidth=3;ctx.lineCap='round';ctx.lineJoin='round'
-      ctx.beginPath();ctx.moveTo(fr,fb);ctx.lineTo(fr,ft);ctx.lineTo(fl,ft);ctx.lineTo(fl,fb);ctx.stroke()
-      ctx.strokeStyle='rgba(255,255,255,0.42)';ctx.lineWidth=0.9
-      ctx.beginPath();ctx.moveTo(fr-1.4,fb);ctx.lineTo(fr-1.4,ft+1.4);ctx.lineTo(fl+1.4,ft+1.4);ctx.lineTo(fl+1.4,fb);ctx.stroke()
-      break
-    }
-    case 'goal_side': {
-      const L=-15,R=15,T=-9,B=9
-      ctx.strokeStyle='rgba(255,255,255,0.08)';ctx.lineWidth=1.5
-      ctx.beginPath();ctx.moveTo(L-1,B+2);ctx.lineTo(R+1,B+2);ctx.stroke()
-      // Red (cuadrícula de perspectiva lateral)
-      ctx.save();ctx.beginPath();ctx.rect(L,T,R-L,B-T);ctx.clip()
-      ctx.strokeStyle='rgba(255,255,255,0.2)';ctx.lineWidth=0.5
-      for(let i=1;i<7;i++){const x=L+(R-L)*i/7;ctx.beginPath();ctx.moveTo(x,T);ctx.lineTo(x,B);ctx.stroke()}
-      for(let i=1;i<5;i++){const y=T+(B-T)*i/5;ctx.beginPath();ctx.moveTo(L,y);ctx.lineTo(R,y);ctx.stroke()}
-      ctx.restore()
-      // Poste trasero y base (más tenues)
-      ctx.strokeStyle='rgba(255,255,255,0.5)';ctx.lineWidth=1.8;ctx.lineCap='round'
-      ctx.beginPath();ctx.moveTo(R,T);ctx.lineTo(R,B);ctx.stroke()
-      ctx.beginPath();ctx.moveTo(L,B);ctx.lineTo(R,B);ctx.stroke()
-      // Larguero superior
-      ctx.strokeStyle='rgba(255,255,255,0.8)';ctx.lineWidth=2.2
-      ctx.beginPath();ctx.moveTo(L,T);ctx.lineTo(R,T);ctx.stroke()
-      // Poste frontal (más grueso y brillante)
-      ctx.strokeStyle='#ffffff';ctx.lineWidth=3;ctx.lineCap='round'
-      ctx.beginPath();ctx.moveTo(L,B);ctx.lineTo(L,T);ctx.stroke()
-      ctx.strokeStyle='rgba(255,255,255,0.42)';ctx.lineWidth=0.9
-      ctx.beginPath();ctx.moveTo(L+1.4,B-0.5);ctx.lineTo(L+1.4,T+1);ctx.stroke()
+      // --- Cara cercana (brillante) ---
+      ctx.strokeStyle=openNear?'#ffffff':'rgba(255,255,255,0.42)'
+      ctx.lineWidth=openNear?3:1.6; ctx.lineCap='round'; ctx.lineJoin='round'
+      if(openNear){
+        ctx.beginPath();ctx.moveTo(xBLf,yBLf);ctx.lineTo(xTLf,yTLf);ctx.lineTo(xTRf,yTRf);ctx.lineTo(xBRf,yBRf);ctx.stroke()
+        // Brillo interior postes
+        ctx.strokeStyle='rgba(255,255,255,0.38)'; ctx.lineWidth=0.85
+        const dx1=(xTLf-xBLf)*0.09,dy1=(yTLf-yBLf)*0.09
+        const dxt=(xTRf-xTLf)*0.07,dyt=(yTRf-yTLf)*0.07
+        ctx.beginPath();ctx.moveTo(xBLf+dx1,yBLf+dy1);ctx.lineTo(xTLf+dxt,yTLf+dyt);ctx.lineTo(xTRf-dxt,yTRf+dyt);ctx.lineTo(xBRf-dx1,yBRf+dy1);ctx.stroke()
+      } else {
+        ctx.beginPath();ctx.moveTo(xBLb,yBLb);ctx.lineTo(xTLb,yTLb);ctx.lineTo(xTRb,yTRb);ctx.lineTo(xBRb,yBRb);ctx.stroke()
+        ln(xBLb,yBLb,xBRb,yBRb)
+      }
       break
     }
     case 'goal_mini': {
-      const hw=12,hh=7
-      ctx.strokeStyle='rgba(255,255,255,0.08)';ctx.lineWidth=1.5
-      ctx.beginPath();ctx.moveTo(-hw-2,hh+4);ctx.lineTo(hw+2,hh+4);ctx.stroke()
-      // Red de diamante
-      ctx.save();ctx.beginPath();ctx.rect(-hw,-hh,hw*2,hh*2);ctx.clip()
-      ctx.strokeStyle='rgba(255,255,255,0.2)';ctx.lineWidth=0.5
-      for(let x=-30;x<35;x+=4){ctx.beginPath();ctx.moveTo(-hw+x,-hh);ctx.lineTo(-hw+x+hh*2,hh);ctx.stroke();ctx.beginPath();ctx.moveTo(-hw+x,-hh);ctx.lineTo(-hw+x-hh*2,hh);ctx.stroke()}
+      // Portería mini con patas, mismo modelo 3D pero más pequeña
+      const hw=13, hh=4.5, hd=5
+      const [xTLf,yTLf]=gp(-hw, hh, hd), [xTRf,yTRf]=gp( hw, hh, hd)
+      const [xBLf,yBLf]=gp(-hw,-hh, hd), [xBRf,yBRf]=gp( hw,-hh, hd)
+      const [xTLb,yTLb]=gp(-hw, hh,-hd), [xTRb,yTRb]=gp( hw, hh,-hd)
+      const [xBLb,yBLb]=gp(-hw,-hh,-hd), [xBRb,yBRb]=gp( hw,-hh,-hd)
+      const ln=(x1:number,y1:number,x2:number,y2:number)=>{ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke()}
+      const openNear = cosT >= 0
+      // Cara lejana
+      ctx.strokeStyle=openNear?'rgba(255,255,255,0.42)':'#ffffff'
+      ctx.lineWidth=openNear?1.4:2.8; ctx.lineCap='round'; ctx.lineJoin='round'
+      if(openNear){ ctx.beginPath();ctx.moveTo(xBLb,yBLb);ctx.lineTo(xTLb,yTLb);ctx.lineTo(xTRb,yTRb);ctx.lineTo(xBRb,yBRb);ctx.stroke();ln(xBLb,yBLb,xBRb,yBRb) }
+      else { ctx.beginPath();ctx.moveTo(xBLf,yBLf);ctx.lineTo(xTLf,yTLf);ctx.lineTo(xTRf,yTRf);ctx.lineTo(xBRf,yBRf);ctx.stroke() }
+      // Barras de profundidad
+      ctx.strokeStyle='rgba(255,255,255,0.55)'; ctx.lineWidth=1.4
+      ln(xTLf,yTLf,xTLb,yTLb); ln(xTRf,yTRf,xTRb,yTRb)
+      ln(xBLf,yBLf,xBLb,yBLb); ln(xBRf,yBRf,xBRb,yBRb)
+      // Patas (proyectadas desde las esquinas inferiores frontales)
+      const [xFtL,yFtL]=gp(-hw,-hh-4,hd), [xFtR,yFtR]=gp(hw,-hh-4,hd)
+      ctx.strokeStyle='rgba(255,255,255,0.75)'; ctx.lineWidth=1.8
+      ln(xBLf,yBLf,xFtL,yFtL); ln(xBRf,yBRf,xFtR,yFtR)
+      // Red en la boca
+      ctx.save()
+      const np=new Path2D()
+      np.moveTo(xTLf,yTLf);np.lineTo(xTRf,yTRf);np.lineTo(xBRf,yBRf);np.lineTo(xBLf,yBLf);np.closePath()
+      ctx.clip(np)
+      ctx.strokeStyle='rgba(255,255,255,0.22)'; ctx.lineWidth=0.5
+      for(let t=-hw-hh*2;t<hw+hh*2;t+=4){
+        const [sx1,sy1]=gp(t+hh*2, hh,hd),[sx2,sy2]=gp(t,-hh,hd)
+        ctx.beginPath();ctx.moveTo(sx1,sy1);ctx.lineTo(sx2,sy2);ctx.stroke()
+        const [sx3,sy3]=gp(t, hh,hd),[sx4,sy4]=gp(t+hh*2,-hh,hd)
+        ctx.beginPath();ctx.moveTo(sx3,sy3);ctx.lineTo(sx4,sy4);ctx.stroke()
+      }
       ctx.restore()
-      // Cajas de profundidad trasera (3D mini)
-      ctx.strokeStyle='rgba(255,255,255,0.45)';ctx.lineWidth=1.4;ctx.lineCap='round'
-      ctx.beginPath();ctx.moveTo(-hw,hh);ctx.lineTo(-hw+4,hh-4);ctx.stroke()
-      ctx.beginPath();ctx.moveTo(hw,hh);ctx.lineTo(hw+4,hh-4);ctx.stroke()
-      ctx.beginPath();ctx.moveTo(-hw+4,hh-4);ctx.lineTo(hw+4,hh-4);ctx.stroke()
-      ctx.strokeStyle='rgba(255,255,255,0.3)';ctx.lineWidth=1.2
-      ctx.beginPath();ctx.moveTo(-hw,-hh);ctx.lineTo(-hw+4,-hh-4);ctx.stroke()
-      ctx.beginPath();ctx.moveTo(hw,-hh);ctx.lineTo(hw+4,-hh-4);ctx.stroke()
-      ctx.beginPath();ctx.moveTo(-hw+4,-hh-4);ctx.lineTo(hw+4,-hh-4);ctx.stroke()
-      // Patas de suporte
-      ctx.strokeStyle='rgba(255,255,255,0.75)';ctx.lineWidth=2
-      ctx.beginPath();ctx.moveTo(-hw,hh);ctx.lineTo(-hw-3,hh+5);ctx.stroke()
-      ctx.beginPath();ctx.moveTo(hw,hh);ctx.lineTo(hw+3,hh+5);ctx.stroke()
-      // Marco frontal
-      ctx.strokeStyle='#ffffff';ctx.lineWidth=2.8;ctx.lineCap='round';ctx.lineJoin='round'
-      ctx.beginPath();ctx.moveTo(-hw,hh);ctx.lineTo(-hw,-hh);ctx.lineTo(hw,-hh);ctx.lineTo(hw,hh);ctx.stroke()
-      ctx.strokeStyle='rgba(255,255,255,0.42)';ctx.lineWidth=0.9
-      ctx.beginPath();ctx.moveTo(-hw+1.4,hh);ctx.lineTo(-hw+1.4,-hh+1.4);ctx.lineTo(hw-1.4,-hh+1.4);ctx.lineTo(hw-1.4,hh);ctx.stroke()
+      // Cara cercana
+      ctx.strokeStyle=openNear?'#ffffff':'rgba(255,255,255,0.42)'
+      ctx.lineWidth=openNear?2.8:1.4; ctx.lineCap='round'; ctx.lineJoin='round'
+      if(openNear){ ctx.beginPath();ctx.moveTo(xBLf,yBLf);ctx.lineTo(xTLf,yTLf);ctx.lineTo(xTRf,yTRf);ctx.lineTo(xBRf,yBRf);ctx.stroke() }
+      else { ctx.beginPath();ctx.moveTo(xBLb,yBLb);ctx.lineTo(xTLb,yTLb);ctx.lineTo(xTRb,yTRb);ctx.lineTo(xBRb,yBRb);ctx.stroke();ln(xBLb,yBLb,xBRb,yBRb) }
       break
     }
     case 'goal_arc': {
-      const hw=13,yt=4,yb=8,yc=-10
-      ctx.strokeStyle='rgba(255,255,255,0.08)';ctx.lineWidth=1.5
-      ctx.beginPath();ctx.moveTo(-hw-2,yb+2);ctx.lineTo(hw+2,yb+2);ctx.stroke()
-      // Red dentro del arco
-      ctx.save();ctx.beginPath()
-      ctx.moveTo(-hw,yb);ctx.lineTo(-hw,yt)
-      ctx.bezierCurveTo(-hw,yc,hw,yc,hw,yt)
-      ctx.lineTo(hw,yb);ctx.closePath();ctx.clip()
-      ctx.strokeStyle='rgba(255,255,255,0.2)';ctx.lineWidth=0.5
-      for(let x=-35;x<40;x+=5){ctx.beginPath();ctx.moveTo(-hw+x,-25);ctx.lineTo(-hw+x+35,25);ctx.stroke();ctx.beginPath();ctx.moveTo(-hw+x,-25);ctx.lineTo(-hw+x-35,25);ctx.stroke()}
+      // Portería de arco: postes rectos abajo, arco bezier arriba — modelo 3D
+      const hw=13, hb=7, hs=2, yc=-9  // half-w, y-bottom, y-start-arc, y-control
+      // Puntos clave de la cara frontal (z=+hd) y trasera (z=-hd)
+      const hd=5
+      const [xBLf,yBLf]=gp(-hw, hb, hd), [xBRf,yBRf]=gp( hw, hb, hd)
+      const [xSLf,ySLf]=gp(-hw, hs, hd), [xSRf,ySRf]=gp( hw, hs, hd)
+      const [xC1f,yC1f]=gp(-hw, yc, hd), [xC2f,yC2f]=gp( hw, yc, hd)
+      const [xBLb,yBLb]=gp(-hw, hb,-hd), [xBRb,yBRb]=gp( hw, hb,-hd)
+      const [xSLb,ySLb]=gp(-hw, hs,-hd), [xSRb,ySRb]=gp( hw, hs,-hd)
+      const [xC1b,yC1b]=gp(-hw, yc,-hd), [xC2b,yC2b]=gp( hw, yc,-hd)
+      const ln=(x1:number,y1:number,x2:number,y2:number)=>{ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke()}
+      const openNear = cosT >= 0
+      // Arco lejano (tenue)
+      ctx.strokeStyle=openNear?'rgba(255,255,255,0.42)':'#ffffff'
+      ctx.lineWidth=openNear?1.5:3; ctx.lineCap='round'; ctx.lineJoin='round'
+      if(openNear){
+        ctx.beginPath();ctx.moveTo(xBLb,yBLb);ctx.lineTo(xSLb,ySLb)
+        ctx.bezierCurveTo(xC1b,yC1b,xC2b,yC2b,xSRb,ySRb);ctx.lineTo(xBRb,yBRb);ctx.stroke()
+        ln(xBLb,yBLb,xBRb,yBRb)
+      } else {
+        ctx.beginPath();ctx.moveTo(xBLf,yBLf);ctx.lineTo(xSLf,ySLf)
+        ctx.bezierCurveTo(xC1f,yC1f,xC2f,yC2f,xSRf,ySRf);ctx.lineTo(xBRf,yBRf);ctx.stroke()
+      }
+      // Barras de profundidad
+      ctx.strokeStyle='rgba(255,255,255,0.55)'; ctx.lineWidth=1.5
+      ln(xBLf,yBLf,xBLb,yBLb); ln(xBRf,yBRf,xBRb,yBRb)
+      ln(xSLf,ySLf,xSLb,ySLb); ln(xSRf,ySRf,xSRb,ySRb)
+      // Red en la boca (recortada al polígono del arco proyectado)
+      ctx.save()
+      const np=new Path2D()
+      np.moveTo(xBLf,yBLf);np.lineTo(xSLf,ySLf)
+      np.bezierCurveTo(xC1f,yC1f,xC2f,yC2f,xSRf,ySRf)
+      np.lineTo(xBRf,yBRf);np.closePath()
+      ctx.clip(np)
+      ctx.strokeStyle='rgba(255,255,255,0.2)'; ctx.lineWidth=0.5
+      for(let t=-hw-hb*2;t<hw+hb*2;t+=5){
+        const [sx1,sy1]=gp(t+hb*2, hb,hd),[sx2,sy2]=gp(t, yc,hd)
+        ctx.beginPath();ctx.moveTo(sx1,sy1);ctx.lineTo(sx2,sy2);ctx.stroke()
+        const [sx3,sy3]=gp(t, hb,hd),[sx4,sy4]=gp(t+hb*2, yc,hd)
+        ctx.beginPath();ctx.moveTo(sx3,sy3);ctx.lineTo(sx4,sy4);ctx.stroke()
+      }
       ctx.restore()
-      // Profundidad trasera (muestra que es portátil)
-      ctx.strokeStyle='rgba(255,255,255,0.45)';ctx.lineWidth=1.5;ctx.lineCap='round'
-      ctx.beginPath();ctx.moveTo(-hw,yb);ctx.lineTo(-hw+4,yb+4);ctx.stroke()
-      ctx.beginPath();ctx.moveTo(hw,yb);ctx.lineTo(hw+4,yb+4);ctx.stroke()
-      ctx.beginPath();ctx.moveTo(-hw+4,yb+4);ctx.lineTo(hw+4,yb+4);ctx.stroke()
-      // Marco del arco
-      ctx.strokeStyle='#ffffff';ctx.lineWidth=3;ctx.lineCap='round';ctx.lineJoin='round'
-      ctx.beginPath()
-      ctx.moveTo(-hw,yb);ctx.lineTo(-hw,yt)
-      ctx.bezierCurveTo(-hw,yc,hw,yc,hw,yt)
-      ctx.lineTo(hw,yb)
-      ctx.stroke()
-      // Brillo del arco
-      ctx.strokeStyle='rgba(255,255,255,0.42)';ctx.lineWidth=0.9
-      ctx.beginPath()
-      ctx.moveTo(-hw+1.5,yb);ctx.lineTo(-hw+1.5,yt+1.5)
-      ctx.bezierCurveTo(-hw+1.5,yc+2,hw-1.5,yc+2,hw-1.5,yt+1.5)
-      ctx.lineTo(hw-1.5,yb)
-      ctx.stroke()
+      // Arco cercano (brillante)
+      ctx.strokeStyle=openNear?'#ffffff':'rgba(255,255,255,0.42)'
+      ctx.lineWidth=openNear?3:1.5; ctx.lineCap='round'; ctx.lineJoin='round'
+      if(openNear){
+        ctx.beginPath();ctx.moveTo(xBLf,yBLf);ctx.lineTo(xSLf,ySLf)
+        ctx.bezierCurveTo(xC1f,yC1f,xC2f,yC2f,xSRf,ySRf);ctx.lineTo(xBRf,yBRf);ctx.stroke()
+      } else {
+        ctx.beginPath();ctx.moveTo(xBLb,yBLb);ctx.lineTo(xSLb,ySLb)
+        ctx.bezierCurveTo(xC1b,yC1b,xC2b,yC2b,xSRb,ySRb);ctx.lineTo(xBRb,yBRb);ctx.stroke()
+        ln(xBLb,yBLb,xBRb,yBRb)
+      }
       break
     }
     case 'cone': {
@@ -338,10 +325,11 @@ function drawAccessoryHandles(ctx: CanvasRenderingContext2D, a: PlacedAccessory)
   const hw = ACC_LOCAL_HALF * a.scale
   const hh = ACC_LOCAL_HALF * a.scale
   const rad = (a.rotation ?? 0) * Math.PI / 180
+  const isGoal = a.type.startsWith('goal')
 
   ctx.save()
   ctx.translate(a.x, a.y)
-  ctx.rotate(rad)
+  if (!isGoal) ctx.rotate(rad)
 
   // Bounding box
   ctx.strokeStyle = '#3b82f6'
@@ -391,7 +379,8 @@ function drawAccessoryHandles(ctx: CanvasRenderingContext2D, a: PlacedAccessory)
 function getAccHandleHit(pos: Point, a: PlacedAccessory): 'rotation' | 'corner' | 'body' | null {
   const dx = pos.x - a.x
   const dy = pos.y - a.y
-  const rad = (a.rotation ?? 0) * Math.PI / 180
+  const isGoal = a.type.startsWith('goal')
+  const rad = isGoal ? 0 : (a.rotation ?? 0) * Math.PI / 180
   const cos = Math.cos(rad)
   const sin = Math.sin(rad)
   const lx = dx * cos + dy * sin
@@ -601,13 +590,13 @@ const ACCESSORY_LIST: { type: AccessoryType; label: string }[] = [
   { type:'barrier', label:'Barrera' },
 ]
 
-const GOAL_LIST: { type: AccessoryType; label: string }[] = [
-  { type:'goal_front', label:'Frontal' },
-  { type:'goal_3d_r', label:'3D Derecha' },
-  { type:'goal_3d_l', label:'3D Izquierda' },
-  { type:'goal_side', label:'Lateral' },
-  { type:'goal_mini', label:'Mini' },
-  { type:'goal_arc', label:'Portátil' },
+const GOAL_LIST: { type: AccessoryType; label: string; initRot: number }[] = [
+  { type:'goal_front',   label:'Frontal',       initRot:   0 },
+  { type:'goal_3d_r',   label:'3D Derecha',    initRot: -28 },
+  { type:'goal_3d_l',   label:'3D Izquierda',  initRot:  28 },
+  { type:'goal_side',   label:'Lateral',        initRot:  90 },
+  { type:'goal_mini',   label:'Mini',           initRot: -22 },
+  { type:'goal_arc',    label:'Portátil',       initRot: -18 },
 ]
 
 const BALL_LIST: { type: AccessoryType; label: string }[] = [
@@ -714,7 +703,7 @@ function TacticalBoard({ onCapture, onRegisterCapture }: TacticalBoardProps) {
     setSelectedAccUid(null)
     if(!selPlayer&&!selAcc){ const idx=findTextAt(pos); if(idx!==-1){ textDragRef.current={idx,ox:pos.x-shapes[idx].start!.x,oy:pos.y-shapes[idx].start!.y}; setDraggedTextIdx(idx); return } }
     if(selPlayer){ setPlacedPlayers(prev=>[...prev,{uid:uuidv4(),team:selPlayer.team,number:selPlayer.number,x:pos.x,y:pos.y}]); return }
-    if(selAcc){ setPlacedAccessories(prev=>[...prev,{uid:uuidv4(),type:selAcc.type,x:pos.x,y:pos.y,rotation:0,color:selAcc.color,scale:1}]); return }
+    if(selAcc){ const gDef=GOAL_LIST.find(g=>g.type===selAcc.type); setPlacedAccessories(prev=>[...prev,{uid:uuidv4(),type:selAcc.type,x:pos.x,y:pos.y,rotation:gDef?.initRot??0,color:selAcc.color,scale:1}]); return }
     if(tool==='text'){ setTextPos(pos); return }
     setIsDrawing(true)
     setCurrentShape({type:tool,color,width:strokeWidth,dashed,start:pos,end:pos,points:tool==='freehand'?[pos]:undefined})
