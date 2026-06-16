@@ -53,7 +53,6 @@ const TEAMS: Record<TeamId, { bg: string; border: string; text: string; label: s
   3: { bg: '#ca8a04', border: '#a16207', text: '#000000', label: 'Equipo C' },
 }
 const PLAYER_R = 15
-const ACC_HIT_R = 20
 const ACC_LOCAL_HALF = 22
 const HANDLE_R = 7
 const ROT_EXTRA = 22
