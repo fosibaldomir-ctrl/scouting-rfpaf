@@ -41,7 +41,7 @@ type AccessoryType = 'goal_front' | 'goal_3d_r' | 'goal_3d_l' | 'goal_side' | 'g
 interface PlacedAccessory { uid: string; type: AccessoryType; x: number; y: number; rotation: number; color?: string; scale: number }
 interface SelAcc { type: AccessoryType; color?: string }
 
-type Tab = 'videoteca' | 'sesion'
+type Tab = 'videoteca' | 'biblioteca' | 'sesion'
 
 /* ═══════════════════════════════════════
    PLAYER CONSTANTS
@@ -1530,6 +1530,14 @@ function EjercicioCard({ ej, onDelete }: { ej: Ejercicio; onDelete: (id: string)
 const TIPOS_EJERCICIO = ['Técnico','Táctico','Físico','Rondo','Partido reducido','Calentamiento','Posesión','Pressing','Otro']
 const FORM_EMPTY = { tipo:'',duracion:'',descripcion:'',numJugadores:'',material:'',imagen:null as string|null,video:'' }
 
+function BibliotecaTab() {
+  return (
+    <div>
+      <TacticalBoard/>
+    </div>
+  )
+}
+
 function VideotecaTab() {
   const [formOpen, setFormOpen] = useState(false)
   const [ejercicios, setEjercicios] = useState<Ejercicio[]>([])
@@ -1661,6 +1669,15 @@ export default function Entrenamientos() {
         </button>
         <button
           type="button"
+          onClick={() => setTab('biblioteca')}
+          className={`flex items-center gap-2 px-4 py-2.5 text-sm font-semibold border-b-2 transition-colors ${
+            tab==='biblioteca' ? 'border-rfpaf-blue text-rfpaf-blue' : 'border-transparent text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          <BookOpen className="w-4 h-4"/> Biblioteca de Ejercicios
+        </button>
+        <button
+          type="button"
           onClick={() => setTab('videoteca')}
           className={`flex items-center gap-2 px-4 py-2.5 text-sm font-semibold border-b-2 transition-colors ${
             tab==='videoteca' ? 'border-rfpaf-blue text-rfpaf-blue' : 'border-transparent text-gray-500 hover:text-gray-700'
@@ -1671,7 +1688,7 @@ export default function Entrenamientos() {
       </div>
 
       {/* Tab content */}
-      {tab==='sesion' ? <SesionTab/> : <VideotecaTab/>}
+      {tab==='sesion' ? <SesionTab/> : tab==='biblioteca' ? <BibliotecaTab/> : <VideotecaTab/>}
     </div>
   )
 }
