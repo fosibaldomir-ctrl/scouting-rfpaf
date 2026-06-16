@@ -143,6 +143,40 @@ const PALETTE = [
   '#ec4899','#14b8a6','#f43f5e','#6366f1',
 ]
 
+function drawAccessoryHandles(ctx: CanvasRenderingContext2D, a: PlacedAccessory) {
+  const radius = 45
+  ctx.strokeStyle = '#3b82f6'
+  ctx.lineWidth = 2
+  ctx.setLineDash([4, 4])
+  ctx.beginPath()
+  ctx.arc(a.x, a.y, radius, 0, Math.PI * 2)
+  ctx.stroke()
+  ctx.setLineDash([])
+
+  // Rotate handle (top)
+  const rotAngle = (a.rotation ?? 0) * Math.PI / 180
+  const rotX = a.x + radius * Math.cos(rotAngle)
+  const rotY = a.y + radius * Math.sin(rotAngle)
+  ctx.fillStyle = '#ef4444'
+  ctx.beginPath()
+  ctx.arc(rotX, rotY, 6, 0, Math.PI * 2)
+  ctx.fill()
+  ctx.strokeStyle = '#ffffff'
+  ctx.lineWidth = 2
+  ctx.stroke()
+
+  // Resize handle (right)
+  const resizeX = a.x + radius
+  const resizeY = a.y
+  ctx.fillStyle = '#22c55e'
+  ctx.beginPath()
+  ctx.arc(resizeX, resizeY, 6, 0, Math.PI * 2)
+  ctx.fill()
+  ctx.strokeStyle = '#ffffff'
+  ctx.lineWidth = 2
+  ctx.stroke()
+}
+
 /* ═══════════════════════════════════════
    CANVAS DRAW HELPERS
 ═══════════════════════════════════════ */
@@ -359,7 +393,7 @@ function TacticalBoard({ onCapture, onRegisterCapture }: TacticalBoardProps) {
   const [selAcc, setSelAcc] = useState<SelAcc | null>(null)
   const [selectedAccUid, setSelectedAccUid] = useState<string | null>(null)
   const playerDragRef = useRef<{ uid: string; ox: number; oy: number } | null>(null)
-  const accDragRef = useRef<{ uid: string; ox: number; oy: number; rotating?: boolean; startAngle?: number; startRot?: number; resizing?: boolean; startDist?: number; startSize?: string } | null>(null)
+  const accDragRef = useRef<{ uid: string; startX: number; startY: number; accX: number; accY: number; mode?: 'move'|'resize'|'rotate'; startDist?: number; startAngle?: number; startRot?: number; startSize?: string } | null>(null)
   const textDragRef = useRef<{ idx: number; ox: number; oy: number } | null>(null)
   const [openTeams, setOpenTeams] = useState<Set<TeamId>>(new Set())
   const toggleTeam = (tid: TeamId) =>
@@ -380,7 +414,10 @@ function TacticalBoard({ onCapture, onRegisterCapture }: TacticalBoardProps) {
     drawPitch(ctx,canvas.width,canvas.height,pitchType)
     shapes.forEach((s,i)=>{drawShape(ctx,s); if(i===draggedTextIdx) drawTextHandle(ctx,s)})
     if(currentShape) drawShape(ctx,currentShape)
-    placedAccessories.forEach(a=>drawAccessory(ctx,a,accDragRef.current?.uid===a.uid))
+    placedAccessories.forEach(a=>{
+      drawAccessory(ctx,a,accDragRef.current?.uid===a.uid)
+      if(selectedAccUid===a.uid) drawAccessoryHandles(ctx,a)
+    })
     placedPlayers.forEach(p=>drawPlacedPlayer(ctx,p,playerDragRef.current?.uid===p.uid))
   }, [shapes,currentShape,placedPlayers,placedAccessories,draggedTextIdx,pitchType])
 
@@ -401,24 +438,12 @@ function TacticalBoard({ onCapture, onRegisterCapture }: TacticalBoardProps) {
       const hitA=nearAccessory(pos); if(hitA){ setPlacedAccessories(prev=>prev.filter(a=>a.uid!==hitA.uid)); setSelectedAccUid(null); return }
       return
     }
-    if(e.ctrlKey||e.metaKey){
-      const hitA=nearAccessory(pos); if(hitA){
-        const acc = placedAccessories.find(a => a.uid === hitA.uid)!
-        const dist = Math.hypot(pos.x - acc.x, pos.y - acc.y)
-        accDragRef.current={uid:hitA.uid,ox:pos.x,oy:pos.y,resizing:true,startDist:dist,startSize:acc.size}
-        return
-      }
-    }
-    if(e.shiftKey){
-      const hitA=nearAccessory(pos); if(hitA){
-        const acc = placedAccessories.find(a => a.uid === hitA.uid)!
-        const angle = Math.atan2(pos.y - acc.y, pos.x - acc.x) * 180 / Math.PI
-        accDragRef.current={uid:hitA.uid,ox:pos.x,oy:pos.y,rotating:true,startAngle:angle,startRot:acc.rotation}
-        return
-      }
-    }
     const hitP=nearPlayer(pos); if(hitP){ playerDragRef.current={uid:hitP.uid,ox:pos.x-hitP.x,oy:pos.y-hitP.y}; return }
-    const hitA=nearAccessory(pos); if(hitA){ setSelectedAccUid(hitA.uid); accDragRef.current={uid:hitA.uid,ox:pos.x-hitA.x,oy:pos.y-hitA.y}; return }
+    const hitA=nearAccessory(pos); if(hitA){
+      setSelectedAccUid(hitA.uid)
+      accDragRef.current={uid:hitA.uid,startX:pos.x,startY:pos.y,accX:hitA.x,accY:hitA.y}
+      return
+    }
     if(!selPlayer&&!selAcc){ const idx=findTextAt(pos); if(idx!==-1){ textDragRef.current={idx,ox:pos.x-shapes[idx].start!.x,oy:pos.y-shapes[idx].start!.y}; setDraggedTextIdx(idx); return } }
     if(selPlayer){ setPlacedPlayers(prev=>[...prev,{uid:uuidv4(),team:selPlayer.team,number:selPlayer.number,x:pos.x,y:pos.y}]); return }
     if(selAcc){ setPlacedAccessories(prev=>[...prev,{uid:uuidv4(),type:selAcc.type,x:pos.x,y:pos.y,rotation:0,color:selAcc.color,size:selAcc.size}]); return }
@@ -432,25 +457,35 @@ function TacticalBoard({ onCapture, onRegisterCapture }: TacticalBoardProps) {
     if(textDragRef.current){ const{idx,ox,oy}=textDragRef.current; setShapes(prev=>prev.map((s,i)=>i!==idx?s:{...s,start:{x:pos.x-ox,y:pos.y-oy}})); return }
     if(playerDragRef.current){ const{uid,ox,oy}=playerDragRef.current; setPlacedPlayers(prev=>prev.map(p=>p.uid===uid?{...p,x:pos.x-ox,y:pos.y-oy}:p)); return }
     if(accDragRef.current){
-      const{uid,ox,oy,rotating,startAngle,startRot,resizing,startDist,startSize}=accDragRef.current
+      const{uid,startX,startY,accX,accY,mode,startDist,startAngle,startRot,startSize}=accDragRef.current
       const acc = placedAccessories.find(a => a.uid === uid)!
-      if(resizing && startDist !== undefined && startSize !== undefined){
-        const newDist = Math.hypot(pos.x - acc.x, pos.y - acc.y)
-        const ratio = newDist / startDist
-        let newSize: 's'|'m'|'l' = startSize as any
-        if(ratio > 1.2) newSize = 'l'
-        else if(ratio > 0.85) newSize = 'm'
+      const dx = pos.x - startX
+      const dy = pos.y - startY
+      const dist = Math.hypot(dx, dy)
+
+      let currentMode = mode
+      if(!currentMode && dist > 10){
+        const radialDist = Math.hypot(pos.x - accX, pos.y - accY)
+        const angle = Math.atan2(pos.y - accY, pos.x - accX)
+        const movementAngle = Math.atan2(dy, dx)
+        const angleDiff = Math.abs(movementAngle - angle)
+        currentMode = angleDiff > Math.PI / 4 && angleDiff < 3 * Math.PI / 4 ? 'rotate' : 'resize'
+        accDragRef.current = {...accDragRef.current, mode: currentMode, startDist: radialDist, startAngle: angle, startRot: acc.rotation, startSize: acc.size}
+      }
+
+      if(currentMode === 'rotate'){
+        const newAngle = Math.atan2(pos.y - accY, pos.x - accX)
+        const rotation = (startRot ?? 0) + (newAngle - (startAngle ?? 0)) * 180 / Math.PI
+        setPlacedAccessories(prev=>prev.map(a=>a.uid===uid?{...a,rotation:rotation}:a))
+      } else if(currentMode === 'resize'){
+        const newDist = Math.hypot(pos.x - accX, pos.y - accY)
+        const ratio = newDist / (startDist ?? 1)
+        let newSize: 's'|'m'|'l' = startSize as any || 'l'
+        if(ratio > 1.3) newSize = 'l'
+        else if(ratio > 0.9) newSize = 'm'
         else newSize = 's'
         setPlacedAccessories(prev=>prev.map(a=>a.uid===uid?{...a,size:newSize}:a))
-        return
       }
-      if(rotating && startAngle !== undefined && startRot !== undefined){
-        const newAngle = Math.atan2(pos.y - acc.y, pos.x - acc.x) * 180 / Math.PI
-        const rotation = startRot + (newAngle - startAngle)
-        setPlacedAccessories(prev=>prev.map(a=>a.uid===uid?{...a,rotation:rotation%360}:a))
-        return
-      }
-      setPlacedAccessories(prev=>prev.map(a=>a.uid===uid?{...a,x:pos.x-ox,y:pos.y-oy}:a))
       return
     }
     if(!isDrawing||!currentShape) return
@@ -650,7 +685,7 @@ function TacticalBoard({ onCapture, onRegisterCapture }: TacticalBoardProps) {
         </button>
         <div className="w-px h-5 bg-white/20 mx-0.5"/>
         <span className="text-[10px] text-white/40 px-2 py-1.5 flex items-center gap-1">
-          💡 <kbd className="bg-white/10 px-1.5 py-0.5 rounded text-[9px] font-mono">Shift</kbd> + arrastra para girar | <kbd className="bg-white/10 px-1.5 py-0.5 rounded text-[9px] font-mono">Ctrl</kbd> + arrastra para tamaño
+          💡 Click accesorio → Arrastra para girar/redimensionar
         </span>
         <div className="w-px h-5 bg-white/20 mx-0.5"/>
         <button type="button" onClick={exportPNG}
