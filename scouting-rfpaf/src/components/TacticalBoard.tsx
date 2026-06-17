@@ -749,7 +749,7 @@ export default function TacticalBoard({ onCapture, onRegisterCapture }: Tactical
       <div className="flex gap-3 items-start">
 
         {/* LEFT */}
-        <div className={`w-36 flex-shrink-0 flex-col gap-3 ${mobilePanel === 'left' ? 'flex' : 'hidden'} lg:flex`}>
+        <div className={`flex w-36 flex-shrink-0 flex-col gap-3 ${mobilePanel === 'left' ? '' : 'hidden'} lg:!flex`}>
           <div className="bg-gray-900/60 rounded-xl overflow-hidden border border-white/5">
             <p className="text-white/40 text-[10px] uppercase tracking-widest font-semibold px-3 pt-2.5 pb-1.5">Jugadoras por equipo</p>
             {([1,2,3] as TeamId[]).map(tid=>{
@@ -864,7 +864,7 @@ export default function TacticalBoard({ onCapture, onRegisterCapture }: Tactical
         </div>
 
         {/* CENTER — canvas único, siempre en DOM */}
-        <div className={`flex-1 flex-col gap-3 min-w-0 ${mobilePanel === 'canvas' ? 'flex' : 'hidden'} lg:flex`}>
+        <div className={`flex flex-1 flex-col gap-3 min-w-0 ${mobilePanel === 'canvas' ? '' : 'hidden'} lg:!flex`}>
           <canvas ref={canvasRef} width={900} height={600}
             onMouseDown={onMouseDown} onMouseMove={onMouseMove} onMouseUp={onMouseUp} onMouseLeave={onMouseUp}
             onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}
@@ -887,7 +887,7 @@ export default function TacticalBoard({ onCapture, onRegisterCapture }: Tactical
         </div>
 
         {/* RIGHT */}
-        <div className={`w-36 flex-shrink-0 flex-col gap-3 ${mobilePanel === 'right' ? 'flex' : 'hidden'} lg:flex`}>
+        <div className={`flex w-36 flex-shrink-0 flex-col gap-3 ${mobilePanel === 'right' ? '' : 'hidden'} lg:!flex`}>
           <div className="bg-gray-900/50 rounded-xl p-3 space-y-2">
             <p className="text-white/40 text-[10px] uppercase tracking-widest font-semibold">Tipo de campo</p>
             <div className="flex flex-col gap-1">
