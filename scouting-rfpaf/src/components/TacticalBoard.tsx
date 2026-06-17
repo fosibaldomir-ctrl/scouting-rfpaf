@@ -169,46 +169,23 @@ export default function TacticalBoard({ onCapture, onRegisterCapture }: Tactical
     })
   }, [shapes, placedPlayers, placedAccessories, selectedAccUid, pitchType])
 
-  // Handle canvas responsiveness
+  // Sync canvas backing buffer to its CSS pixel dimensions
   useEffect(() => {
     const canvas = canvasRef.current
-    const container = canvasContainer.current
-    if (!canvas || !container) return
+    if (!canvas) return
 
-    const resizeCanvas = () => {
-      const rect = container.getBoundingClientRect()
-      const dpr = window.devicePixelRatio || 1
-
-      // Mantener aspecto 16:9 (640:360)
-      const aspectRatio = 16 / 9
-      let width = rect.width
-      let height = rect.height
-
-      // Ajustar altura según ancho si es necesario
-      if (width / height > aspectRatio) {
-        width = height * aspectRatio
-      } else {
-        height = width / aspectRatio
-      }
-
-      canvas.width = width * dpr
-      canvas.height = height * dpr
-      canvas.style.width = width + 'px'
-      canvas.style.height = height + 'px'
-
-      // Escalar el contexto para DPI
-      const ctx = canvas.getContext('2d')
-      if (ctx) {
-        ctx.scale(dpr, dpr)
-      }
-
+    const sync = () => {
+      const rect = canvas.getBoundingClientRect()
+      if (rect.width === 0 || rect.height === 0) return
+      // Set backing buffer = CSS size → coordinates map 1:1, no scaling math needed
+      canvas.width = Math.round(rect.width)
+      canvas.height = Math.round(rect.height)
       redrawCanvas()
     }
 
-    resizeCanvas()
-    const observer = new ResizeObserver(resizeCanvas)
-    observer.observe(container)
-
+    sync()
+    const observer = new ResizeObserver(sync)
+    observer.observe(canvas)
     return () => observer.disconnect()
   }, [redrawCanvas])
 
