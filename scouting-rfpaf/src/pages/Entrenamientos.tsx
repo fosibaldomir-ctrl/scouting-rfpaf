@@ -842,232 +842,239 @@ function TacticalBoard({ onCapture, onRegisterCapture }: TacticalBoardProps) {
   const cursorClass = (selPlayer||selAcc)?'cursor-cell':draggedTextIdx!==null?'cursor-grabbing':'cursor-crosshair'
 
   return (
-    <div className="bg-gray-800 rounded-xl p-4 flex flex-col gap-3">
+    <div className="bg-gray-800 rounded-xl p-4 flex flex-col gap-3 h-screen max-h-screen overflow-hidden">
       <h3 className="text-white font-semibold text-sm tracking-wide">Pizarra Táctica</h3>
 
-      {/* Field selector */}
-      <div className="bg-gray-900/50 rounded-xl p-3 space-y-2">
-        <p className="text-white/40 text-[10px] uppercase tracking-widest font-semibold">Tipo de campo</p>
-        <div className="flex gap-1.5">
-          {PITCH_OPTIONS.map(opt=>(
-            <button key={opt.id} type="button" onClick={()=>setPitchType(opt.id)}
-              className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-medium transition-all ${pitchType===opt.id?'bg-rfpaf-blue text-white shadow-sm':'bg-white/10 text-white/60 hover:bg-white/20 hover:text-white'}`}>
-              {opt.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Player panel */}
-      <div className="bg-gray-900/60 rounded-xl overflow-hidden border border-white/5">
-        <p className="text-white/40 text-[10px] uppercase tracking-widest font-semibold px-3 pt-2.5 pb-1.5">Jugadoras por equipo</p>
-        {([1,2,3] as TeamId[]).map(tid=>{
-          const t=TEAMS[tid]; const isOpen=openTeams.has(tid); const cnt=countOnPitch(tid)
-          return (
-            <div key={tid} className="border-t border-white/5">
-              <button type="button" onClick={()=>toggleTeam(tid)}
-                className="w-full flex items-center gap-2.5 px-3 py-2 hover:bg-white/5 transition-colors">
-                <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-md flex-shrink-0 min-w-[72px] text-center" style={{backgroundColor:t.bg,color:t.text}}>{t.label}</span>
-                {cnt>0&&<span className="text-[10px] text-white/40">{cnt} en campo</span>}
-                <ChevronDown className={`w-3.5 h-3.5 text-white/35 ml-auto flex-shrink-0 transition-transform duration-200 ${isOpen?'rotate-180':''}`}/>
-              </button>
-              {isOpen&&(
-                <div className="flex flex-wrap gap-1.5 px-3 pb-3 pt-0.5">
-                  {Array.from({length:11},(_,i)=>i+1).map(n=>{
-                    const isSel=selPlayer?.team===tid&&selPlayer?.number===n; const onField=isOnPitch(tid,n)
-                    return (
-                      <button key={n} type="button"
-                        onClick={()=>{if(isSel){setSelPlayer(null);return};setSelPlayer({team:tid,number:n})}}
-                        className={`w-8 h-8 rounded-full text-[11px] font-bold flex items-center justify-center transition-all select-none ${isSel?'ring-2 ring-white ring-offset-1 ring-offset-gray-900 scale-110 shadow-lg':onField?'opacity-30':'hover:scale-105 hover:ring-1 hover:ring-white/60'}`}
-                        style={{backgroundColor:t.bg,color:t.text,border:`2px solid ${t.border}`}}>{n}</button>
-                    )
-                  })}
+      <div className="flex gap-3 flex-1 min-h-0">
+        {/* LEFT PANEL: Players + Accessories */}
+        <div className="w-48 flex flex-col gap-3 overflow-y-auto">
+          {/* Player panel */}
+          <div className="bg-gray-900/60 rounded-xl overflow-hidden border border-white/5 flex-shrink-0">
+            <p className="text-white/40 text-[10px] uppercase tracking-widest font-semibold px-3 pt-2.5 pb-1.5">Jugadoras por equipo</p>
+            {([1,2,3] as TeamId[]).map(tid=>{
+              const t=TEAMS[tid]; const isOpen=openTeams.has(tid); const cnt=countOnPitch(tid)
+              return (
+                <div key={tid} className="border-t border-white/5">
+                  <button type="button" onClick={()=>toggleTeam(tid)}
+                    className="w-full flex items-center gap-2.5 px-3 py-2 hover:bg-white/5 transition-colors">
+                    <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-md flex-shrink-0 min-w-[72px] text-center" style={{backgroundColor:t.bg,color:t.text}}>{t.label}</span>
+                    {cnt>0&&<span className="text-[10px] text-white/40">{cnt} en campo</span>}
+                    <ChevronDown className={`w-3.5 h-3.5 text-white/35 ml-auto flex-shrink-0 transition-transform duration-200 ${isOpen?'rotate-180':''}`}/>
+                  </button>
+                  {isOpen&&(
+                    <div className="flex flex-wrap gap-1.5 px-3 pb-3 pt-0.5">
+                      {Array.from({length:11},(_,i)=>i+1).map(n=>{
+                        const isSel=selPlayer?.team===tid&&selPlayer?.number===n; const onField=isOnPitch(tid,n)
+                        return (
+                          <button key={n} type="button"
+                            onClick={()=>{if(isSel){setSelPlayer(null);return};setSelPlayer({team:tid,number:n})}}
+                            className={`w-8 h-8 rounded-full text-[11px] font-bold flex items-center justify-center transition-all select-none ${isSel?'ring-2 ring-white ring-offset-1 ring-offset-gray-900 scale-110 shadow-lg':onField?'opacity-30':'hover:scale-105 hover:ring-1 hover:ring-white/60'}`}
+                            style={{backgroundColor:t.bg,color:t.text,border:`2px solid ${t.border}`}}>{n}</button>
+                        )
+                      })}
+                    </div>
+                  )}
                 </div>
-              )}
+              )
+            })}
+            <div className="px-3 py-2 border-t border-white/5">
+              <button type="button" onClick={()=>setPlacedPlayers([])}
+                className="flex items-center gap-1 text-[10px] text-white/30 hover:text-red-400 transition-colors">
+                <UserX className="w-3 h-3"/> Quitar todas del campo
+              </button>
             </div>
-          )
-        })}
-        <div className="px-3 py-2 border-t border-white/5">
-          <button type="button" onClick={()=>setPlacedPlayers([])}
-            className="flex items-center gap-1 text-[10px] text-white/30 hover:text-red-400 transition-colors">
-            <UserX className="w-3 h-3"/> Quitar todas del campo
-          </button>
-        </div>
-      </div>
+          </div>
 
-      {/* Accessories panel */}
-      <div className="bg-gray-900/60 rounded-xl overflow-hidden border border-white/5">
-        <p className="text-white/40 text-[10px] uppercase tracking-widest font-semibold px-3 pt-2.5 pb-2">Biblioteca de accesorios</p>
-        <div className="flex flex-wrap gap-1.5 px-3 pb-3">
-          {ACCESSORY_LIST.map(acc => {
-            const isSel = selAcc?.type === acc.type
-            return (
-              <button key={acc.type} type="button"
-                onClick={() => { setSelAcc(isSel ? null : { type: acc.type }); setSelPlayer(null); setBallMenuOpen(false); setGoalMenuOpen(false); setMushroomMenuOpen(false) }}
-                className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all border ${isSel ? 'bg-rfpaf-blue text-white border-rfpaf-blue shadow-sm' : 'bg-white/10 text-white/70 border-white/10 hover:bg-white/20 hover:text-white'}`}>
-                {acc.label}
+          {/* Accessories panel */}
+          <div className="bg-gray-900/60 rounded-xl overflow-hidden border border-white/5 flex-shrink-0">
+            <p className="text-white/40 text-[10px] uppercase tracking-widest font-semibold px-3 pt-2.5 pb-2">Biblioteca de accesorios</p>
+            <div className="flex flex-wrap gap-1.5 px-3 pb-3">
+              {ACCESSORY_LIST.map(acc => {
+                const isSel = selAcc?.type === acc.type
+                return (
+                  <button key={acc.type} type="button"
+                    onClick={() => { setSelAcc(isSel ? null : { type: acc.type }); setSelPlayer(null); setBallMenuOpen(false); setGoalMenuOpen(false); setMushroomMenuOpen(false) }}
+                    className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all border ${isSel ? 'bg-rfpaf-blue text-white border-rfpaf-blue shadow-sm' : 'bg-white/10 text-white/70 border-white/10 hover:bg-white/20 hover:text-white'}`}>
+                    {acc.label}
+                  </button>
+                )
+              })}
+              <button type="button"
+                onClick={() => { setMushroomMenuOpen(v => !v); setGoalMenuOpen(false); setBallMenuOpen(false); setSelPlayer(null) }}
+                className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all border ${
+                  MUSHROOM_LIST.some(m => selAcc?.type === m.type)
+                    ? 'bg-rfpaf-blue text-white border-rfpaf-blue shadow-sm'
+                    : 'bg-white/10 text-white/70 border-white/10 hover:bg-white/20 hover:text-white'
+                }`}>
+                Setas <ChevronDown className={`w-3 h-3 transition-transform duration-200 ${mushroomMenuOpen ? 'rotate-180' : ''}`}/>
               </button>
-            )
-          })}
-          {/* Setas dropdown */}
-          <button type="button"
-            onClick={() => { setMushroomMenuOpen(v => !v); setGoalMenuOpen(false); setBallMenuOpen(false); setSelPlayer(null) }}
-            className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all border ${
-              MUSHROOM_LIST.some(m => selAcc?.type === m.type)
-                ? 'bg-rfpaf-blue text-white border-rfpaf-blue shadow-sm'
-                : 'bg-white/10 text-white/70 border-white/10 hover:bg-white/20 hover:text-white'
-            }`}>
-            Setas <ChevronDown className={`w-3 h-3 transition-transform duration-200 ${mushroomMenuOpen ? 'rotate-180' : ''}`}/>
-          </button>
-          {mushroomMenuOpen && MUSHROOM_LIST.map(m => {
-            const isSel = selAcc?.type === m.type
-            return (
-              <button key={m.type} type="button"
-                onClick={() => { setSelAcc(isSel ? null : { type: m.type }); setMushroomMenuOpen(false) }}
-                className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all border ${isSel ? 'bg-rfpaf-blue text-white border-rfpaf-blue shadow-sm' : 'bg-white/10 text-white/70 border-white/10 hover:bg-white/20 hover:text-white'}`}>
-                {m.label}
+              {mushroomMenuOpen && MUSHROOM_LIST.map(m => {
+                const isSel = selAcc?.type === m.type
+                return (
+                  <button key={m.type} type="button"
+                    onClick={() => { setSelAcc(isSel ? null : { type: m.type }); setMushroomMenuOpen(false) }}
+                    className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all border ${isSel ? 'bg-rfpaf-blue text-white border-rfpaf-blue shadow-sm' : 'bg-white/10 text-white/70 border-white/10 hover:bg-white/20 hover:text-white'}`}>
+                    {m.label}
+                  </button>
+                )
+              })}
+              <button type="button"
+                onClick={() => { setGoalMenuOpen(v => !v); setBallMenuOpen(false); setMushroomMenuOpen(false); setSelPlayer(null) }}
+                className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all border ${
+                  GOAL_LIST.some(g => selAcc?.type === g.type)
+                    ? 'bg-rfpaf-blue text-white border-rfpaf-blue shadow-sm'
+                    : 'bg-white/10 text-white/70 border-white/10 hover:bg-white/20 hover:text-white'
+                }`}>
+                Porterías <ChevronDown className={`w-3 h-3 transition-transform duration-200 ${goalMenuOpen ? 'rotate-180' : ''}`}/>
               </button>
-            )
-          })}
-          {/* Porterías dropdown */}
-          <button type="button"
-            onClick={() => { setGoalMenuOpen(v => !v); setBallMenuOpen(false); setMushroomMenuOpen(false); setSelPlayer(null) }}
-            className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all border ${
-              GOAL_LIST.some(g => selAcc?.type === g.type)
-                ? 'bg-rfpaf-blue text-white border-rfpaf-blue shadow-sm'
-                : 'bg-white/10 text-white/70 border-white/10 hover:bg-white/20 hover:text-white'
-            }`}>
-            Porterías <ChevronDown className={`w-3 h-3 transition-transform duration-200 ${goalMenuOpen ? 'rotate-180' : ''}`}/>
-          </button>
-          {goalMenuOpen && GOAL_LIST.map(g => {
-            const isSel = selAcc?.type === g.type
-            return (
-              <button key={g.type} type="button"
-                onClick={() => { setSelAcc(isSel ? null : { type: g.type }); setGoalMenuOpen(false) }}
-                className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all border ${isSel ? 'bg-rfpaf-blue text-white border-rfpaf-blue shadow-sm' : 'bg-white/10 text-white/70 border-white/10 hover:bg-white/20 hover:text-white'}`}>
-                {g.label}
+              {goalMenuOpen && GOAL_LIST.map(g => {
+                const isSel = selAcc?.type === g.type
+                return (
+                  <button key={g.type} type="button"
+                    onClick={() => { setSelAcc(isSel ? null : { type: g.type }); setGoalMenuOpen(false) }}
+                    className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all border ${isSel ? 'bg-rfpaf-blue text-white border-rfpaf-blue shadow-sm' : 'bg-white/10 text-white/70 border-white/10 hover:bg-white/20 hover:text-white'}`}>
+                    {g.label}
+                  </button>
+                )
+              })}
+              <button type="button"
+                onClick={() => { setBallMenuOpen(v => !v); setGoalMenuOpen(false); setMushroomMenuOpen(false); setSelPlayer(null) }}
+                className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all border ${
+                  BALL_LIST.some(b => selAcc?.type === b.type)
+                    ? 'bg-rfpaf-blue text-white border-rfpaf-blue shadow-sm'
+                    : 'bg-white/10 text-white/70 border-white/10 hover:bg-white/20 hover:text-white'
+                }`}>
+                Balones <ChevronDown className={`w-3 h-3 transition-transform duration-200 ${ballMenuOpen ? 'rotate-180' : ''}`}/>
               </button>
-            )
-          })}
-          {/* Balones dropdown */}
-          <button type="button"
-            onClick={() => { setBallMenuOpen(v => !v); setGoalMenuOpen(false); setMushroomMenuOpen(false); setSelPlayer(null) }}
-            className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all border ${
-              BALL_LIST.some(b => selAcc?.type === b.type)
-                ? 'bg-rfpaf-blue text-white border-rfpaf-blue shadow-sm'
-                : 'bg-white/10 text-white/70 border-white/10 hover:bg-white/20 hover:text-white'
-            }`}>
-            Balones <ChevronDown className={`w-3 h-3 transition-transform duration-200 ${ballMenuOpen ? 'rotate-180' : ''}`}/>
-          </button>
-          {ballMenuOpen && BALL_LIST.map(b => {
-            const isSel = selAcc?.type === b.type
-            return (
-              <button key={b.type} type="button"
-                onClick={() => { setSelAcc(isSel ? null : { type: b.type }); setBallMenuOpen(false) }}
-                className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all border ${isSel ? 'bg-rfpaf-blue text-white border-rfpaf-blue shadow-sm' : 'bg-white/10 text-white/70 border-white/10 hover:bg-white/20 hover:text-white'}`}>
-                {b.label}
-              </button>
-            )
-          })}
+              {ballMenuOpen && BALL_LIST.map(b => {
+                const isSel = selAcc?.type === b.type
+                return (
+                  <button key={b.type} type="button"
+                    onClick={() => { setSelAcc(isSel ? null : { type: b.type }); setBallMenuOpen(false) }}
+                    className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all border ${isSel ? 'bg-rfpaf-blue text-white border-rfpaf-blue shadow-sm' : 'bg-white/10 text-white/70 border-white/10 hover:bg-white/20 hover:text-white'}`}>
+                    {b.label}
+                  </button>
+                )
+              })}
+            </div>
+            {placedAccessories.length > 0 && (
+              <div className="px-3 pb-2 border-t border-white/5 pt-2">
+                <button type="button" onClick={() => setPlacedAccessories([])}
+                  className="flex items-center gap-1 text-[10px] text-white/30 hover:text-red-400 transition-colors">
+                  <Eraser className="w-3 h-3"/> Quitar todos los accesorios
+                </button>
+              </div>
+            )}
+            {selectedAccUid && (
+              <div className="px-3 py-2 border-t border-white/5 pt-2">
+                <p className="text-white/35 text-[10px]">
+                  Arrastra <span className="text-green-400 font-semibold">esquinas</span> para redimensionar · <span className="text-red-400 font-semibold">handle rojo</span> para girar · centro para mover
+                </p>
+              </div>
+            )}
+          </div>
         </div>
-        {placedAccessories.length > 0 && (
-          <div className="px-3 pb-2 border-t border-white/5 pt-2">
-            <button type="button" onClick={() => setPlacedAccessories([])}
-              className="flex items-center gap-1 text-[10px] text-white/30 hover:text-red-400 transition-colors">
-              <Eraser className="w-3 h-3"/> Quitar todos los accesorios
+
+        {/* CENTER PANEL: Canvas + Text input */}
+        <div className="flex-1 flex flex-col gap-3 min-w-0">
+          <canvas ref={canvasRef} width={680} height={460}
+            onMouseDown={onMouseDown} onMouseMove={onMouseMove} onMouseUp={onMouseUp} onMouseLeave={onMouseUp}
+            onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}
+            onContextMenu={e=>{e.preventDefault();onMouseDown(e)}}
+            className={`flex-1 rounded-lg border border-white/10 select-none ${cursorClass}`}
+            style={{touchAction:'none'}}/>
+
+          {tool==='text'&&!selPlayer&&(
+            <div className="flex gap-2">
+              <input type="text" value={textInput} onChange={e=>setTextInput(e.target.value)}
+                onKeyDown={e=>e.key==='Enter'&&handleAddText()}
+                placeholder={textPos?'Escribe y pulsa Enter…':'Haz clic en el campo para posicionar…'}
+                className="flex-1 bg-white/10 text-white text-xs rounded-lg px-3 py-2 border border-white/20 placeholder-white/40 focus:outline-none focus:border-rfpaf-blue"/>
+              {textPos&&<button type="button" onClick={handleAddText} className="px-3 py-1.5 bg-rfpaf-blue text-white text-xs rounded-lg font-medium">Añadir</button>}
+            </div>
+          )}
+
+          <p className="text-white/25 text-[10px] text-center">
+            {selPlayer?`Colocando ${TEAMS[selPlayer.team].label} · Jugadora ${selPlayer.number} — clic en campo`:
+              draggedTextIdx!==null?'Moviendo texto…':'Jugadoras y textos arrastrables · Clic derecho para quitar jugadora'}
+          </p>
+        </div>
+
+        {/* RIGHT PANEL: Field selector + Drawing toolbar + Capture */}
+        <div className="w-48 flex flex-col gap-3 overflow-y-auto">
+          {/* Field selector */}
+          <div className="bg-gray-900/50 rounded-xl p-3 space-y-2 flex-shrink-0">
+            <p className="text-white/40 text-[10px] uppercase tracking-widest font-semibold">Tipo de campo</p>
+            <div className="flex gap-1.5">
+              {PITCH_OPTIONS.map(opt=>(
+                <button key={opt.id} type="button" onClick={()=>setPitchType(opt.id)}
+                  className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-medium transition-all ${pitchType===opt.id?'bg-rfpaf-blue text-white shadow-sm':'bg-white/10 text-white/60 hover:bg-white/20 hover:text-white'}`}>
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Drawing controls */}
+          <div className="bg-gray-900/50 rounded-xl p-3 space-y-2 flex-shrink-0">
+            <p className="text-white/40 text-[10px] uppercase tracking-widest font-semibold">Herramientas de dibujo</p>
+            <div className="flex flex-col gap-2">
+              {(selPlayer || selAcc) && (
+                <button type="button" onClick={() => { setSelPlayer(null); setSelAcc(null) }}
+                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-yellow-500/30 text-yellow-300 hover:bg-yellow-500/50 transition-all">
+                  <UserX className="w-3.5 h-3.5"/> Cancelar
+                </button>
+              )}
+              <div className="flex flex-wrap gap-1">
+                {DRAW_TOOLS.map(t=>(
+                  <button key={t.id} type="button" onClick={()=>{setTool(t.id);setSelPlayer(null);setSelAcc(null)}}
+                    title={t.label}
+                    className={`flex items-center justify-center w-8 h-8 rounded-lg text-xs font-medium transition-all ${tool===t.id&&!selPlayer?'bg-rfpaf-blue text-white shadow-sm':'bg-white/10 text-white/70 hover:bg-white/20 hover:text-white'}`}>
+                    {t.icon}
+                  </button>
+                ))}
+              </div>
+              <ColorPicker value={color} onChange={setColor}/>
+              <select value={strokeWidth} onChange={e=>setStrokeWidth(Number(e.target.value))}
+                className="w-full bg-white/10 text-white text-xs rounded-lg px-2 py-1.5 border border-white/20 focus:outline-none">
+                <option value={2}>Fino</option><option value={3}>Normal</option><option value={5}>Grueso</option><option value={8}>Extra</option>
+              </select>
+              <button type="button" onClick={()=>setDashed(d=>!d)}
+                className={`w-full flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all ${dashed?'bg-rfpaf-blue text-white shadow-sm':'bg-white/10 text-white/70 hover:bg-white/20 hover:text-white'}`}
+                title="Línea discontinua">
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg" className="flex-shrink-0">
+                  <line x1="1" y1="7" x2="4" y2="7" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                  <line x1="6" y1="7" x2="9" y2="7" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                  <line x1="11" y1="7" x2="13" y2="7" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                </svg>
+                <span>Discontinua</span>
+              </button>
+              <div className="flex gap-1">
+                <button type="button" onClick={()=>setShapes(prev=>prev.slice(0,-1))}
+                  className="flex-1 flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs bg-white/10 text-white/70 hover:bg-white/20 hover:text-white transition-all">
+                  <Undo2 className="w-3.5 h-3.5"/> Deshacer
+                </button>
+                <button type="button" onClick={()=>{setShapes([]);setPlacedPlayers([]);setPlacedAccessories([])}}
+                  className="flex-1 flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs bg-red-500/30 text-red-300 hover:bg-red-500/50 hover:text-white transition-all">
+                  <Eraser className="w-3.5 h-3.5"/> Limpiar
+                </button>
+              </div>
+              <button type="button" onClick={exportPNG}
+                className="w-full flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs bg-white/10 text-white/70 hover:bg-white/20 hover:text-white transition-all">
+                <Download className="w-3.5 h-3.5"/> PNG
+              </button>
+            </div>
+          </div>
+
+          {/* Capture button */}
+          {onCapture && (
+            <button type="button" onClick={captureBoard}
+              className="w-full flex items-center justify-center gap-2 py-2.5 bg-green-600/80 hover:bg-green-600 text-white text-sm font-semibold rounded-xl transition-colors flex-shrink-0">
+              <Camera className="w-4 h-4"/> Captura
             </button>
-          </div>
-        )}
-        {selectedAccUid && (
-          <div className="px-3 py-2 border-t border-white/5 pt-2">
-            <p className="text-white/35 text-[10px]">
-              Arrastra <span className="text-green-400 font-semibold">esquinas</span> para redimensionar · <span className="text-red-400 font-semibold">handle rojo</span> para girar · centro para mover
-            </p>
-          </div>
-        )}
-      </div>
-
-      {/* Drawing toolbar */}
-      <div className="flex flex-wrap items-center gap-1.5">
-        {(selPlayer || selAcc) && (
-          <button type="button" onClick={() => { setSelPlayer(null); setSelAcc(null) }}
-            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-yellow-500/30 text-yellow-300 hover:bg-yellow-500/50 transition-all">
-            <UserX className="w-3.5 h-3.5"/> Cancelar
-          </button>
-        )}
-        {DRAW_TOOLS.map(t=>(
-          <button key={t.id} type="button" onClick={()=>{setTool(t.id);setSelPlayer(null);setSelAcc(null)}}
-            className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all ${tool===t.id&&!selPlayer?'bg-rfpaf-blue text-white shadow-sm':'bg-white/10 text-white/70 hover:bg-white/20 hover:text-white'}`}>
-            {t.icon}<span>{t.label}</span>
-          </button>
-        ))}
-        <div className="w-px h-5 bg-white/20 mx-0.5"/>
-        <ColorPicker value={color} onChange={setColor}/>
-        <select value={strokeWidth} onChange={e=>setStrokeWidth(Number(e.target.value))}
-          className="bg-white/10 text-white text-xs rounded-lg px-2 py-1.5 border border-white/20 focus:outline-none">
-          <option value={2}>Fino</option><option value={3}>Normal</option><option value={5}>Grueso</option><option value={8}>Extra</option>
-        </select>
-        <button type="button" onClick={()=>setDashed(d=>!d)}
-          className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all ${dashed?'bg-rfpaf-blue text-white shadow-sm':'bg-white/10 text-white/70 hover:bg-white/20 hover:text-white'}`}
-          title="Línea discontinua">
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg" className="flex-shrink-0">
-            <line x1="1" y1="7" x2="4" y2="7" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-            <line x1="6" y1="7" x2="9" y2="7" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-            <line x1="11" y1="7" x2="13" y2="7" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-          </svg>
-          <span>Discontinua</span>
-        </button>
-        <div className="w-px h-5 bg-white/20 mx-0.5"/>
-        <button type="button" onClick={()=>setShapes(prev=>prev.slice(0,-1))}
-          className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs bg-white/10 text-white/70 hover:bg-white/20 hover:text-white transition-all">
-          <Undo2 className="w-3.5 h-3.5"/> Deshacer
-        </button>
-        <button type="button" onClick={()=>{setShapes([]);setPlacedPlayers([]);setPlacedAccessories([])}}
-          className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs bg-red-500/30 text-red-300 hover:bg-red-500/50 hover:text-white transition-all">
-          <Eraser className="w-3.5 h-3.5"/> Limpiar
-        </button>
-        <div className="w-px h-5 bg-white/20 mx-0.5"/>
-        <span className="text-[10px] text-white/40 px-2 py-1.5 flex items-center gap-1">
-          💡 Click accesorio → Arrastra para girar/redimensionar
-        </span>
-        <div className="w-px h-5 bg-white/20 mx-0.5"/>
-        <button type="button" onClick={exportPNG}
-          className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs bg-white/10 text-white/70 hover:bg-white/20 hover:text-white transition-all">
-          <Download className="w-3.5 h-3.5"/> PNG
-        </button>
-      </div>
-
-      {/* Text input */}
-      {tool==='text'&&!selPlayer&&(
-        <div className="flex gap-2">
-          <input type="text" value={textInput} onChange={e=>setTextInput(e.target.value)}
-            onKeyDown={e=>e.key==='Enter'&&handleAddText()}
-            placeholder={textPos?'Escribe y pulsa Enter…':'Haz clic en el campo para posicionar…'}
-            className="flex-1 bg-white/10 text-white text-xs rounded-lg px-3 py-2 border border-white/20 placeholder-white/40 focus:outline-none focus:border-rfpaf-blue"/>
-          {textPos&&<button type="button" onClick={handleAddText} className="px-3 py-1.5 bg-rfpaf-blue text-white text-xs rounded-lg font-medium">Añadir</button>}
+          )}
         </div>
-      )}
-
-      {/* Canvas */}
-      <canvas ref={canvasRef} width={680} height={460}
-        onMouseDown={onMouseDown} onMouseMove={onMouseMove} onMouseUp={onMouseUp} onMouseLeave={onMouseUp}
-        onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}
-        onContextMenu={e=>{e.preventDefault();onMouseDown(e)}}
-        className={`w-full rounded-lg border border-white/10 select-none ${cursorClass}`}
-        style={{touchAction:'none'}}/>
-
-      {/* Capture button */}
-      {onCapture && (
-        <button type="button" onClick={captureBoard}
-          className="w-full flex items-center justify-center gap-2 py-2.5 bg-green-600/80 hover:bg-green-600 text-white text-sm font-semibold rounded-xl transition-colors">
-          <Camera className="w-4 h-4"/> Añadir captura al documento de sesión
-        </button>
-      )}
-
-      <p className="text-white/25 text-[10px] text-center">
-        {selPlayer?`Colocando ${TEAMS[selPlayer.team].label} · Jugadora ${selPlayer.number} — clic en campo`:
-          draggedTextIdx!==null?'Moviendo texto…':'Jugadoras y textos arrastrables · Clic derecho para quitar jugadora'}
-      </p>
+      </div>
     </div>
   )
 }
