@@ -528,29 +528,17 @@ export default function PintadoAcciones() {
           {/* Fill */}
           <div className="mb-4">
             <label className="text-xs font-semibold text-gray-600 mb-2 block uppercase tracking-wide">Relleno</label>
-            <button
-              onClick={() => fillInputRef.current?.click()}
-              className="w-full h-10 rounded-lg border-2 border-gray-300 hover:border-rfpaf-red transition-colors"
-              style={{ background: fillColor }}
-              title="Color de relleno"
-            />
             <input ref={fillInputRef} type="color" value={fillColor}
               onChange={(e: ChangeEvent<HTMLInputElement>) => setFillColor(e.target.value)}
-              className="sr-only" />
+              className="w-full h-10 rounded-lg border-2 border-gray-300 cursor-pointer" />
           </div>
 
           {/* Stroke */}
           <div className="mb-4">
             <label className="text-xs font-semibold text-gray-600 mb-2 block uppercase tracking-wide">Trazo</label>
-            <button
-              onClick={() => strokeInputRef.current?.click()}
-              className="w-full h-10 rounded-lg border-2 border-gray-300 hover:border-rfpaf-red transition-colors"
-              style={{ background: strokeColor }}
-              title="Color de trazo"
-            />
             <input ref={strokeInputRef} type="color" value={strokeColor}
               onChange={(e: ChangeEvent<HTMLInputElement>) => setStrokeColor(e.target.value)}
-              className="sr-only" />
+              className="w-full h-10 rounded-lg border-2 border-gray-300 cursor-pointer" />
           </div>
 
           {/* Thickness */}
