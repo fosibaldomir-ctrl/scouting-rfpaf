@@ -842,12 +842,12 @@ function TacticalBoard({ onCapture, onRegisterCapture }: TacticalBoardProps) {
   const cursorClass = (selPlayer||selAcc)?'cursor-cell':draggedTextIdx!==null?'cursor-grabbing':'cursor-crosshair'
 
   return (
-    <div className="bg-gray-800 rounded-xl p-4 flex flex-col gap-3 h-screen max-h-screen overflow-hidden">
+    <div className="bg-gray-800 rounded-xl p-4 flex flex-col gap-3">
       <h3 className="text-white font-semibold text-sm tracking-wide">Pizarra Táctica</h3>
 
-      <div className="flex gap-3 flex-1 min-h-0">
+      <div className="flex gap-3 items-start">
         {/* LEFT PANEL: Players + Accessories */}
-        <div className="w-48 flex flex-col gap-3 overflow-y-auto">
+        <div className="w-48 flex-shrink-0 flex flex-col gap-3">
           {/* Player panel */}
           <div className="bg-gray-900/60 rounded-xl overflow-hidden border border-white/5 flex-shrink-0">
             <p className="text-white/40 text-[10px] uppercase tracking-widest font-semibold px-3 pt-2.5 pb-1.5">Jugadoras por equipo</p>
@@ -977,12 +977,12 @@ function TacticalBoard({ onCapture, onRegisterCapture }: TacticalBoardProps) {
 
         {/* CENTER PANEL: Canvas + Text input */}
         <div className="flex-1 flex flex-col gap-3 min-w-0">
-          <canvas ref={canvasRef} width={680} height={460}
+          <canvas ref={canvasRef} width={900} height={600}
             onMouseDown={onMouseDown} onMouseMove={onMouseMove} onMouseUp={onMouseUp} onMouseLeave={onMouseUp}
             onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}
             onContextMenu={e=>{e.preventDefault();onMouseDown(e)}}
-            className={`flex-1 rounded-lg border border-white/10 select-none ${cursorClass}`}
-            style={{touchAction:'none'}}/>
+            className={`w-full h-auto rounded-lg border border-white/10 select-none ${cursorClass}`}
+            style={{touchAction:'none', aspectRatio:'3/2'}}/>
 
           {tool==='text'&&!selPlayer&&(
             <div className="flex gap-2">
@@ -1001,7 +1001,7 @@ function TacticalBoard({ onCapture, onRegisterCapture }: TacticalBoardProps) {
         </div>
 
         {/* RIGHT PANEL: Field selector + Drawing toolbar + Capture */}
-        <div className="w-48 flex flex-col gap-3 overflow-y-auto">
+        <div className="w-48 flex-shrink-0 flex flex-col gap-3">
           {/* Field selector */}
           <div className="bg-gray-900/50 rounded-xl p-3 space-y-2 flex-shrink-0">
             <p className="text-white/40 text-[10px] uppercase tracking-widest font-semibold">Tipo de campo</p>
