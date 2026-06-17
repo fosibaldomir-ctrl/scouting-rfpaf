@@ -1207,7 +1207,7 @@ function SesionTab() {
     setSesion(s => ({ ...s, ejercicios: s.ejercicios.filter(e => e.id !== id).map((e, i) => ({ ...e, orden: i + 1 })) }))
 
   return (
-    <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
+    <div className="flex flex-col gap-5">
 
       {/* ── Left: session form + captures ── */}
       <div className="space-y-4">
