@@ -134,6 +134,8 @@ export default function PintadoAcciones() {
   const [ytUrl, setYtUrl] = useState('')
   const [ytEmbedUrl, setYtEmbedUrl] = useState<string | null>(null)
 
+  const [mobilePanel, setMobilePanel] = useState<'estilos' | 'lienzo' | 'herramientas'>('lienzo')
+
   const svgRef = useRef<SVGSVGElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const fillInputRef = useRef<HTMLInputElement>(null)
@@ -503,10 +505,24 @@ export default function PintadoAcciones() {
           <input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageUpload} className="sr-only" />
         </div>
 
+      {/* Mobile/Tablet Tabs */}
+      <div className="lg:hidden flex gap-2 flex-shrink-0 px-2">
+        {(['estilos', 'lienzo', 'herramientas'] as const).map(panel => (
+          <button key={panel} onClick={() => setMobilePanel(panel)}
+            className={`flex-1 px-3 py-2 rounded-lg text-xs font-bold transition-all ${
+              mobilePanel === panel
+                ? 'bg-rfpaf-blue text-white'
+                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+            }`}>
+            {panel === 'estilos' ? 'Estilos' : panel === 'lienzo' ? 'Lienzo' : 'Herramientas'}
+          </button>
+        ))}
+      </div>
+
       {/* Main content */}
-      <div className="flex flex-1 gap-4 min-h-0">
+      <div className="flex flex-1 gap-4 min-h-0 flex-col lg:flex-row">
         {/* Left Panel */}
-        <aside className="w-56 bg-white rounded-xl shadow-sm p-4 flex flex-col overflow-y-auto flex-shrink-0">
+        <aside className={`${mobilePanel === 'estilos' ? 'flex' : 'hidden'} lg:flex w-full lg:w-56 bg-white rounded-xl shadow-sm p-4 flex-col overflow-y-auto flex-shrink-0`}>
           <h2 className="text-sm font-bold text-rfpaf-blue mb-4 uppercase tracking-wide">Estilos & Controles</h2>
 
           {/* Fill */}
@@ -590,7 +606,7 @@ export default function PintadoAcciones() {
         </aside>
 
         {/* Center Canvas */}
-        <div className="flex-1 bg-white rounded-xl shadow-sm overflow-hidden flex flex-col min-w-0" style={{ cursor }}>
+        <div className={`${mobilePanel === 'lienzo' ? 'flex' : 'hidden'} lg:flex flex-1 bg-white rounded-xl shadow-sm overflow-hidden flex-col min-w-0`} style={{ cursor }}>
           {bgImage && (
             <img
               src={bgImage} alt="fondo"
@@ -675,7 +691,7 @@ export default function PintadoAcciones() {
         </div>
 
         {/* Right Panel - Tools */}
-        <aside className="w-32 bg-white rounded-xl shadow-sm p-3 flex flex-col items-center gap-4 overflow-y-auto flex-shrink-0">
+        <aside className={`${mobilePanel === 'herramientas' ? 'flex' : 'hidden'} lg:flex w-full lg:w-32 bg-white rounded-xl shadow-sm p-3 flex-col items-center gap-4 overflow-y-auto flex-shrink-0`}>
           {/* Actions */}
           <div className="flex gap-2 flex-col w-full">
             <button
