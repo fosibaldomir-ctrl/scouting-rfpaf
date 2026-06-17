@@ -520,9 +520,9 @@ export default function PintadoAcciones() {
       </div>
 
       {/* Main content */}
-      <div className="flex flex-1 gap-4 min-h-0 flex-col lg:flex-row">
+      <div className="flex flex-1 gap-4 min-h-0 flex-col lg:flex-row overflow-hidden">
         {/* Left Panel */}
-        <aside className={`${mobilePanel === 'estilos' ? 'flex' : 'hidden'} lg:flex w-full lg:w-56 bg-white rounded-xl shadow-sm p-4 flex-col overflow-y-auto flex-shrink-0`}>
+        <aside className={`${mobilePanel === 'estilos' ? 'flex' : 'hidden'} lg:flex w-full lg:w-56 bg-white rounded-xl shadow-sm p-4 flex-col overflow-y-auto flex-shrink-0 max-h-[calc(100vh-280px)] lg:max-h-none`}>
           <h2 className="text-sm font-bold text-rfpaf-blue mb-4 uppercase tracking-wide">Estilos & Controles</h2>
 
           {/* Fill */}
@@ -594,7 +594,7 @@ export default function PintadoAcciones() {
         </aside>
 
         {/* Center Canvas */}
-        <div className={`${mobilePanel === 'lienzo' ? 'flex' : 'hidden'} lg:flex flex-1 bg-white rounded-xl shadow-sm overflow-hidden flex-col min-w-0`} style={{ cursor }}>
+        <div className={`${mobilePanel === 'lienzo' ? 'flex' : 'hidden'} lg:flex flex-1 bg-white rounded-xl shadow-sm overflow-hidden flex-col min-w-0 max-h-[calc(100vh-280px)] lg:max-h-none`} style={{ cursor }}>
           {bgImage && (
             <img
               src={bgImage} alt="fondo"
@@ -679,7 +679,7 @@ export default function PintadoAcciones() {
         </div>
 
         {/* Right Panel - Tools */}
-        <aside className={`${mobilePanel === 'herramientas' ? 'flex' : 'hidden'} lg:flex w-full lg:w-32 bg-white rounded-xl shadow-sm p-3 flex-col items-center gap-4 overflow-y-auto flex-shrink-0`}>
+        <aside className={`${mobilePanel === 'herramientas' ? 'flex' : 'hidden'} lg:flex w-full lg:w-32 bg-white rounded-xl shadow-sm p-3 flex-col items-center gap-4 overflow-y-auto flex-shrink-0 max-h-[calc(100vh-280px)] lg:max-h-none`}>
           {/* Actions */}
           <div className="flex gap-2 flex-col w-full">
             <button
