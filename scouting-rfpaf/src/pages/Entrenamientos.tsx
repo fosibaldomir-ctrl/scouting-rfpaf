@@ -847,7 +847,7 @@ function TacticalBoard({ onCapture, onRegisterCapture }: TacticalBoardProps) {
 
       <div className="flex gap-3 items-start">
         {/* LEFT PANEL: Players + Accessories */}
-        <div className="w-48 flex-shrink-0 flex flex-col gap-3">
+        <div className="w-36 flex-shrink-0 flex flex-col gap-3">
           {/* Player panel */}
           <div className="bg-gray-900/60 rounded-xl overflow-hidden border border-white/5 flex-shrink-0">
             <p className="text-white/40 text-[10px] uppercase tracking-widest font-semibold px-3 pt-2.5 pb-1.5">Jugadoras por equipo</p>
@@ -862,7 +862,7 @@ function TacticalBoard({ onCapture, onRegisterCapture }: TacticalBoardProps) {
                     <ChevronDown className={`w-3.5 h-3.5 text-white/35 ml-auto flex-shrink-0 transition-transform duration-200 ${isOpen?'rotate-180':''}`}/>
                   </button>
                   {isOpen&&(
-                    <div className="flex flex-wrap gap-1.5 px-3 pb-3 pt-0.5">
+                    <div className="flex flex-wrap gap-1 px-3 pb-3 pt-0.5">
                       {Array.from({length:11},(_,i)=>i+1).map(n=>{
                         const isSel=selPlayer?.team===tid&&selPlayer?.number===n; const onField=isOnPitch(tid,n)
                         return (
@@ -1001,14 +1001,14 @@ function TacticalBoard({ onCapture, onRegisterCapture }: TacticalBoardProps) {
         </div>
 
         {/* RIGHT PANEL: Field selector + Drawing toolbar + Capture */}
-        <div className="w-48 flex-shrink-0 flex flex-col gap-3">
+        <div className="w-36 flex-shrink-0 flex flex-col gap-3">
           {/* Field selector */}
           <div className="bg-gray-900/50 rounded-xl p-3 space-y-2 flex-shrink-0">
             <p className="text-white/40 text-[10px] uppercase tracking-widest font-semibold">Tipo de campo</p>
-            <div className="flex gap-1.5">
+            <div className="flex flex-col gap-1">
               {PITCH_OPTIONS.map(opt=>(
                 <button key={opt.id} type="button" onClick={()=>setPitchType(opt.id)}
-                  className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-medium transition-all ${pitchType===opt.id?'bg-rfpaf-blue text-white shadow-sm':'bg-white/10 text-white/60 hover:bg-white/20 hover:text-white'}`}>
+                  className={`w-full py-1.5 px-2 rounded-lg text-xs font-medium transition-all text-left ${pitchType===opt.id?'bg-rfpaf-blue text-white shadow-sm':'bg-white/10 text-white/60 hover:bg-white/20 hover:text-white'}`}>
                   {opt.label}
                 </button>
               ))}
@@ -1051,12 +1051,14 @@ function TacticalBoard({ onCapture, onRegisterCapture }: TacticalBoardProps) {
               </button>
               <div className="flex gap-1">
                 <button type="button" onClick={()=>setShapes(prev=>prev.slice(0,-1))}
-                  className="flex-1 flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs bg-white/10 text-white/70 hover:bg-white/20 hover:text-white transition-all">
-                  <Undo2 className="w-3.5 h-3.5"/> Deshacer
+                  title="Deshacer"
+                  className="flex-1 flex items-center justify-center py-1.5 rounded-lg text-xs bg-white/10 text-white/70 hover:bg-white/20 hover:text-white transition-all">
+                  <Undo2 className="w-3.5 h-3.5"/>
                 </button>
                 <button type="button" onClick={()=>{setShapes([]);setPlacedPlayers([]);setPlacedAccessories([])}}
-                  className="flex-1 flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs bg-red-500/30 text-red-300 hover:bg-red-500/50 hover:text-white transition-all">
-                  <Eraser className="w-3.5 h-3.5"/> Limpiar
+                  title="Limpiar todo"
+                  className="flex-1 flex items-center justify-center py-1.5 rounded-lg text-xs bg-red-500/30 text-red-300 hover:bg-red-500/50 hover:text-white transition-all">
+                  <Eraser className="w-3.5 h-3.5"/>
                 </button>
               </div>
               <button type="button" onClick={exportPNG}
