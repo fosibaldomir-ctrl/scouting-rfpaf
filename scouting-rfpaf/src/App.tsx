@@ -11,6 +11,9 @@ import FichaJugadora from './pages/FichaJugadora'
 import Campograma from './pages/Campograma'
 import Calendario from './pages/Calendario'
 import Entrenamientos from './pages/Entrenamientos'
+import SesionEntrenamiento from './pages/SesionEntrenamiento'
+import BibliotecaEjercicios from './pages/BibliotecaEjercicios'
+import VideotecaSesiones from './pages/VideotecaSesiones'
 import Convocatorias from './pages/Convocatorias'
 import Admin from './pages/Admin'
 import PintadoAcciones from './pages/PintadoAcciones'
@@ -37,6 +40,9 @@ function AppContent() {
           <Route path="/campograma" element={<Campograma />} />
           <Route path="/calendario" element={<Calendario />} />
           <Route path="/entrenamientos" element={<Entrenamientos />} />
+          <Route path="/entrenamientos/sesion" element={<SesionEntrenamiento />} />
+          <Route path="/entrenamientos/biblioteca" element={<BibliotecaEjercicios />} />
+          <Route path="/entrenamientos/videoteca" element={<VideotecaSesiones />} />
           <Route path="/convocatorias" element={<Convocatorias />} />
           <Route path="/ficha/:id" element={<FichaJugadora />} />
           <Route path="/admin" element={<Admin />} />

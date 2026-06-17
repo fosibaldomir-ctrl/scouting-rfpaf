@@ -1,8 +1,10 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { FichaJugadora, Observador, Club, CategoriaItem, PartidoCalendario, Convocatoria, JugadoraConvocada } from '../types'
+import type { FichaJugadora, Observador, Club, CategoriaItem, PartidoCalendario, Convocatoria, JugadoraConvocada, Sesion } from '../types'
+import type { EjercicioDB } from '../lib/supabase'
 import { OBSERVADORES, CATEGORIAS, CLUBES } from '../data/masterData'
 import { supabaseService } from '../services/supabaseService'
+import { SESION_EMPTY } from '../lib/entrenamientoConstants'
 
 interface AppState {
   fichas: FichaJugadora[]
@@ -13,11 +15,15 @@ interface AppState {
   convocatorias: Convocatoria[]
   currentObservador: string | null
   borrador: Partial<FichaJugadora> | null
+  sesion: Sesion
+  ejercicios: EjercicioDB[]
 
   login: (observadorId: string) => void
   logout: () => void
   setFichas: (fichas: FichaJugadora[]) => void
   setPartidos: (partidos: PartidoCalendario[]) => void
+  setSesion: (sesion: Sesion | ((s: Sesion) => Sesion)) => void
+  setEjercicios: (ejercicios: EjercicioDB[]) => void
   addPartido: (p: PartidoCalendario) => Promise<void>
   deletePartido: (id: string) => Promise<void>
   addFicha: (ficha: FichaJugadora) => Promise<void>
@@ -52,12 +58,22 @@ export const useStore = create<AppState>()(
       convocatorias: [],
       currentObservador: null,
       borrador: null,
+      sesion: SESION_EMPTY,
+      ejercicios: [],
 
       login: (observadorId) => set({ currentObservador: observadorId }),
       logout: () => set({ currentObservador: null }),
 
       setFichas: (fichas) => set({ fichas }),
       setPartidos: (partidos) => set({ partidos }),
+      setSesion: (sesion) => {
+        if (typeof sesion === 'function') {
+          set((state) => ({ sesion: sesion(state.sesion) }))
+        } else {
+          set({ sesion })
+        }
+      },
+      setEjercicios: (ejercicios) => set({ ejercicios }),
 
       addPartido: async (p) => {
         set((state) => ({ partidos: [...state.partidos, p] }))
@@ -188,6 +204,8 @@ export const useStore = create<AppState>()(
         convocatorias: state.convocatorias,
         currentObservador: state.currentObservador,
         borrador: state.borrador,
+        sesion: state.sesion,
+        ejercicios: state.ejercicios,
       }),
     }
   )

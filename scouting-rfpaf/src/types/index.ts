@@ -126,3 +126,96 @@ export interface Convocatoria {
   pdfUrl?: string | null
   creadoEn: string
 }
+
+/* ═══════════════════════════════════════
+   ENTRENAMIENTOS / TRAINING TYPES
+═══════════════════════════════════════ */
+
+export interface EjercicioSesion {
+  id: string
+  orden: number
+  tipo: string
+  duracion: string
+  descripcion: string
+  numJugadores: string
+  material: string
+  imagen: string | null
+}
+
+export interface Sesion {
+  fecha: string
+  hora: string
+  campo: string
+  numConvocatoria: string
+  fase: string
+  entrenador: string
+  numJugadorasConvocadas: string
+  objetivos: string
+  observaciones: string
+  capturas: string[]
+  ejercicios: EjercicioSesion[]
+}
+
+export type DrawTool = 'freehand' | 'line' | 'arrow' | 'curve' | 'curvearrow' | 'circle' | 'rect' | 'text'
+export type PitchType = 'full' | 'half' | 'blank'
+export interface Point {
+  x: number
+  y: number
+}
+export interface Shape {
+  type: DrawTool
+  color: string
+  width: number
+  dashed?: boolean
+  start?: Point
+  end?: Point
+  points?: Point[]
+  text?: string
+}
+
+export type TeamId = 1 | 2 | 3
+export interface PlacedPlayer {
+  uid: string
+  team: TeamId
+  number: number
+  x: number
+  y: number
+}
+export interface SelPlayer {
+  team: TeamId
+  number: number
+}
+
+export type AccessoryType =
+  | 'goal_front'
+  | 'goal_3d_r'
+  | 'goal_3d_l'
+  | 'goal_side'
+  | 'goal_mini'
+  | 'goal_arc'
+  | 'cone'
+  | 'mushroom_blue'
+  | 'mushroom_red'
+  | 'mushroom_yellow'
+  | 'ladder'
+  | 'hurdle'
+  | 'mannequin'
+  | 'barrier'
+  | 'ball_bw'
+  | 'ball_blue'
+  | 'ball_red'
+
+export interface PlacedAccessory {
+  uid: string
+  type: AccessoryType
+  x: number
+  y: number
+  rotation: number
+  color?: string
+  scale: number
+}
+
+export interface SelAcc {
+  type: AccessoryType
+  color?: string
+}
