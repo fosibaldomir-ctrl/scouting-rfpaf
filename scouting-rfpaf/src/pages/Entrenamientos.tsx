@@ -1185,10 +1185,9 @@ const EJ_SESION_EMPTY = { tipo:'', duracion:'', descripcion:'', numJugadores:'',
 interface SesionTabProps {
   sesion: Sesion
   setSesion: React.Dispatch<React.SetStateAction<Sesion>>
-  ejercicios: EjercicioDB[]
 }
 
-function SesionTab({ sesion, setSesion, ejercicios }: SesionTabProps) {
+function SesionTab({ sesion, setSesion }: SesionTabProps) {
   const [formOpen, setFormOpen] = useState(true)
   const [ejFormOpen, setEjFormOpen] = useState(false)
   const [ejForm, setEjForm] = useState(EJ_SESION_EMPTY)
@@ -1918,18 +1917,19 @@ function BibliotecaTab({ ejercicios, setEjercicios, sesion, setSesion }: Bibliot
                   {/* Botón Agregar a sesión */}
                   <button type="button"
                     onClick={() => {
+                      const nuevoEj: EjercicioSesion = {
+                        id: uuidv4(),
+                        orden: 0,
+                        tipo: ej.tipo,
+                        duracion: String(ej.duracion),
+                        numJugadores: ej.num_jugadores,
+                        descripcion: ej.descripcion,
+                        material: ej.material || '',
+                        imagen: ej.imagen
+                      }
                       setSesion(s => ({
                         ...s,
-                        ejercicios: [...s.ejercicios, {
-                          id: uuidv4(),
-                          orden: s.ejercicios.length + 1,
-                          tipo: ej.tipo,
-                          duracion: String(ej.duracion),
-                          numJugadores: ej.num_jugadores,
-                          descripcion: ej.descripcion,
-                          material: ej.material || '',
-                          imagen: ej.imagen
-                        }]
+                        ejercicios: [...s.ejercicios, {...nuevoEj, orden: s.ejercicios.length + 1}]
                       }))
                     }}
                     className="w-full mt-2 flex items-center justify-center gap-2 px-3 py-2 bg-rfpaf-blue text-white rounded-lg text-xs font-semibold hover:bg-rfpaf-blue/90 transition-colors">
@@ -2367,7 +2367,7 @@ export default function Entrenamientos() {
       </div>
 
       {/* Tab content */}
-      {tab==='sesion' ? <SesionTab sesion={sesion} setSesion={setSesion} ejercicios={ejercicios}/> : tab==='biblioteca' ? <BibliotecaTab ejercicios={ejercicios} setEjercicios={setEjercicios} sesion={sesion} setSesion={setSesion}/> : <VideotecaTab/>}
+      {tab==='sesion' ? <SesionTab sesion={sesion} setSesion={setSesion}/> : tab==='biblioteca' ? <BibliotecaTab ejercicios={ejercicios} setEjercicios={setEjercicios} sesion={sesion} setSesion={setSesion}/> : <VideotecaTab/>}
     </div>
   )
 }
