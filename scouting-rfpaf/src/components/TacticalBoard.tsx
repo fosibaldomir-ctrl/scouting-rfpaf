@@ -172,15 +172,24 @@ export default function TacticalBoard({ onCapture, onRegisterCapture }: Tactical
     const canvas = canvasRef.current
     if (!canvas) return
     const rect = canvas.getBoundingClientRect()
-    const x = e.clientX - rect.left
-    const y = e.clientY - rect.top
+    const scaleX = canvas.width / rect.width
+    const scaleY = canvas.height / rect.height
+    const x = (e.clientX - rect.left) * scaleX
+    const y = (e.clientY - rect.top) * scaleY
     if (!isDrawing || !currentShape) {
       redrawCanvas()
       return
     }
-    const updated = { ...currentShape }
-    updated.end = { x, y }
-    setCurrentShape(updated)
+
+    if (tool === 'freehand' && currentShape.points) {
+      const updated = { ...currentShape }
+      updated.points = [...(currentShape.points || []), { x, y }]
+      setCurrentShape(updated)
+    } else {
+      const updated = { ...currentShape }
+      updated.end = { x, y }
+      setCurrentShape(updated)
+    }
 
     redrawCanvas()
     // Draw preview
@@ -189,7 +198,13 @@ export default function TacticalBoard({ onCapture, onRegisterCapture }: Tactical
     ctx.strokeStyle = currentShape.color
     ctx.fillStyle = currentShape.color
     ctx.lineWidth = currentShape.width
-    if (tool === 'line' && currentShape.start) {
+    if (tool === 'freehand' && currentShape.points && currentShape.points.length > 0) {
+      ctx.beginPath()
+      currentShape.points.forEach((p, i) => {
+        i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y)
+      })
+      ctx.stroke()
+    } else if (tool === 'line' && currentShape.start) {
       ctx.beginPath()
       ctx.moveTo(currentShape.start.x, currentShape.start.y)
       ctx.lineTo(x, y)
@@ -213,12 +228,18 @@ export default function TacticalBoard({ onCapture, onRegisterCapture }: Tactical
 
   const handleCanvasMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current
-    if (!canvas || tool === 'freehand') return
+    if (!canvas) return
     const rect = canvas.getBoundingClientRect()
-    const x = e.clientX - rect.left
-    const y = e.clientY - rect.top
+    const scaleX = canvas.width / rect.width
+    const scaleY = canvas.height / rect.height
+    const x = (e.clientX - rect.left) * scaleX
+    const y = (e.clientY - rect.top) * scaleY
     setIsDrawing(true)
-    setCurrentShape({ type: tool, color, width: strokeWidth, dashed, start: { x, y } })
+    if (tool === 'freehand') {
+      setCurrentShape({ type: 'freehand', color, width: strokeWidth, dashed, points: [{ x, y }] })
+    } else {
+      setCurrentShape({ type: tool, color, width: strokeWidth, dashed, start: { x, y } })
+    }
   }
 
   const handleCanvasMouseUp = () => {
@@ -242,9 +263,9 @@ export default function TacticalBoard({ onCapture, onRegisterCapture }: Tactical
   const canvasContainer = useRef<HTMLDivElement>(null)
 
   return (
-    <div className="flex flex-col gap-4 md:flex-row">
+    <div className="flex flex-col gap-4 md:flex-row w-full">
       {/* LEFT: Tools */}
-      <div className="hidden md:flex flex-col gap-3 w-48 flex-shrink-0">
+      <div className="hidden md:flex flex-col gap-3 w-44 flex-shrink-0">
         {/* Tool Selection */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3 space-y-2">
           <p className="text-xs font-semibold text-gray-600 uppercase">Herramientas</p>
@@ -324,7 +345,7 @@ export default function TacticalBoard({ onCapture, onRegisterCapture }: Tactical
           ref={canvasRef}
           width={640}
           height={360}
-          className="w-full h-full cursor-crosshair"
+          className="w-full h-full cursor-crosshair block"
           onMouseDown={handleCanvasMouseDown}
           onMouseUp={handleCanvasMouseUp}
           onMouseMove={handleCanvasMouseMove}
@@ -332,7 +353,7 @@ export default function TacticalBoard({ onCapture, onRegisterCapture }: Tactical
       </div>
 
       {/* RIGHT: Players & Accessories */}
-      <div className="hidden md:flex flex-col gap-3 w-48 flex-shrink-0">
+      <div className="hidden md:flex flex-col gap-3 w-44 flex-shrink-0 overflow-y-auto max-h-screen">
         {/* Teams */}
         {Object.entries(TEAMS).map(([id, tc]) => (
           <div key={id} className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
