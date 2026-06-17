@@ -1192,6 +1192,9 @@ function SesionTab({ sesion, setSesion, ejercicios }: SesionTabProps) {
   const [formOpen, setFormOpen] = useState(true)
   const [ejFormOpen, setEjFormOpen] = useState(false)
   const [ejForm, setEjForm] = useState(EJ_SESION_EMPTY)
+  const [previewEjSesion, setPreviewEjSesion] = useState<EjercicioSesion | null>(null)
+  const [editEjSesion, setEditEjSesion] = useState<EjercicioSesion | null>(null)
+  const [formEditEjSesion, setFormEditEjSesion] = useState(EJ_SESION_EMPTY)
   const tacticalCaptureRef = useRef<(() => string | null) | null>(null)
 
   const addCaptura = (png: string) => setSesion(s => ({ ...s, capturas: [...s.capturas, png] }))
@@ -1424,10 +1427,23 @@ function SesionTab({ sesion, setSesion, ejercicios }: SesionTabProps) {
                       {ej.duracion && <span className="flex items-center gap-0.5 text-[11px] text-gray-500"><Clock className="w-3 h-3"/>{ej.duracion} min</span>}
                       {ej.numJugadores && <span className="flex items-center gap-0.5 text-[11px] text-gray-500"><Users className="w-3 h-3"/>{ej.numJugadores}</span>}
                     </div>
-                    <button type="button" onClick={() => removeEjercicio(ej.id)}
-                      className="ml-auto flex-shrink-0 p-1 text-gray-300 hover:text-red-500 transition-colors rounded">
-                      <Trash2 className="w-3.5 h-3.5"/>
-                    </button>
+                    <div className="ml-auto flex-shrink-0 flex gap-1">
+                      <button type="button" onClick={() => setPreviewEjSesion(ej)}
+                        className="p-1 text-gray-300 hover:text-blue-500 transition-colors rounded" title="Vista previa">
+                        <Eye className="w-3.5 h-3.5"/>
+                      </button>
+                      <button type="button" onClick={() => {
+                        setEditEjSesion(ej)
+                        setFormEditEjSesion(ej)
+                      }}
+                        className="p-1 text-gray-300 hover:text-amber-500 transition-colors rounded" title="Editar">
+                        <Pencil className="w-3.5 h-3.5"/>
+                      </button>
+                      <button type="button" onClick={() => removeEjercicio(ej.id)}
+                        className="p-1 text-gray-300 hover:text-red-500 transition-colors rounded" title="Eliminar">
+                        <Trash2 className="w-3.5 h-3.5"/>
+                      </button>
+                    </div>
                   </div>
 
                   {/* Body: image + details side by side */}
@@ -1529,6 +1545,110 @@ function SesionTab({ sesion, setSesion, ejercicios }: SesionTabProps) {
 
       {/* ── Right: tactical board ── */}
       <TacticalBoard onCapture={addCaptura} onRegisterCapture={fn => { tacticalCaptureRef.current = fn }}/>
+
+      {/* Modal vista previa ejercicio sesión */}
+      {previewEjSesion && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b border-gray-200 px-5 py-3 flex items-center justify-between z-10">
+              <h2 className="text-lg font-bold text-gray-900">Ejercicio #{previewEjSesion.orden}</h2>
+              <button onClick={() => setPreviewEjSesion(null)} className="text-gray-400 hover:text-gray-700 text-xl leading-none">✕</button>
+            </div>
+            <div className="p-5 space-y-4">
+              {previewEjSesion.imagen && (
+                <div className="rounded-lg overflow-hidden bg-gray-100 flex items-center justify-center" style={{maxHeight: '300px'}}>
+                  <img src={previewEjSesion.imagen} alt="preview" className="max-w-full max-h-full object-contain"/>
+                </div>
+              )}
+              <div>
+                <h3 className="text-sm font-bold text-gray-900 mb-1">{previewEjSesion.tipo}</h3>
+              </div>
+              <div className="grid grid-cols-3 gap-2 text-xs">
+                <div className="bg-blue-50 rounded-lg p-2 border border-blue-100 text-center">
+                  <p className="text-gray-600 font-semibold uppercase">Duración</p>
+                  <p className="text-lg font-bold text-rfpaf-blue">{previewEjSesion.duracion} min</p>
+                </div>
+                <div className="bg-green-50 rounded-lg p-2 border border-green-100 text-center">
+                  <p className="text-gray-600 font-semibold uppercase">Jugadores</p>
+                  <p className="font-bold text-green-700">{previewEjSesion.numJugadores}</p>
+                </div>
+                <div className="bg-purple-50 rounded-lg p-2 border border-purple-100 text-center">
+                  <p className="text-gray-600 font-semibold uppercase">Material</p>
+                  <p className="font-bold text-purple-700">{previewEjSesion.material || '—'}</p>
+                </div>
+              </div>
+              {previewEjSesion.descripcion && (
+                <div>
+                  <p className="text-xs font-semibold text-gray-600 uppercase mb-1">Descripción</p>
+                  <p className="text-sm text-gray-700 leading-relaxed">{previewEjSesion.descripcion}</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal editar ejercicio sesión */}
+      {editEjSesion && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b border-gray-200 px-5 py-3 flex items-center justify-between z-10">
+              <h2 className="text-lg font-bold text-gray-900">Editar ejercicio</h2>
+              <button onClick={() => setEditEjSesion(null)} className="text-gray-400 hover:text-gray-700 text-xl leading-none">✕</button>
+            </div>
+            <div className="p-5 space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 mb-1">Tipo</label>
+                <input type="text" value={formEditEjSesion.tipo} onChange={e => setFormEditEjSesion({...formEditEjSesion, tipo: e.target.value})}
+                  className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-rfpaf-blue/30"/>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-xs font-semibold text-gray-600 mb-1">Duración (min)</label>
+                  <input type="text" value={formEditEjSesion.duracion} onChange={e => setFormEditEjSesion({...formEditEjSesion, duracion: e.target.value})}
+                    className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-rfpaf-blue/30"/>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-600 mb-1">Jugadores</label>
+                  <input type="text" value={formEditEjSesion.numJugadores} onChange={e => setFormEditEjSesion({...formEditEjSesion, numJugadores: e.target.value})}
+                    className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-rfpaf-blue/30"/>
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 mb-1">Material</label>
+                <input type="text" value={formEditEjSesion.material} onChange={e => setFormEditEjSesion({...formEditEjSesion, material: e.target.value})}
+                  placeholder="Conos, balones, petos…"
+                  className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-rfpaf-blue/30"/>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 mb-1">Descripción</label>
+                <textarea value={formEditEjSesion.descripcion} onChange={e => setFormEditEjSesion({...formEditEjSesion, descripcion: e.target.value})}
+                  rows={3}
+                  className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-rfpaf-blue/30 resize-none"/>
+              </div>
+              <div className="flex gap-3">
+                <button type="button"
+                  onClick={() => {
+                    if (!editEjSesion) return
+                    setSesion(s => ({
+                      ...s,
+                      ejercicios: s.ejercicios.map(e => e.id === editEjSesion.id ? formEditEjSesion : e)
+                    }))
+                    setEditEjSesion(null)
+                    alert('✅ Ejercicio actualizado')
+                  }}
+                  className="flex-1 px-4 py-2 bg-rfpaf-blue text-white rounded-lg text-sm font-semibold hover:bg-rfpaf-blue/90 transition-colors">
+                  Guardar cambios
+                </button>
+                <button type="button" onClick={() => setEditEjSesion(null)}
+                  className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg text-sm font-semibold hover:bg-gray-300 transition-colors">
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
