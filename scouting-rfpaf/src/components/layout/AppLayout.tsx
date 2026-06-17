@@ -34,7 +34,7 @@ export default function AppLayout() {
             <p className="text-white text-[8px] uppercase">Principado de Asturias</p>
           </div>
         </header>
-        <main className="flex-1 overflow-auto">
+        <main className="flex-1 overflow-auto p-4 sm:p-6">
           <Outlet />
         </main>
       </div>
