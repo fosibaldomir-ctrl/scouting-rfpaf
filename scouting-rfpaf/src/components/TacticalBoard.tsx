@@ -732,7 +732,7 @@ export default function TacticalBoard({ onCapture, onRegisterCapture }: Tactical
   const cursorClass = (selPlayer||selAcc)?'cursor-cell':draggedTextIdx!==null?'cursor-grabbing':'cursor-crosshair'
 
   return (
-    <div className="bg-gray-800 rounded-xl p-4 flex flex-col gap-3">
+    <div className="w-full bg-gray-800 rounded-xl p-4 flex flex-col gap-3">
       <h3 className="text-white font-semibold text-sm tracking-wide">Pizarra Táctica</h3>
 
       {/* Desktop: 3 columnas */}
