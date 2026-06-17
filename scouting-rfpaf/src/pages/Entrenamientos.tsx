@@ -2372,7 +2372,7 @@ function VideotecaTab({ ejercicios }: VideotecaTabProps) {
     <div className="space-y-5">
       {/* Header */}
       <div>
-        <h2 className="text-2xl font-bold text-gray-900">Videoteca de Ejercicios</h2>
+        <h2 className="text-2xl font-bold text-gray-900">Videoteca Sesiones</h2>
         <p className="text-sm text-gray-500 mt-1">Galería de videos de ejercicios realizados en sesiones de entrenamiento</p>
       </div>
 
@@ -2490,7 +2490,7 @@ export default function Entrenamientos() {
             tab==='videoteca' ? 'border-rfpaf-blue text-rfpaf-blue' : 'border-transparent text-gray-500 hover:text-gray-700'
           }`}
         >
-          <Video className="w-4 h-4"/> Videoteca de Ejercicios
+          <Video className="w-4 h-4"/> Videoteca Sesiones
         </button>
       </div>
 
