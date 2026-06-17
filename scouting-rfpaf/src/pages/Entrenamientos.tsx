@@ -1182,8 +1182,13 @@ const SESION_EMPTY: Sesion = { fecha:'',hora:'',campo:'',numConvocatoria:'',fase
 
 const EJ_SESION_EMPTY = { tipo:'', duracion:'', descripcion:'', numJugadores:'', material:'', imagen: null as string | null }
 
-function SesionTab() {
-  const [sesion, setSesion] = useState<Sesion>(SESION_EMPTY)
+interface SesionTabProps {
+  sesion: Sesion
+  setSesion: React.Dispatch<React.SetStateAction<Sesion>>
+  ejercicios: EjercicioDB[]
+}
+
+function SesionTab({ sesion, setSesion, ejercicios }: SesionTabProps) {
   const [formOpen, setFormOpen] = useState(true)
   const [ejFormOpen, setEjFormOpen] = useState(false)
   const [ejForm, setEjForm] = useState(EJ_SESION_EMPTY)
@@ -1444,6 +1449,27 @@ function SesionTab() {
                       {ej.descripcion && (
                         <p className="text-xs text-gray-700 leading-relaxed">{ej.descripcion}</p>
                       )}
+                      <button type="button"
+                        onClick={async () => {
+                          const newEj = await createEjercicio({
+                            tipo: ej.tipo,
+                            duracion: parseInt(ej.duracion || '0'),
+                            num_jugadores: ej.numJugadores,
+                            material: ej.material || null,
+                            titulo: ej.tipo || 'Ejercicio sin título',
+                            descripcion: ej.descripcion,
+                            imagen: ej.imagen || null,
+                            video: null
+                          })
+                          if (newEj) {
+                            alert('✅ Ejercicio guardado en biblioteca')
+                          } else {
+                            alert('❌ Error al guardar en biblioteca')
+                          }
+                        }}
+                        className="mt-2 text-[11px] text-rfpaf-blue hover:text-rfpaf-blue/70 font-semibold">
+                        💾 Guardar en biblioteca
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -1564,15 +1590,20 @@ const FILTER_DURACION = ['5-10', '10-20', '20+']
 const FILTER_MATERIAL = ['Sin material', 'Conos', 'Balones', 'Petos', 'Vallas', 'Escalera', 'Otro']
 const FORM_EMPTY = { tipo:'',duracion:'',descripcion:'',numJugadores:'',material:'',imagen:null as string|null,video:'' }
 
-function BibliotecaTab() {
+interface BibliotecaTabProps {
+  ejercicios: EjercicioDB[]
+  setEjercicios: React.Dispatch<React.SetStateAction<EjercicioDB[]>>
+  sesion: Sesion
+  setSesion: React.Dispatch<React.SetStateAction<Sesion>>
+}
+
+function BibliotecaTab({ ejercicios, setEjercicios, sesion, setSesion }: BibliotecaTabProps) {
   const [searchText, setSearchText] = useState('')
   const [filtroTipo, setFiltroTipo] = useState('')
   const [filtroJugadores, setFiltroJugadores] = useState('')
   const [filtroDuracion, setFiltroDuracion] = useState('')
   const [filtroMaterial, setFiltroMaterial] = useState('')
-  // const [selEjercicio, setSelEjercicio] = useState<EjercicioDB | null>(null) // No longer needed
   const [crearEjercicioOpen, setCrearEjercicioOpen] = useState(false)
-  const [ejercicios, setEjercicios] = useState<EjercicioDB[]>([])
   const [formEj, setFormEj] = useState({tipo:'',duracion:'',num_jugadores:'',material:'',titulo:'',descripcion:'',imagen:'',video:''})
   const captureForEjRef = useRef<(()=>string|null)|null>(null)
 
@@ -1581,7 +1612,7 @@ function BibliotecaTab() {
       const data = await fetchEjercicios()
       setEjercicios(data)
     }
-    loadEjercicios()
+    if (ejercicios.length === 0) loadEjercicios()
   }, [])
 
   const ejerciciosFiltrados = ejercicios.filter(ej => {
@@ -1734,6 +1765,27 @@ function BibliotecaTab() {
                       </div>
                     </div>
                   )}
+
+                  {/* Botón Agregar a sesión */}
+                  <button type="button"
+                    onClick={() => {
+                      setSesion(s => ({
+                        ...s,
+                        ejercicios: [...s.ejercicios, {
+                          id: uuidv4(),
+                          orden: s.ejercicios.length + 1,
+                          tipo: ej.tipo,
+                          duracion: ej.duracion,
+                          numJugadores: ej.num_jugadores,
+                          descripcion: ej.descripcion,
+                          material: ej.material || '',
+                          imagen: ej.imagen
+                        }]
+                      }))
+                    }}
+                    className="w-full mt-2 flex items-center justify-center gap-2 px-3 py-2 bg-rfpaf-blue text-white rounded-lg text-xs font-semibold hover:bg-rfpaf-blue/90 transition-colors">
+                    <Plus className="w-3.5 h-3.5"/> Agregar a sesión
+                  </button>
                 </div>
               </div>
             ))}
@@ -2006,6 +2058,8 @@ function VideotecaTab() {
 
 export default function Entrenamientos() {
   const [tab, setTab] = useState<Tab>('sesion')
+  const [sesion, setSesion] = useState<Sesion>(SESION_EMPTY)
+  const [ejercicios, setEjercicios] = useState<EjercicioDB[]>([])
 
   return (
     <div className="p-4 md:p-6 space-y-5 max-w-[1600px] mx-auto">
@@ -2047,7 +2101,7 @@ export default function Entrenamientos() {
       </div>
 
       {/* Tab content */}
-      {tab==='sesion' ? <SesionTab/> : tab==='biblioteca' ? <BibliotecaTab/> : <VideotecaTab/>}
+      {tab==='sesion' ? <SesionTab sesion={sesion} setSesion={setSesion} ejercicios={ejercicios}/> : tab==='biblioteca' ? <BibliotecaTab ejercicios={ejercicios} setEjercicios={setEjercicios} sesion={sesion} setSesion={setSesion}/> : <VideotecaTab/>}
     </div>
   )
 }
