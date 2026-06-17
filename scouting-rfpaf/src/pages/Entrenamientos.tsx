@@ -3,7 +3,7 @@ import { fetchEjercicios, createEjercicio } from '../lib/supabase'
 import type { EjercicioDB } from '../lib/supabase'
 import { v4 as uuidv4 } from 'uuid'
 import {
-  ChevronDown, Plus, Trash2, Download, Image, Video, Camera,
+  ChevronDown, Plus, Trash2, Download, Video, Camera,
   Users, Clock, Wrench, FileText, Pencil, Circle,
   Square, Minus, ArrowRight, Type, Undo2, Eraser, UserX,
   BookOpen, ClipboardList, X, ListOrdered, Eye,
@@ -12,11 +12,6 @@ import {
 /* ═══════════════════════════════════════
    TYPES
 ═══════════════════════════════════════ */
-
-interface Ejercicio {
-  id: string; tipo: string; duracion: string; descripcion: string
-  numJugadores: string; material: string; imagen: string | null; video: string | null; creadoEn: string
-}
 
 interface EjercicioSesion {
   id: string; orden: number; tipo: string; duracion: string
@@ -1842,52 +1837,12 @@ function getEmbedUrl(url: string): string {
   return url
 }
 
-async function exportEjercicioPDF(ej: Ejercicio) {
-  const { default: html2pdf } = await import('html2pdf.js')
-  const el=document.getElementById(`ej-${ej.id}`); if(!el) return
-  html2pdf().set({ margin:12,filename:`ejercicio-${ej.tipo||'entrenamiento'}.pdf`,
-    image:{type:'jpeg',quality:0.95},html2canvas:{scale:2,useCORS:true},
-    jsPDF:{unit:'mm',format:'a4',orientation:'portrait'} }).from(el).save()
-}
-
-function EjercicioCard({ ej, onDelete }: { ej: Ejercicio; onDelete: (id: string) => void }) {
-  const embedUrl=ej.video?getEmbedUrl(ej.video):''
-  return (
-    <div id={`ej-${ej.id}`} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-      {(ej.imagen||embedUrl)&&(
-        <div className="flex h-44">
-          {ej.imagen&&<div className={embedUrl?'w-1/2':'w-full'}><img src={ej.imagen} alt="Ejercicio" className="w-full h-full object-cover"/></div>}
-          {embedUrl&&<div className={ej.imagen?'w-1/2':'w-full'}><iframe src={embedUrl} className="w-full h-full" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen title="Video"/></div>}
-        </div>
-      )}
-      <div className="p-4">
-        <div className="flex items-start justify-between gap-2 mb-2">
-          <div>
-            <span className="inline-block bg-rfpaf-blue text-white text-xs font-bold px-2.5 py-0.5 rounded-full mb-1.5">{ej.tipo||'Sin tipo'}</span>
-            <div className="flex flex-wrap gap-3 text-xs text-gray-500">
-              <span className="flex items-center gap-1"><Clock className="w-3 h-3"/>{ej.duracion?`${ej.duracion} min`:'—'}</span>
-              <span className="flex items-center gap-1"><Users className="w-3 h-3"/>{ej.numJugadores?`${ej.numJugadores} jugadoras`:'—'}</span>
-            </div>
-          </div>
-          <div className="flex gap-1 flex-shrink-0">
-            <button onClick={()=>exportEjercicioPDF(ej)} className="p-1.5 rounded-lg text-gray-400 hover:text-rfpaf-blue hover:bg-blue-50 transition-colors" title="PDF"><Download className="w-4 h-4"/></button>
-            <button onClick={()=>onDelete(ej.id)} className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors" title="Eliminar"><Trash2 className="w-4 h-4"/></button>
-          </div>
-        </div>
-        {ej.descripcion&&<p className="text-xs text-gray-600 mb-2 leading-relaxed">{ej.descripcion}</p>}
-        {ej.material&&<div className="flex items-center gap-1.5 text-xs text-gray-500"><Wrench className="w-3 h-3 flex-shrink-0"/><span>{ej.material}</span></div>}
-      </div>
-    </div>
-  )
-}
-
 const TIPOS_EJERCICIO = ['Técnico','Táctico','Físico','Rondo','Partido reducido','Calentamiento','Posesión','Pressing','Otro']
 
 const FILTER_TIPOS = ['Calentamiento', 'Técnico', 'Táctico', 'Físico', 'Fuerza', 'Agilidad']
 const FILTER_JUGADORES = ['1', '2-4', '5-8', '9-11']
 const FILTER_DURACION = ['5-10', '10-20', '20+']
 const FILTER_MATERIAL = ['Sin material', 'Conos', 'Balones', 'Petos', 'Vallas', 'Escalera', 'Otro']
-const FORM_EMPTY = { tipo:'',duracion:'',descripcion:'',numJugadores:'',material:'',imagen:null as string|null,video:'' }
 
 interface BibliotecaTabProps {
   ejercicios: EjercicioDB[]
@@ -2394,103 +2349,85 @@ function BibliotecaTab({ ejercicios, setEjercicios, setSesion }: BibliotecaTabPr
   )
 }
 
-function VideotecaTab() {
-  const [formOpen, setFormOpen] = useState(false)
-  const [ejercicios, setEjercicios] = useState<Ejercicio[]>([])
-  const [form, setForm] = useState(FORM_EMPTY)
+interface VideotecaTabProps {
+  ejercicios: EjercicioDB[]
+}
 
-  const handleImage = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file=e.target.files?.[0]; if(!file) return
-    const reader=new FileReader(); reader.onloadend=()=>setForm(f=>({...f,imagen:reader.result as string})); reader.readAsDataURL(file)
-  }
-
-  const handleSubmit = (e: React.SyntheticEvent) => {
-    e.preventDefault()
-    setEjercicios(prev=>[{id:uuidv4(),...form,imagen:form.imagen,video:form.video||null,creadoEn:new Date().toISOString()},...prev])
-    setForm(FORM_EMPTY); setFormOpen(false)
-  }
+function VideotecaTab({ ejercicios }: VideotecaTabProps) {
+  const ejerciciosConVideo = ejercicios.filter(ej => ej.video)
 
   return (
-    <div className="space-y-4 max-w-3xl">
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-        <button type="button" onClick={()=>setFormOpen(o=>!o)}
-          className="w-full flex items-center justify-between p-4 hover:bg-gray-50 transition-colors">
-          <span className="flex items-center gap-2 font-semibold text-gray-800 text-sm">
-            <Plus className="w-4 h-4 text-rfpaf-blue"/> Nuevo Ejercicio
-          </span>
-          <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${formOpen?'rotate-180':''}`}/>
-        </button>
-        {formOpen&&(
-          <form onSubmit={handleSubmit} className="px-4 pb-4 border-t border-gray-100 space-y-3 pt-3">
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Tipo de ejercicio</label>
-                <select value={form.tipo} onChange={e=>setForm(f=>({...f,tipo:e.target.value}))}
-                  className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-rfpaf-blue/30">
-                  <option value="">Seleccionar…</option>
-                  {TIPOS_EJERCICIO.map(t=><option key={t} value={t}>{t}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Duración (min)</label>
-                <input type="number" value={form.duracion} onChange={e=>setForm(f=>({...f,duracion:e.target.value}))}
-                  placeholder="15" min={1} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-rfpaf-blue/30"/>
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Nº Jugadoras</label>
-                <input type="number" value={form.numJugadores} onChange={e=>setForm(f=>({...f,numJugadores:e.target.value}))}
-                  placeholder="11" min={1} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-rfpaf-blue/30"/>
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Material</label>
-                <input type="text" value={form.material} onChange={e=>setForm(f=>({...f,material:e.target.value}))}
-                  placeholder="Conos, petos…" className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-rfpaf-blue/30"/>
-              </div>
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Descripción</label>
-              <textarea value={form.descripcion} onChange={e=>setForm(f=>({...f,descripcion:e.target.value}))}
-                placeholder="Describe el ejercicio, objetivos, variantes…" rows={3}
-                className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-rfpaf-blue/30 resize-none"/>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1 flex items-center gap-1"><Image className="w-3 h-3"/> Imagen</label>
-                <label className="flex flex-col items-center justify-center w-full h-28 border-2 border-dashed border-gray-200 rounded-lg cursor-pointer hover:border-rfpaf-blue/50 hover:bg-blue-50/40 transition-colors overflow-hidden">
-                  {form.imagen?<img src={form.imagen} alt="Preview" className="w-full h-full object-cover"/>
-                    :<div className="flex flex-col items-center text-gray-400 pointer-events-none"><Image className="w-6 h-6 mb-1"/><span className="text-xs">Subir imagen</span></div>}
-                  <input type="file" accept="image/*" className="hidden" onChange={handleImage}/>
-                </label>
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1 flex items-center gap-1"><Video className="w-3 h-3"/> Video (URL)</label>
-                <div className="flex flex-col items-center justify-center w-full h-28 border-2 border-dashed border-gray-200 rounded-lg gap-2 p-3">
-                  <Video className="w-6 h-6 text-gray-400"/>
-                  <input type="url" value={form.video} onChange={e=>setForm(f=>({...f,video:e.target.value}))}
-                    placeholder="YouTube o Vimeo URL…" className="w-full text-xs border border-gray-200 rounded-md px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-rfpaf-blue/30"/>
-                </div>
-              </div>
-            </div>
-            <button type="submit" className="w-full py-2.5 bg-rfpaf-blue text-white rounded-lg text-sm font-semibold hover:bg-rfpaf-blue/90 transition-colors">
-              Guardar ejercicio
-            </button>
-          </form>
-        )}
+    <div className="space-y-5">
+      {/* Header */}
+      <div>
+        <h2 className="text-2xl font-bold text-gray-900">Videoteca de Ejercicios</h2>
+        <p className="text-sm text-gray-500 mt-1">Galería de videos de ejercicios realizados en sesiones de entrenamiento</p>
       </div>
 
-      {ejercicios.length===0?(
-        <div className="text-center py-14 text-gray-400">
-          <FileText className="w-10 h-10 mx-auto mb-2 opacity-30"/>
-          <p className="text-sm font-medium">Sin ejercicios todavía</p>
-          <p className="text-xs mt-1 opacity-70">Crea el primero usando el formulario de arriba</p>
+      {/* Video Grid */}
+      {ejerciciosConVideo.length === 0 ? (
+        <div className="text-center py-16 text-gray-400 bg-white rounded-xl border border-gray-200">
+          <Video className="w-12 h-12 mx-auto mb-3 opacity-20"/>
+          <p className="text-lg font-medium">Sin videos todavía</p>
+          <p className="text-sm mt-2 opacity-70">Los videos de los ejercicios se mostrarán aquí<br/>cuando se agreguen a las sesiones de entrenamiento</p>
         </div>
-      ):(
-        <div className="space-y-4">
-          {ejercicios.map(ej=>(
-            <EjercicioCard key={ej.id} ej={ej} onDelete={id=>setEjercicios(prev=>prev.filter(e=>e.id!==id))}/>
-          ))}
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+          {ejerciciosConVideo.map(ej => {
+            const embedUrl = getEmbedUrl(ej.video!)
+            return (
+              <div key={ej.id} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-lg transition-shadow">
+                {/* Video Player */}
+                <div className="w-full bg-gray-900 flex items-center justify-center" style={{aspectRatio: '16/9'}}>
+                  <iframe
+                    src={embedUrl}
+                    className="w-full h-full"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                    title={ej.titulo || ej.tipo}
+                  />
+                </div>
+
+                {/* Exercise Info */}
+                <div className="p-4 space-y-3">
+                  {/* Type Badge + Title */}
+                  <div>
+                    <span className="inline-block bg-rfpaf-blue text-white text-xs font-bold px-2.5 py-0.5 rounded-full mb-2">
+                      {ej.tipo || 'Sin tipo'}
+                    </span>
+                    <h3 className="font-semibold text-gray-900 text-sm line-clamp-2">
+                      {ej.titulo || ej.descripcion || 'Ejercicio sin título'}
+                    </h3>
+                  </div>
+
+                  {/* Stats Grid */}
+                  <div className="grid grid-cols-3 gap-2 text-xs">
+                    <div className="bg-blue-50 rounded-lg p-2 border border-blue-100 text-center">
+                      <p className="text-gray-600 font-semibold uppercase tracking-wider">Duración</p>
+                      <p className="text-sm font-bold text-rfpaf-blue">{ej.duracion} min</p>
+                    </div>
+                    <div className="bg-green-50 rounded-lg p-2 border border-green-100 text-center">
+                      <p className="text-gray-600 font-semibold uppercase tracking-wider">Jugadores</p>
+                      <p className="text-sm font-bold text-green-700">{ej.num_jugadores}</p>
+                    </div>
+                    <div className="bg-purple-50 rounded-lg p-2 border border-purple-100 text-center">
+                      <p className="text-gray-600 font-semibold uppercase tracking-wider">Material</p>
+                      <p className="text-sm font-bold text-purple-700 truncate">{ej.material || '—'}</p>
+                    </div>
+                  </div>
+
+                  {/* Description */}
+                  {ej.descripcion && (
+                    <div className="border-t border-gray-200 pt-3">
+                      <p className="text-xs text-gray-700 leading-relaxed line-clamp-3">
+                        {ej.descripcion}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )
+          })}
         </div>
       )}
     </div>
@@ -2546,7 +2483,7 @@ export default function Entrenamientos() {
       </div>
 
       {/* Tab content */}
-      {tab==='sesion' ? <SesionTab sesion={sesion} setSesion={setSesion}/> : tab==='biblioteca' ? <BibliotecaTab ejercicios={ejercicios} setEjercicios={setEjercicios} setSesion={setSesion}/> : <VideotecaTab/>}
+      {tab==='sesion' ? <SesionTab sesion={sesion} setSesion={setSesion}/> : tab==='biblioteca' ? <BibliotecaTab ejercicios={ejercicios} setEjercicios={setEjercicios} setSesion={setSesion}/> : <VideotecaTab ejercicios={ejercicios}/>}
     </div>
   )
 }
