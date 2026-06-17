@@ -1970,7 +1970,7 @@ function BibliotecaTab({ ejercicios, setEjercicios, setSesion }: BibliotecaTabPr
                 <div className="relative">
                   {ej.video ? (
                     <div className="w-full aspect-video bg-gray-900">
-                      <iframe src={ej.video} className="w-full h-full" allowFullScreen/>
+                      <iframe src={getEmbedUrl(ej.video)} className="w-full h-full" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen title={ej.titulo}/>
                     </div>
                   ) : ej.imagen ? (
                     <div className="w-full aspect-video bg-gray-100 flex items-center justify-center overflow-hidden">
