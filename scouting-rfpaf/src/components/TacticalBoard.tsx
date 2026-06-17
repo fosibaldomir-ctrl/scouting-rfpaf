@@ -1,4 +1,4 @@
-import { useRef, useCallback, useState } from 'react'
+import { useRef, useCallback, useState, useEffect } from 'react'
 import { ChevronDown, Camera, Eraser } from 'lucide-react'
 import type { DrawTool, PitchType, Shape, TeamId, PlacedPlayer, SelPlayer, PlacedAccessory, SelAcc } from '../types'
 import {
@@ -58,6 +58,8 @@ export default function TacticalBoard({ onCapture, onRegisterCapture }: Tactical
     if (!ctx) return
     const w = canvas.width
     const h = canvas.height
+
+    if (w === 0 || h === 0) return
 
     // Background
     ctx.fillStyle = '#0f5132'
@@ -167,15 +169,56 @@ export default function TacticalBoard({ onCapture, onRegisterCapture }: Tactical
     })
   }, [shapes, placedPlayers, placedAccessories, selectedAccUid, pitchType])
 
+  // Handle canvas responsiveness
+  useEffect(() => {
+    const canvas = canvasRef.current
+    const container = canvasContainer.current
+    if (!canvas || !container) return
+
+    const resizeCanvas = () => {
+      const rect = container.getBoundingClientRect()
+      const dpr = window.devicePixelRatio || 1
+
+      // Mantener aspecto 16:9 (640:360)
+      const aspectRatio = 16 / 9
+      let width = rect.width
+      let height = rect.height
+
+      // Ajustar altura según ancho si es necesario
+      if (width / height > aspectRatio) {
+        width = height * aspectRatio
+      } else {
+        height = width / aspectRatio
+      }
+
+      canvas.width = width * dpr
+      canvas.height = height * dpr
+      canvas.style.width = width + 'px'
+      canvas.style.height = height + 'px'
+
+      // Escalar el contexto para DPI
+      const ctx = canvas.getContext('2d')
+      if (ctx) {
+        ctx.scale(dpr, dpr)
+      }
+
+      redrawCanvas()
+    }
+
+    resizeCanvas()
+    const observer = new ResizeObserver(resizeCanvas)
+    observer.observe(container)
+
+    return () => observer.disconnect()
+  }, [redrawCanvas])
+
   // Draw on mouse move
   const handleCanvasMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current
     if (!canvas) return
     const rect = canvas.getBoundingClientRect()
-    const scaleX = canvas.width / rect.width
-    const scaleY = canvas.height / rect.height
-    const x = (e.clientX - rect.left) * scaleX
-    const y = (e.clientY - rect.top) * scaleY
+    const x = e.clientX - rect.left
+    const y = e.clientY - rect.top
     if (!isDrawing || !currentShape) {
       redrawCanvas()
       return
@@ -230,10 +273,8 @@ export default function TacticalBoard({ onCapture, onRegisterCapture }: Tactical
     const canvas = canvasRef.current
     if (!canvas) return
     const rect = canvas.getBoundingClientRect()
-    const scaleX = canvas.width / rect.width
-    const scaleY = canvas.height / rect.height
-    const x = (e.clientX - rect.left) * scaleX
-    const y = (e.clientY - rect.top) * scaleY
+    const x = e.clientX - rect.left
+    const y = e.clientY - rect.top
     setIsDrawing(true)
     if (tool === 'freehand') {
       setCurrentShape({ type: 'freehand', color, width: strokeWidth, dashed, points: [{ x, y }] })
@@ -343,8 +384,6 @@ export default function TacticalBoard({ onCapture, onRegisterCapture }: Tactical
       >
         <canvas
           ref={canvasRef}
-          width={640}
-          height={360}
           className="w-full h-full cursor-crosshair block"
           onMouseDown={handleCanvasMouseDown}
           onMouseUp={handleCanvasMouseUp}
