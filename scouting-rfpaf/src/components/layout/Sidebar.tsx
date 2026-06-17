@@ -1,5 +1,5 @@
 import { NavLink, useNavigate } from 'react-router-dom'
-import { LayoutDashboard, Database, PlusCircle, Settings, LogOut, LayoutGrid, X, CalendarDays, ChevronDown, Dumbbell, ClipboardList } from 'lucide-react'
+import { LayoutDashboard, Database, PlusCircle, Settings, LogOut, LayoutGrid, X, CalendarDays, ChevronDown, Dumbbell, ClipboardList, PenLine } from 'lucide-react'
 import { useState } from 'react'
 import { useStore } from '../../store/useStore'
 import RFPAFLogo from '../RFPAFLogo'
@@ -19,6 +19,7 @@ const scoutingItems = [
 
 const extraItems = [
   { to: '/entrenamientos', icon: Dumbbell, label: 'Entrenamientos' },
+  { to: '/analisis-lab', icon: PenLine, label: 'Análisis Lab' },
 ]
 
 interface SidebarProps {

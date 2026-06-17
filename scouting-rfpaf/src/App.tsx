@@ -11,6 +11,7 @@ import Calendario from './pages/Calendario'
 import Entrenamientos from './pages/Entrenamientos'
 import Convocatorias from './pages/Convocatorias'
 import Admin from './pages/Admin'
+import PintadoAcciones from './pages/PintadoAcciones'
 
 function AppContent() {
   useSupabaseSync()
@@ -29,6 +30,7 @@ function AppContent() {
         <Route path="/convocatorias" element={<Convocatorias />} />
         <Route path="/ficha/:id" element={<FichaJugadora />} />
         <Route path="/admin" element={<Admin />} />
+        <Route path="/analisis-lab" element={<PintadoAcciones />} />
       </Route>
       <Route path="*" element={<Navigate to="/login" replace />} />
     </Routes>
