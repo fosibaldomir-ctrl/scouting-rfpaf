@@ -213,13 +213,13 @@ const BibliotecaEjercicios = () => {
       {/* Modal crear ejercicio */}
       {crearEjercicioOpen && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto flex flex-col">
+          <div className="bg-white rounded-xl shadow-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto flex flex-col">
             <div className="sticky top-0 bg-white border-b border-gray-200 px-5 py-3 flex items-center justify-between z-10">
               <h2 className="text-lg font-bold text-gray-900">Crear nuevo ejercicio</h2>
               <button onClick={() => setCrearEjercicioOpen(false)} className="text-gray-400 hover:text-gray-700 text-xl leading-none">✕</button>
             </div>
-            <div className="flex flex-1 overflow-hidden">
-              <div className="flex-1 p-5 space-y-4 overflow-y-auto">
+            <div className="flex flex-col flex-1 overflow-y-auto">
+              <div className="p-5 space-y-4">
                 <div>
                   <label className="block text-xs font-semibold text-gray-600 mb-1">Título</label>
                   <input type="text" value={formEj.titulo} onChange={e=>setFormEj({...formEj,titulo:e.target.value})} placeholder="Nombre del ejercicio…"
@@ -303,8 +303,8 @@ const BibliotecaEjercicios = () => {
                 </div>
               </div>
 
-              {/* Right: TacticalBoard */}
-              <div className="hidden lg:block lg:w-1/2 border-l border-gray-200 bg-gray-50">
+              {/* Pizarra táctica — debajo del formulario */}
+              <div className="border-t border-gray-200 bg-gray-50 p-4">
                 <TacticalBoard onCapture={img => setFormEj({...formEj, imagen: img})} onRegisterCapture={fn => {captureForEjRef.current = fn}}/>
               </div>
             </div>
