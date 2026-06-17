@@ -2171,6 +2171,18 @@ function BibliotecaTab({ ejercicios, setEjercicios, setSesion }: BibliotecaTabPr
                   rows={3}
                   className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-rfpaf-blue/30 resize-none"/>
               </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 mb-1 flex items-center gap-2">
+                  <Video className="w-3.5 h-3.5"/>
+                  URL del vídeo (YouTube o Vimeo)
+                </label>
+                <input type="url" value={formEditEj.video} onChange={e => setFormEditEj({...formEditEj, video: e.target.value})}
+                  placeholder="https://www.youtube.com/watch?v=... o https://vimeo.com/..."
+                  className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-rfpaf-blue/30"/>
+                {formEditEj.video && (
+                  <p className="text-xs text-gray-500 mt-1">✓ URL agregada - se embebería en la vista previa</p>
+                )}
+              </div>
               <div className="flex gap-3">
                 <button type="button"
                   onClick={async () => {
