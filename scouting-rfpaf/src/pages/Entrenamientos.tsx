@@ -1631,7 +1631,7 @@ function SesionTab({ sesion, setSesion }: SesionTabProps) {
                     if (!editEjSesion) return
                     setSesion(s => ({
                       ...s,
-                      ejercicios: s.ejercicios.map(e => e.id === editEjSesion.id ? formEditEjSesion : e)
+                      ejercicios: s.ejercicios.map(e => e.id === editEjSesion.id ? { ...e, ...formEditEjSesion } : e)
                     }))
                     setEditEjSesion(null)
                     alert('✅ Ejercicio actualizado')
@@ -1712,11 +1712,10 @@ const FORM_EMPTY = { tipo:'',duracion:'',descripcion:'',numJugadores:'',material
 interface BibliotecaTabProps {
   ejercicios: EjercicioDB[]
   setEjercicios: React.Dispatch<React.SetStateAction<EjercicioDB[]>>
-  sesion: Sesion
   setSesion: React.Dispatch<React.SetStateAction<Sesion>>
 }
 
-function BibliotecaTab({ ejercicios, setEjercicios, sesion, setSesion }: BibliotecaTabProps) {
+function BibliotecaTab({ ejercicios, setEjercicios, setSesion }: BibliotecaTabProps) {
   const [searchText, setSearchText] = useState('')
   const [filtroTipo, setFiltroTipo] = useState('')
   const [filtroJugadores, setFiltroJugadores] = useState('')
@@ -2367,7 +2366,7 @@ export default function Entrenamientos() {
       </div>
 
       {/* Tab content */}
-      {tab==='sesion' ? <SesionTab sesion={sesion} setSesion={setSesion}/> : tab==='biblioteca' ? <BibliotecaTab ejercicios={ejercicios} setEjercicios={setEjercicios} sesion={sesion} setSesion={setSesion}/> : <VideotecaTab/>}
+      {tab==='sesion' ? <SesionTab sesion={sesion} setSesion={setSesion}/> : tab==='biblioteca' ? <BibliotecaTab ejercicios={ejercicios} setEjercicios={setEjercicios} setSesion={setSesion}/> : <VideotecaTab/>}
     </div>
   )
 }
