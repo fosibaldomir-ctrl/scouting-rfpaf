@@ -4,7 +4,7 @@ import { v4 as uuidv4 } from 'uuid'
 import {
   Plus, Trash2, Download, Camera,
   Users, Clock, Wrench, ChevronDown,
-  X, ListOrdered, Eye, Pencil, Eraser,
+  X, ListOrdered, Eye, Pencil, Eraser, Save,
 } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import type { EjercicioSesion, Sesion } from '../types'
@@ -13,7 +13,7 @@ import { exportSesionPDF } from '../lib/entrenamientoUtils'
 import TacticalBoard from '../components/TacticalBoard'
 
 const SesionEntrenamiento = () => {
-  const { sesion, setSesion } = useStore()
+  const { sesion, setSesion, ejercicios, setEjercicios } = useStore()
 
   const [formOpen, setFormOpen] = useState(true)
   const [ejFormOpen, setEjFormOpen] = useState(false)
@@ -21,6 +21,7 @@ const SesionEntrenamiento = () => {
   const [previewEjSesion, setPreviewEjSesion] = useState<EjercicioSesion | null>(null)
   const [editEjSesion, setEditEjSesion] = useState<EjercicioSesion | null>(null)
   const [formEditEjSesion, setFormEditEjSesion] = useState(EJ_SESION_EMPTY)
+  const [savingToLibrary, setSavingToLibrary] = useState(false)
   const tacticalCaptureRef = useRef<(() => string | null) | null>(null)
 
   const addCaptura = (png: string) => setSesion((s: Sesion): Sesion => ({ ...s, capturas: [...s.capturas, png] }))
@@ -37,6 +38,43 @@ const SesionEntrenamiento = () => {
     setSesion((s: Sesion): Sesion => ({ ...s, ejercicios: [...s.ejercicios, { id: uuidv4(), orden, ...ejForm }] }))
     setEjForm(EJ_SESION_EMPTY)
     setEjFormOpen(false)
+  }
+
+  const addEjercicioAndSaveToLibrary = async (e: React.SyntheticEvent) => {
+    e.preventDefault()
+    if (!ejForm.tipo || !ejForm.descripcion) {
+      alert('❌ Completa al menos Tipo y Descripción')
+      return
+    }
+
+    setSavingToLibrary(true)
+    try {
+      const newEjercicio = await createEjercicio({
+        tipo: ejForm.tipo,
+        duracion: parseInt(ejForm.duracion) || 0,
+        num_jugadores: ejForm.numJugadores,
+        material: ejForm.material || null,
+        titulo: ejForm.descripcion.substring(0, 50),
+        descripcion: ejForm.descripcion,
+        imagen: ejForm.imagen || null,
+        video: null
+      })
+
+      if (newEjercicio && newEjercicio.id) {
+        setEjercicios([...ejercicios, newEjercicio])
+
+        const orden = sesion.ejercicios.length + 1
+        setSesion((s: Sesion): Sesion => ({ ...s, ejercicios: [...s.ejercicios, { id: uuidv4(), orden, ...ejForm }] }))
+        setEjForm(EJ_SESION_EMPTY)
+        setEjFormOpen(false)
+        alert('✅ Ejercicio guardado en la biblioteca y añadido a la sesión')
+      }
+    } catch (error) {
+      console.error('Error guardando ejercicio:', error)
+      alert('❌ Error al guardar en la biblioteca')
+    } finally {
+      setSavingToLibrary(false)
+    }
   }
 
   const removeEjercicio = (id: string) =>
@@ -225,6 +263,11 @@ const SesionEntrenamiento = () => {
                 <button type="submit"
                   className="flex-1 py-2 bg-rfpaf-blue text-white text-sm font-semibold rounded-lg hover:bg-rfpaf-blue/90 transition-colors">
                   Guardar ejercicio
+                </button>
+                <button type="button" onClick={addEjercicioAndSaveToLibrary} disabled={savingToLibrary}
+                  className="flex-1 flex items-center justify-center gap-2 py-2 bg-green-600 text-white text-sm font-semibold rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                  <Save className="w-4 h-4"/>
+                  {savingToLibrary ? 'Guardando...' : 'Guardar a Biblioteca'}
                 </button>
                 <button type="button" onClick={() => { setEjFormOpen(false); setEjForm(EJ_SESION_EMPTY) }}
                   className="px-4 py-2 text-sm text-gray-500 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
