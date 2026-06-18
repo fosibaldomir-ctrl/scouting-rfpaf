@@ -3,7 +3,7 @@ import { fetchEjercicios, createEjercicio } from '../lib/supabase'
 import type { EjercicioDB } from '../lib/supabase'
 import { v4 as uuidv4 } from 'uuid'
 import {
-  Plus, Video, Eye, FileText,
+  Plus, Video, Eye, FileText, Pencil, X,
 } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import type { EjercicioSesion } from '../types'
@@ -21,7 +21,9 @@ const BibliotecaEjercicios = () => {
   const [filtroMaterial, setFiltroMaterial] = useState('')
   const [crearEjercicioOpen, setCrearEjercicioOpen] = useState(false)
   const [previewEjercicio, setPreviewEjercicio] = useState<EjercicioDB | null>(null)
+  const [editEjercicio, setEditEjercicio] = useState<EjercicioDB | null>(null)
   const [formEj, setFormEj] = useState({tipo:'',duracion:'',num_jugadores:'',material:'',titulo:'',descripcion:'',imagen:'',video:''})
+  const [formEditEj, setFormEditEj] = useState({tipo:'',duracion:'',num_jugadores:'',material:'',titulo:'',descripcion:'',imagen:'',video:''})
   const captureForEjRef = useRef<(()=>string|null)|null>(null)
 
   useEffect(() => {
@@ -198,6 +200,10 @@ const BibliotecaEjercicios = () => {
                       className="flex-1 flex items-center justify-center gap-1 px-3 py-2 text-xs font-semibold text-rfpaf-blue hover:bg-blue-50 rounded-lg transition-colors border border-blue-200">
                       <Eye className="w-3.5 h-3.5"/> Ver
                     </button>
+                    <button type="button" onClick={() => {setEditEjercicio(ej); setFormEditEj({tipo:ej.tipo, duracion:String(ej.duracion), num_jugadores:ej.num_jugadores, material:ej.material||'', titulo:ej.titulo||'', descripcion:ej.descripcion, imagen:ej.imagen||'', video:ej.video||''})}}
+                      className="flex-1 flex items-center justify-center gap-1 px-3 py-2 text-xs font-semibold text-amber-700 hover:bg-amber-50 rounded-lg transition-colors border border-amber-200">
+                      <Pencil className="w-3.5 h-3.5"/> Editar
+                    </button>
                     <button type="button" onClick={() => addEjercicioToSesion(ej)}
                       className="flex-1 flex items-center justify-center gap-1 px-3 py-2 text-xs font-semibold text-white bg-rfpaf-blue hover:bg-rfpaf-blue/90 rounded-lg transition-colors">
                       <Plus className="w-3.5 h-3.5"/> Añadir sesión
@@ -354,6 +360,93 @@ const BibliotecaEjercicios = () => {
                 className="w-full py-2 bg-rfpaf-blue text-white rounded-lg text-sm font-semibold hover:bg-rfpaf-blue/90 transition-colors">
                 Añadir a sesión
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal editar ejercicio */}
+      {editEjercicio && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto flex flex-col">
+            <div className="sticky top-0 bg-white border-b border-gray-200 px-5 py-3 flex items-center justify-between z-10">
+              <h2 className="text-lg font-bold text-gray-900">Editar ejercicio</h2>
+              <button onClick={() => setEditEjercicio(null)} className="text-gray-400 hover:text-gray-700 text-xl leading-none"><X className="w-5 h-5"/></button>
+            </div>
+            <div className="flex flex-col flex-1 overflow-y-auto">
+              <div className="p-5 space-y-4">
+                <div>
+                  <label className="block text-xs font-semibold text-gray-600 mb-1">Título</label>
+                  <input type="text" value={formEditEj.titulo} onChange={e=>setFormEditEj({...formEditEj,titulo:e.target.value})} placeholder="Nombre del ejercicio…"
+                    className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-rfpaf-blue/30"/>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-600 mb-1">Tipo</label>
+                    <select value={formEditEj.tipo} onChange={e=>setFormEditEj({...formEditEj,tipo:e.target.value})}
+                      className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-rfpaf-blue/30">
+                      <option value="">Seleccionar…</option>
+                      {TIPOS_EJERCICIO.map(t=><option key={t} value={t}>{t}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-600 mb-1">Duración (min)</label>
+                    <input type="number" value={formEditEj.duracion} onChange={e=>setFormEditEj({...formEditEj,duracion:e.target.value})} placeholder="10"
+                      className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-rfpaf-blue/30"/>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-600 mb-1">Número de jugadores</label>
+                    <input type="text" value={formEditEj.num_jugadores} onChange={e=>setFormEditEj({...formEditEj,num_jugadores:e.target.value})} placeholder="6-8"
+                      className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-rfpaf-blue/30"/>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-600 mb-1">Material</label>
+                    <input type="text" value={formEditEj.material} onChange={e=>setFormEditEj({...formEditEj,material:e.target.value})} placeholder="Conos, balones…"
+                      className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-rfpaf-blue/30"/>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-gray-600 mb-1">Descripción</label>
+                  <textarea value={formEditEj.descripcion} onChange={e=>setFormEditEj({...formEditEj,descripcion:e.target.value})} placeholder="Describe el ejercicio…"
+                    className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-rfpaf-blue/30 min-h-20 resize-none"/>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-gray-600 mb-1 flex items-center gap-2">
+                    <Video className="w-3.5 h-3.5"/>
+                    URL del vídeo (YouTube o Vimeo)
+                  </label>
+                  <input type="url" value={formEditEj.video} onChange={e=>setFormEditEj({...formEditEj,video:e.target.value})}
+                    placeholder="https://www.youtube.com/watch?v=... o https://vimeo.com/..."
+                    className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-rfpaf-blue/30"/>
+                  {formEditEj.video && (
+                    <p className="text-xs text-green-600 mt-1">✓ URL agregada - se mostrará en la vista previa</p>
+                  )}
+                </div>
+
+                <div className="flex gap-3 pt-4">
+                  <button type="button" onClick={async () => {
+                    if (editEjercicio && formEditEj.titulo && formEditEj.tipo && formEditEj.descripcion) {
+                      const updatedEj = { ...editEjercicio, ...formEditEj, duracion: parseInt(formEditEj.duracion) || 0 }
+                      setEjercicios(ejercicios.map(ej => ej.id === editEjercicio.id ? updatedEj : ej))
+                      setEditEjercicio(null)
+                      alert('✅ Ejercicio actualizado')
+                    }
+                  }}
+                    className="flex-1 py-2 bg-rfpaf-blue text-white rounded-lg text-sm font-semibold hover:bg-rfpaf-blue/90 transition-colors">
+                    Guardar cambios
+                  </button>
+                  <button type="button" onClick={()=>setEditEjercicio(null)}
+                    className="flex-1 py-2 text-sm text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors">
+                    Cancelar
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         </div>
