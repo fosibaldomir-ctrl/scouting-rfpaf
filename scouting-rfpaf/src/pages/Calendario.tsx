@@ -37,6 +37,11 @@ function getObsColor(obsId: string, observadores: Observador[]): string {
   return PALETTE[idx >= 0 ? idx % PALETTE.length : 0]
 }
 
+function getClubEscudo(clubName: string, clubes: any[]): string | null {
+  const club = clubes.find((c) => c.nombre === clubName)
+  return club?.escudo ?? null
+}
+
 function toYMD(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
@@ -421,14 +426,22 @@ export default function Calendario() {
                   <div className="flex flex-col gap-0.5">
                     {dayPartidos.slice(0, 3).map((p) => {
                       const color = getObsColor(p.observador, observadores)
+                      const localEscudo = getClubEscudo(p.local, clubes)
+                      const visitanteEscudo = getClubEscudo(p.visitante, clubes)
                       return (
                         <div
                           key={p.id}
                           className="text-white text-[8px] font-semibold px-1 py-0.5 rounded leading-tight"
                           style={{ backgroundColor: color }}
                         >
-                          <span className="block break-words">{p.hora} {p.local}</span>
-                          <span className="block break-words opacity-90">vs {p.visitante}</span>
+                          <span className="block break-words flex items-center gap-0.5">
+                            {localEscudo && <img src={localEscudo} alt="" className="w-3 h-3 object-contain rounded-sm flex-shrink-0" />}
+                            <span>{p.hora} {p.local}</span>
+                          </span>
+                          <span className="block break-words opacity-90 flex items-center gap-0.5">
+                            {visitanteEscudo && <img src={visitanteEscudo} alt="" className="w-3 h-3 object-contain rounded-sm flex-shrink-0" />}
+                            <span>vs {p.visitante}</span>
+                          </span>
                         </div>
                       )
                     })}
@@ -553,6 +566,8 @@ export default function Calendario() {
                 selectedPartidos.map((p) => {
                   const obsNombre = observadores.find((o) => o.id === p.observador)?.nombre ?? p.observador
                   const color = getObsColor(p.observador, observadores)
+                  const localEscudo = getClubEscudo(p.local, clubes)
+                  const visitanteEscudo = getClubEscudo(p.visitante, clubes)
                   return (
                     <div
                       key={p.id}
@@ -560,8 +575,16 @@ export default function Calendario() {
                       style={{ borderLeftWidth: 4, borderLeftColor: color }}
                     >
                       <div className="min-w-0">
-                        <div className="text-sm font-bold text-gray-800 break-words">
-                          {p.local} <span className="text-gray-400 font-normal">vs</span> {p.visitante}
+                        <div className="text-sm font-bold text-gray-800 break-words flex items-center gap-2">
+                          <div className="flex items-center gap-1">
+                            {localEscudo && <img src={localEscudo} alt="" className="w-5 h-5 object-contain rounded-sm flex-shrink-0" />}
+                            <span>{p.local}</span>
+                          </div>
+                          <span className="text-gray-400 font-normal">vs</span>
+                          <div className="flex items-center gap-1">
+                            {visitanteEscudo && <img src={visitanteEscudo} alt="" className="w-5 h-5 object-contain rounded-sm flex-shrink-0" />}
+                            <span>{p.visitante}</span>
+                          </div>
                         </div>
                         <div className="text-gray-500 text-xs mt-1 flex items-center gap-2 flex-wrap">
                           <span className="font-semibold text-gray-700">{p.hora}</span>
