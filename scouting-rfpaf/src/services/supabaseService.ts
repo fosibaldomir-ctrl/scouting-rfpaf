@@ -105,37 +105,58 @@ export const supabaseService = {
   },
 
   async updateFicha(id: string, ficha: Partial<FichaJugadora>): Promise<boolean> {
-    const data: any = {}
-    if (ficha.fechaPartido) data.fecha_partido = ficha.fechaPartido
-    if (ficha.equipo) data.equipo = ficha.equipo
-    if (ficha.categoria) data.categoria = ficha.categoria
-    if (ficha.local) data.local = ficha.local
-    if (ficha.visitante) data.visitante = ficha.visitante
-    if (ficha.nombre) data.nombre = ficha.nombre
-    if (ficha.primerApellido) data.primer_apellido = ficha.primerApellido
-    if (ficha.segundoApellido) data.segundo_apellido = ficha.segundoApellido
-    if (ficha.foto !== undefined) data.foto = ficha.foto
-    if (ficha.fuerza !== undefined) data.fuerza = ficha.fuerza
-    if (ficha.velocidad !== undefined) data.velocidad = ficha.velocidad
-    if (ficha.resistencia !== undefined) data.resistencia = ficha.resistencia
-    if (ficha.evaluacionTecnica) data.evaluacion_tecnica = ficha.evaluacionTecnica
-    if (ficha.valoracionGeneral !== undefined) data.valoracion_general = ficha.valoracionGeneral
-    if (ficha.propuesta) data.propuesta = ficha.propuesta
-    if (ficha.descripcionJugadora) data.descripcion_jugadora = ficha.descripcionJugadora
-    if (ficha.observaciones) data.observaciones = ficha.observaciones
-    if (ficha.cierre) data.cierre = ficha.cierre
-    data.actualizado_en = new Date().toISOString()
+    try {
+      console.log('📝 Actualizando ficha en Supabase...', id)
 
-    const { error } = await supabase
-      .from('fichas')
-      .update(data)
-      .eq('id', id)
+      const data: any = {}
+      if (ficha.fechaPartido !== undefined) data.fecha_partido = ficha.fechaPartido
+      if (ficha.equipo !== undefined) data.equipo = ficha.equipo
+      if (ficha.categoria !== undefined) data.categoria = ficha.categoria
+      if (ficha.local !== undefined) data.local = ficha.local
+      if (ficha.visitante !== undefined) data.visitante = ficha.visitante
+      if (ficha.observador !== undefined) data.observador = ficha.observador
+      if (ficha.nombre !== undefined) data.nombre = ficha.nombre
+      if (ficha.primerApellido !== undefined) data.primer_apellido = ficha.primerApellido
+      if (ficha.segundoApellido !== undefined) data.segundo_apellido = ficha.segundoApellido
+      if (ficha.fechaNacimiento !== undefined) data.fecha_nacimiento = ficha.fechaNacimiento
+      if (ficha.dorsal !== undefined) data.dorsal = ficha.dorsal
+      if (ficha.lateralidad !== undefined) data.lateralidad = ficha.lateralidad
+      if (ficha.tipologia !== undefined) data.tipologia = ficha.tipologia
+      if (ficha.altura !== undefined) data.altura = ficha.altura
+      if (ficha.club !== undefined) data.club = ficha.club
+      if (ficha.foto !== undefined) data.foto = ficha.foto
+      if (ficha.fuerza !== undefined) data.fuerza = ficha.fuerza
+      if (ficha.velocidad !== undefined) data.velocidad = ficha.velocidad
+      if (ficha.resistencia !== undefined) data.resistencia = ficha.resistencia
+      if (ficha.demarcacion !== undefined) data.demarcacion = ficha.demarcacion
+      if (ficha.otraDemarcacion !== undefined) data.otra_demarcacion = ficha.otraDemarcacion
+      if (ficha.evaluacionTecnica !== undefined) data.evaluacion_tecnica = ficha.evaluacionTecnica
+      if (ficha.valoracionGeneral !== undefined) data.valoracion_general = ficha.valoracionGeneral
+      if (ficha.propuesta !== undefined) data.propuesta = ficha.propuesta
+      if (ficha.descripcionJugadora !== undefined) data.descripcion_jugadora = ficha.descripcionJugadora
+      if (ficha.observaciones !== undefined) data.observaciones = ficha.observaciones
+      if (ficha.cierre !== undefined) data.cierre = ficha.cierre
+      data.actualizado_en = new Date().toISOString()
 
-    if (error) {
-      console.error('Error al actualizar ficha:', error)
+      console.log('📤 Datos a actualizar:', data)
+
+      const { error } = await supabase
+        .from('fichas')
+        .update(data)
+        .eq('id', id)
+
+      if (error) {
+        console.error('❌ Error al actualizar ficha:', error.message)
+        console.error('Detalles:', error)
+        return false
+      }
+
+      console.log('✅ Ficha actualizada exitosamente')
+      return true
+    } catch (err) {
+      console.error('❌ Exception al actualizar ficha:', err)
       return false
     }
-    return true
   },
 
   async deleteFicha(id: string): Promise<boolean> {
