@@ -434,14 +434,14 @@ export default function Calendario() {
                           className="text-white text-[8px] font-semibold px-1 py-0.5 rounded leading-tight"
                           style={{ backgroundColor: color }}
                         >
-                          <span className="block break-words flex items-center gap-0.5">
-                            {localEscudo && <img src={localEscudo} alt="" className="w-3 h-3 object-contain rounded-sm flex-shrink-0" />}
-                            <span>{p.hora} {p.local}</span>
-                          </span>
-                          <span className="block break-words opacity-90 flex items-center gap-0.5">
-                            {visitanteEscudo && <img src={visitanteEscudo} alt="" className="w-3 h-3 object-contain rounded-sm flex-shrink-0" />}
-                            <span>vs {p.visitante}</span>
-                          </span>
+                          <div className="flex items-center gap-0.5 min-w-0">
+                            {localEscudo && <img src={localEscudo} alt="" className="w-4 h-4 object-contain rounded-sm flex-shrink-0" />}
+                            <span className="truncate">{p.hora} {p.local}</span>
+                          </div>
+                          <div className="flex items-center gap-0.5 opacity-90 min-w-0">
+                            {visitanteEscudo && <img src={visitanteEscudo} alt="" className="w-4 h-4 object-contain rounded-sm flex-shrink-0" />}
+                            <span className="truncate">vs {p.visitante}</span>
+                          </div>
                         </div>
                       )
                     })}
@@ -574,16 +574,16 @@ export default function Calendario() {
                       className="flex items-start justify-between gap-3 p-3 bg-gray-50 rounded-xl border border-gray-100 overflow-hidden"
                       style={{ borderLeftWidth: 4, borderLeftColor: color }}
                     >
-                      <div className="min-w-0">
-                        <div className="text-sm font-bold text-gray-800 break-words flex items-center gap-2">
-                          <div className="flex items-center gap-1">
+                      <div className="min-w-0 flex-1">
+                        <div className="text-sm font-bold text-gray-800 flex flex-wrap items-center gap-2">
+                          <div className="flex items-center gap-1 min-w-0">
                             {localEscudo && <img src={localEscudo} alt="" className="w-5 h-5 object-contain rounded-sm flex-shrink-0" />}
-                            <span>{p.local}</span>
+                            <span className="truncate">{p.local}</span>
                           </div>
-                          <span className="text-gray-400 font-normal">vs</span>
-                          <div className="flex items-center gap-1">
+                          <span className="text-gray-400 font-normal whitespace-nowrap">vs</span>
+                          <div className="flex items-center gap-1 min-w-0">
                             {visitanteEscudo && <img src={visitanteEscudo} alt="" className="w-5 h-5 object-contain rounded-sm flex-shrink-0" />}
-                            <span>{p.visitante}</span>
+                            <span className="truncate">{p.visitante}</span>
                           </div>
                         </div>
                         <div className="text-gray-500 text-xs mt-1 flex items-center gap-2 flex-wrap">
