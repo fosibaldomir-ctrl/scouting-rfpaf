@@ -35,8 +35,13 @@ function PropuestaBadge({ propuesta }: { propuesta: string }) {
   return <span className={map[propuesta] ?? 'badge-seguir'}>{propuesta}</span>
 }
 
+function getClubEscudo(clubName: string, clubes: any[]): string | null {
+  const club = clubes.find((c) => c.nombre === clubName)
+  return club?.escudo ?? null
+}
+
 export default function Dashboard() {
-  const { fichas, observadores, currentObservador } = useStore()
+  const { fichas, observadores, currentObservador, clubes } = useStore()
   const navigate = useNavigate()
   const obs = observadores.find((o) => o.id === currentObservador)
 
@@ -181,34 +186,47 @@ export default function Dashboard() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-left border-b">
-                  {['Fecha', 'Jugadora', 'Equipo', 'Categoría', 'Demarcación', 'Propuesta', ''].map((h) => (
+                  {['Fecha', 'Jugadora', 'Club', 'Categoría', 'Demarcación', 'Propuesta', ''].map((h) => (
                     <th key={h} className="pb-2 pr-4 text-xs font-semibold text-gray-500 uppercase">{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {ultimas.map((f: FichaJugadora) => (
-                  <tr key={f.id} className="border-b last:border-0 hover:bg-gray-50">
-                    <td className="py-3 pr-4 text-gray-600">{new Date(f.fechaPartido).toLocaleDateString('es-ES')}</td>
-                    <td className="py-3 pr-4 font-medium">
-                      {f.nombre} {f.primerApellido}
-                    </td>
-                    <td className="py-3 pr-4 text-gray-600">{f.equipo}</td>
-                    <td className="py-3 pr-4 text-gray-600">{f.categoria}</td>
-                    <td className="py-3 pr-4 text-gray-600">{f.demarcacion}</td>
-                    <td className="py-3 pr-4">
-                      <PropuestaBadge propuesta={f.propuesta} />
-                    </td>
-                    <td className="py-3">
-                      <button
-                        onClick={() => navigate(`/ficha/${f.id}`)}
-                        className="text-rfpaf-blue hover:text-rfpaf-blue-light"
-                      >
-                        <Eye className="w-4 h-4" />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                {ultimas.map((f: FichaJugadora) => {
+                  const escudo = getClubEscudo(f.equipo, clubes)
+                  return (
+                    <tr key={f.id} className="border-b last:border-0 hover:bg-gray-50">
+                      <td className="py-3 pr-4 text-gray-600">{new Date(f.fechaPartido).toLocaleDateString('es-ES')}</td>
+                      <td className="py-3 pr-4 font-medium flex items-center gap-2">
+                        {f.foto ? (
+                          <img src={f.foto} alt="" className="w-8 h-8 rounded-full object-cover flex-shrink-0" />
+                        ) : (
+                          <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-xs font-bold text-gray-500 flex-shrink-0">
+                            {f.nombre.charAt(0)}{f.primerApellido.charAt(0)}
+                          </div>
+                        )}
+                        <span>{f.nombre} {f.primerApellido}</span>
+                      </td>
+                      <td className="py-3 pr-4 text-gray-600 flex items-center gap-2">
+                        {escudo && <img src={escudo} alt="" className="w-5 h-5 object-contain rounded-sm flex-shrink-0" />}
+                        <span>{f.equipo}</span>
+                      </td>
+                      <td className="py-3 pr-4 text-gray-600">{f.categoria}</td>
+                      <td className="py-3 pr-4 text-gray-600">{f.demarcacion}</td>
+                      <td className="py-3 pr-4">
+                        <PropuestaBadge propuesta={f.propuesta} />
+                      </td>
+                      <td className="py-3">
+                        <button
+                          onClick={() => navigate(`/ficha/${f.id}`)}
+                          className="text-rfpaf-blue hover:text-rfpaf-blue-light"
+                        >
+                          <Eye className="w-4 h-4" />
+                        </button>
+                      </td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           </div>
