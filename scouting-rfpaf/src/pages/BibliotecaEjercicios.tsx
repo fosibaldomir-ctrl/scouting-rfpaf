@@ -215,13 +215,13 @@ const BibliotecaEjercicios = () => {
                       className="flex-1 flex items-center justify-center gap-1 px-3 py-2 text-xs font-semibold text-amber-700 hover:bg-amber-50 rounded-lg transition-colors border border-amber-200">
                       <Pencil className="w-3.5 h-3.5"/> Editar
                     </button>
-                    <button type="button" onClick={() => handleDeleteEjercicio(ej)}
-                      className="flex-1 flex items-center justify-center gap-1 px-3 py-2 text-xs font-semibold text-red-700 hover:bg-red-50 rounded-lg transition-colors border border-red-200">
-                      <Trash2 className="w-3.5 h-3.5"/> Borrar
-                    </button>
                     <button type="button" onClick={() => addEjercicioToSesion(ej)}
                       className="flex-1 flex items-center justify-center gap-1 px-3 py-2 text-xs font-semibold text-white bg-rfpaf-blue hover:bg-rfpaf-blue/90 rounded-lg transition-colors">
                       <Plus className="w-3.5 h-3.5"/> Añadir sesión
+                    </button>
+                    <button type="button" onClick={() => handleDeleteEjercicio(ej)} title="Eliminar ejercicio"
+                      className="flex items-center justify-center p-2 text-xs font-semibold text-red-700 hover:bg-red-50 rounded-lg transition-colors border border-red-200">
+                      <Trash2 className="w-3.5 h-3.5"/>
                     </button>
                   </div>
                 </div>
