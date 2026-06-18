@@ -250,16 +250,25 @@ export default function FichaJugadora() {
                 {ficha.nombre?.charAt(0)}{ficha.primerApellido?.charAt(0)}
               </div>
             )}
-            <div>
-              <h1 className="text-2xl font-bold">
-                {ficha.nombre} {ficha.primerApellido} {ficha.segundoApellido}
-              </h1>
-              <p className="text-white/80 text-sm">
-                {clubNombre} · #{ficha.dorsal} · {ficha.demarcacion}
-              </p>
-              <p className="text-white/70 text-xs mt-0.5">
-                Registro: {ficha.registro}
-              </p>
+            <div className="flex items-start gap-4">
+              <div>
+                <h1 className="text-2xl font-bold">
+                  {ficha.nombre} {ficha.primerApellido} {ficha.segundoApellido}
+                </h1>
+                <p className="text-white/80 text-sm">
+                  {clubNombre} · #{ficha.dorsal} · {ficha.demarcacion}
+                </p>
+                <p className="text-white/70 text-xs mt-0.5">
+                  Registro: {ficha.registro}
+                </p>
+              </div>
+              {clubes.find((c) => c.id === ficha.club)?.escudo && (
+                <img
+                  src={clubes.find((c) => c.id === ficha.club)!.escudo!}
+                  alt={clubNombre}
+                  className="w-14 h-14 object-contain flex-shrink-0 drop-shadow-lg"
+                />
+              )}
             </div>
           </div>
           <div className="text-right">
