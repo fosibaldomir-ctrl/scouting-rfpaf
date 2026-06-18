@@ -197,19 +197,23 @@ export default function Dashboard() {
                   return (
                     <tr key={f.id} className="border-b last:border-0 hover:bg-gray-50">
                       <td className="py-3 pr-4 text-gray-600">{new Date(f.fechaPartido).toLocaleDateString('es-ES')}</td>
-                      <td className="py-3 pr-4 font-medium flex items-center gap-2">
-                        {f.foto ? (
-                          <img src={f.foto} alt="" className="w-8 h-8 rounded-full object-cover flex-shrink-0" />
-                        ) : (
-                          <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-xs font-bold text-gray-500 flex-shrink-0">
-                            {f.nombre.charAt(0)}{f.primerApellido.charAt(0)}
-                          </div>
-                        )}
-                        <span>{f.nombre} {f.primerApellido}</span>
+                      <td className="py-3 pr-4 font-medium whitespace-nowrap">
+                        <div className="inline-flex items-center gap-2">
+                          {f.foto ? (
+                            <img src={f.foto} alt="" className="w-8 h-8 rounded-full object-cover flex-shrink-0" />
+                          ) : (
+                            <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-xs font-bold text-gray-500 flex-shrink-0">
+                              {f.nombre.charAt(0)}{f.primerApellido.charAt(0)}
+                            </div>
+                          )}
+                          <span>{f.nombre} {f.primerApellido}</span>
+                        </div>
                       </td>
-                      <td className="py-3 pr-4 text-gray-600 flex items-center gap-2">
-                        {escudo && <img src={escudo} alt="" className="w-5 h-5 object-contain rounded-sm flex-shrink-0" />}
-                        <span>{f.equipo}</span>
+                      <td className="py-3 pr-4 text-gray-600 whitespace-nowrap">
+                        <div className="inline-flex items-center gap-2">
+                          {escudo && <img src={escudo} alt="" className="w-5 h-5 object-contain rounded-sm flex-shrink-0" />}
+                          <span>{f.equipo}</span>
+                        </div>
                       </td>
                       <td className="py-3 pr-4 text-gray-600">{f.categoria}</td>
                       <td className="py-3 pr-4 text-gray-600">{f.demarcacion}</td>
