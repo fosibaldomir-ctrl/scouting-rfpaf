@@ -1,9 +1,9 @@
 import { useState, useRef, useEffect } from 'react'
-import { fetchEjercicios, createEjercicio } from '../lib/supabase'
+import { fetchEjercicios, createEjercicio, deleteEjercicio } from '../lib/supabase'
 import type { EjercicioDB } from '../lib/supabase'
 import { v4 as uuidv4 } from 'uuid'
 import {
-  Plus, Video, Eye, FileText, Pencil, X,
+  Plus, Video, Eye, FileText, Pencil, X, Trash2,
 } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import type { EjercicioSesion } from '../types'
@@ -65,6 +65,17 @@ const BibliotecaEjercicios = () => {
     }
     setSesion(s => ({ ...s, ejercicios: [...s.ejercicios, newEj] }))
     alert('✅ Ejercicio añadido a la sesión')
+  }
+
+  const handleDeleteEjercicio = async (ej: EjercicioDB) => {
+    if (!window.confirm(`¿Eliminar ejercicio "${ej.descripcion}"?`)) return
+    const success = await deleteEjercicio(ej.id)
+    if (success) {
+      setEjercicios(ejercicios.filter(e => e.id !== ej.id))
+      alert('✅ Ejercicio eliminado')
+    } else {
+      alert('❌ Error al eliminar ejercicio')
+    }
   }
 
   return (
@@ -203,6 +214,10 @@ const BibliotecaEjercicios = () => {
                     <button type="button" onClick={() => {setEditEjercicio(ej); setFormEditEj({tipo:ej.tipo, duracion:String(ej.duracion), num_jugadores:ej.num_jugadores, material:ej.material||'', titulo:ej.titulo||'', descripcion:ej.descripcion, imagen:ej.imagen||'', video:ej.video||''})}}
                       className="flex-1 flex items-center justify-center gap-1 px-3 py-2 text-xs font-semibold text-amber-700 hover:bg-amber-50 rounded-lg transition-colors border border-amber-200">
                       <Pencil className="w-3.5 h-3.5"/> Editar
+                    </button>
+                    <button type="button" onClick={() => handleDeleteEjercicio(ej)}
+                      className="flex-1 flex items-center justify-center gap-1 px-3 py-2 text-xs font-semibold text-red-700 hover:bg-red-50 rounded-lg transition-colors border border-red-200">
+                      <Trash2 className="w-3.5 h-3.5"/> Borrar
                     </button>
                     <button type="button" onClick={() => addEjercicioToSesion(ej)}
                       className="flex-1 flex items-center justify-center gap-1 px-3 py-2 text-xs font-semibold text-white bg-rfpaf-blue hover:bg-rfpaf-blue/90 rounded-lg transition-colors">

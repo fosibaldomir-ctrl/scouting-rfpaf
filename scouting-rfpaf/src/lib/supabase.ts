@@ -118,3 +118,21 @@ export async function searchEjercicios(filters: { tipo?: string; num_jugadores?:
   }
   return data || []
 }
+
+export async function deleteEjercicio(id: string): Promise<boolean> {
+  try {
+    const { error } = await supabase
+      .from('ejercicios')
+      .delete()
+      .eq('id', id)
+
+    if (error) {
+      console.error('Error deleting ejercicio:', error)
+      return false
+    }
+    return true
+  } catch (err) {
+    console.error('Exception deleting ejercicio:', err)
+    return false
+  }
+}
