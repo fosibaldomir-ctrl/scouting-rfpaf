@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { FichaJugadora, Observador, Club, CategoriaItem, PartidoCalendario, Convocatoria, JugadoraConvocada, Sesion, VideoSesion } from '../types'
+import type { FichaJugadora, Observador, Club, CategoriaItem, PartidoCalendario, Convocatoria, JugadoraConvocada, Sesion, VideoSesion, Evento } from '../types'
 import type { EjercicioDB } from '../lib/supabase'
 import { OBSERVADORES, CATEGORIAS, CLUBES } from '../data/masterData'
 import { supabaseService } from '../services/supabaseService'
@@ -18,6 +18,7 @@ interface AppState {
   sesion: Sesion
   ejercicios: EjercicioDB[]
   videosSesiones: VideoSesion[]
+  eventos: Evento[]
 
   login: (observadorId: string) => void
   logout: () => void
@@ -29,6 +30,9 @@ interface AppState {
   setVideosSesiones: (videos: VideoSesion[]) => void
   addVideoSesion: (video: VideoSesion) => void
   deleteVideoSesion: (id: string) => void
+  setEventos: (eventos: Evento[]) => void
+  addEvento: (evento: Evento) => void
+  deleteEvento: (id: string) => void
   addPartido: (p: PartidoCalendario) => Promise<void>
   deletePartido: (id: string) => Promise<void>
   addFicha: (ficha: FichaJugadora) => Promise<void>
@@ -66,6 +70,7 @@ export const useStore = create<AppState>()(
       sesion: SESION_EMPTY,
       ejercicios: [],
       videosSesiones: [],
+      eventos: [],
 
       login: (observadorId) => set({ currentObservador: observadorId }),
       logout: () => set({ currentObservador: null }),
@@ -84,6 +89,9 @@ export const useStore = create<AppState>()(
       setVideosSesiones: (videosSesiones) => set({ videosSesiones }),
       addVideoSesion: (video) => set((s) => ({ videosSesiones: [video, ...s.videosSesiones] })),
       deleteVideoSesion: (id) => set((s) => ({ videosSesiones: s.videosSesiones.filter((v) => v.id !== id) })),
+      setEventos: (eventos) => set({ eventos }),
+      addEvento: (evento) => set((s) => ({ eventos: [...s.eventos, evento] })),
+      deleteEvento: (id) => set((s) => ({ eventos: s.eventos.filter((e) => e.id !== id) })),
 
       addPartido: async (p) => {
         set((state) => ({ partidos: [...state.partidos, p] }))
@@ -217,6 +225,7 @@ export const useStore = create<AppState>()(
         sesion: state.sesion,
         ejercicios: state.ejercicios,
         videosSesiones: state.videosSesiones,
+        eventos: state.eventos,
       }),
     }
   )

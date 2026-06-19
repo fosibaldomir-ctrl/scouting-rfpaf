@@ -119,6 +119,37 @@ export async function searchEjercicios(filters: { tipo?: string; num_jugadores?:
   return data || []
 }
 
+/* ─── Eventos Calendario ─── */
+
+export async function fetchEventos() {
+  const { data, error } = await supabase
+    .from('eventos_calendario')
+    .select('*')
+    .order('fecha', { ascending: true })
+  if (error) { console.error('Error fetching eventos:', error); return [] }
+  return data || []
+}
+
+export async function createEvento(ev: Omit<import('../types').Evento, 'id' | 'creado_en'>) {
+  const { data, error } = await supabase
+    .from('eventos_calendario')
+    .insert([{ ...ev, creado_en: new Date().toISOString() }])
+    .select()
+    .single()
+  if (error) { console.error('Error creating evento:', error); return null }
+  return data
+}
+
+export async function deleteEvento(id: string): Promise<boolean> {
+  const { data, error } = await supabase
+    .from('eventos_calendario')
+    .delete()
+    .eq('id', id)
+    .select()
+  if (error) { console.error('Error deleting evento:', error); return false }
+  return (data?.length ?? 0) > 0
+}
+
 /* ─── Videos Sesiones ─── */
 
 export async function fetchVideosSesiones() {

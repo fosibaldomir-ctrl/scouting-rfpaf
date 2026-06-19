@@ -1,5 +1,7 @@
 import { useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
+import CalendarioSemanal from '../components/CalendarioSemanal'
+import { createEvento, deleteEvento as deleteEventoDB } from '../lib/supabase'
 import { Doughnut, Bar } from 'react-chartjs-2'
 import {
   Chart as ChartJS,
@@ -41,7 +43,7 @@ function getClubEscudo(clubName: string, clubes: any[]): string | null {
 }
 
 export default function Dashboard() {
-  const { fichas, observadores, currentObservador, clubes } = useStore()
+  const { fichas, observadores, currentObservador, clubes, eventos, addEvento, deleteEvento } = useStore()
   const navigate = useNavigate()
   const obs = observadores.find((o) => o.id === currentObservador)
 
@@ -159,6 +161,19 @@ export default function Dashboard() {
           )}
         </div>
       </div>
+
+      {/* Agenda Semanal */}
+      <CalendarioSemanal
+        eventos={eventos}
+        onAdd={async (ev) => {
+          const saved = await createEvento(ev)
+          if (saved) addEvento(saved as any)
+        }}
+        onDelete={async (id) => {
+          const ok = await deleteEventoDB(id)
+          if (ok) deleteEvento(id)
+        }}
+      />
 
       {/* Últimas fichas */}
       <div className="card">

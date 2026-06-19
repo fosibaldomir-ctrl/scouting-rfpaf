@@ -128,6 +128,23 @@ export interface Convocatoria {
 }
 
 /* ═══════════════════════════════════════
+   AGENDA / EVENTOS TYPES
+═══════════════════════════════════════ */
+
+export type TipoEvento = 'reunion' | 'convocatoria' | 'entrenamiento' | 'partido' | 'otro'
+
+export interface Evento {
+  id: string
+  titulo: string
+  fecha: string        // YYYY-MM-DD
+  hora_inicio: string  // HH:MM
+  hora_fin: string | null
+  tipo: TipoEvento
+  descripcion: string
+  creado_en: string
+}
+
+/* ═══════════════════════════════════════
    VIDEOTECA SESIONES TYPES
 ═══════════════════════════════════════ */
 
