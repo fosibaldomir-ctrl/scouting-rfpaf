@@ -121,18 +121,26 @@ export async function searchEjercicios(filters: { tipo?: string; num_jugadores?:
 
 export async function deleteEjercicio(id: string): Promise<boolean> {
   try {
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('ejercicios')
       .delete()
       .eq('id', id)
+      .select()
 
     if (error) {
-      console.error('Error deleting ejercicio:', error)
+      console.error('❌ Error deleting ejercicio:', error.message, error)
       return false
     }
+
+    if (!data || data.length === 0) {
+      console.error('❌ Ejercicio no eliminado en Supabase — posible política RLS sin permiso DELETE. Verifica en Supabase > Authentication > Policies > tabla ejercicios que exista una política DELETE.')
+      return false
+    }
+
+    console.log('✅ Ejercicio eliminado en Supabase:', id)
     return true
   } catch (err) {
-    console.error('Exception deleting ejercicio:', err)
+    console.error('❌ Exception deleting ejercicio:', err)
     return false
   }
 }
