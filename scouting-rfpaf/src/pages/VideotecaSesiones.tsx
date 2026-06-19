@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { Video, Plus, Search, Trash2, X, CalendarDays, ChevronDown } from 'lucide-react'
+import { Video, Plus, Search, Trash2, X, CalendarDays, ChevronDown, Eye } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import { createVideoSesion, deleteVideoSesion as deleteVideoSesionDB } from '../lib/supabase'
 import { getEmbedUrl } from '../lib/entrenamientoUtils'
@@ -30,6 +30,7 @@ export default function VideotecaSesiones() {
   const [form, setForm] = useState(EMPTY_FORM)
   const [saving, setSaving] = useState(false)
   const [errors, setErrors] = useState<Record<string, boolean>>({})
+  const [preview, setPreview] = useState<VideoSesion | null>(null)
 
   const videosFiltrados = useMemo(() => {
     return videosSesiones.filter((v) => {
@@ -227,17 +228,81 @@ export default function VideotecaSesiones() {
                   <span>{formatFecha(video.fecha)}</span>
                 </div>
 
-                <a
-                  href={video.url_video}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="block text-center py-1.5 text-xs font-semibold text-rfpaf-blue hover:text-rfpaf-blue/70 border border-rfpaf-blue/30 rounded-lg hover:bg-rfpaf-blue/5 transition-colors"
-                >
-                  Ver en YouTube/Vimeo
-                </a>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setPreview(video)}
+                    className="flex-1 flex items-center justify-center gap-1.5 py-1.5 text-xs font-semibold text-white bg-rfpaf-blue rounded-lg hover:bg-rfpaf-blue/90 transition-colors"
+                  >
+                    <Eye className="w-3.5 h-3.5" /> Vista previa
+                  </button>
+                  <a
+                    href={video.url_video}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex-1 flex items-center justify-center py-1.5 text-xs font-semibold text-rfpaf-blue border border-rfpaf-blue/30 rounded-lg hover:bg-rfpaf-blue/5 transition-colors"
+                  >
+                    Ver original
+                  </a>
+                </div>
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Modal vista previa */}
+      {preview && (
+        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4" onClick={() => setPreview(null)}>
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-3xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+              <div className="min-w-0 pr-4">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full border ${SELECCION_COLORS[preview.seleccion]}`}>
+                    {preview.seleccion}
+                  </span>
+                  <span className="text-xs text-gray-400 flex items-center gap-1">
+                    <CalendarDays className="w-3.5 h-3.5" />{formatFecha(preview.fecha)}
+                  </span>
+                </div>
+                <h3 className="font-bold text-gray-900 text-base truncate">{preview.titulo}</h3>
+              </div>
+              <button onClick={() => setPreview(null)} className="flex-shrink-0 p-1 rounded-lg hover:bg-gray-100 transition-colors text-gray-400">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4">
+              <div className="w-full aspect-video bg-gray-900 rounded-lg overflow-hidden">
+                {getEmbedUrl(preview.url_video) ? (
+                  <iframe
+                    src={getEmbedUrl(preview.url_video)}
+                    className="w-full h-full"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                    title={preview.titulo}
+                  />
+                ) : (
+                  <div className="w-full h-full flex flex-col items-center justify-center text-white/40 gap-2">
+                    <Video className="w-12 h-12" />
+                    <p className="text-xs">URL no compatible con reproductor embebido</p>
+                  </div>
+                )}
+              </div>
+
+              {preview.descripcion && (
+                <p className="text-sm text-gray-600">{preview.descripcion}</p>
+              )}
+
+              <a
+                href={preview.url_video}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block text-center py-2 text-sm font-semibold text-rfpaf-blue border border-rfpaf-blue/30 rounded-lg hover:bg-rfpaf-blue/5 transition-colors"
+              >
+                Abrir en YouTube / Vimeo
+              </a>
+            </div>
+          </div>
         </div>
       )}
 
