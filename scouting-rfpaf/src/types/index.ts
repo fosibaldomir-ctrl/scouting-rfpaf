@@ -141,6 +141,7 @@ export interface Evento {
   hora_fin: string | null
   tipo: TipoEvento
   descripcion: string
+  link: string | null  // URL a convocatoria, sesión, etc.
   creado_en: string
 }
 

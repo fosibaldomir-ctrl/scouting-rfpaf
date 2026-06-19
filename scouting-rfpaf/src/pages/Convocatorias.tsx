@@ -1,5 +1,5 @@
-import { useState, useRef, useMemo } from 'react'
-import { Plus, Trash2, Download, ArrowLeft, Search, X, Users, Calendar, Clock, ClipboardList } from 'lucide-react'
+import { useState, useRef, useMemo, useEffect } from 'react'
+import { Plus, Trash2, Download, ArrowLeft, Search, X, Users, Calendar, Clock, ClipboardList, Copy, Check } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import type { Convocatoria, JugadoraConvocada } from '../types'
 import ConvocatoriaPDFTemplate from '../components/pdf/ConvocatoriaPDFTemplate'
@@ -12,7 +12,24 @@ export default function Convocatorias() {
     addJugadoraToConvocatoria, removeJugadoraFromConvocatoria,
   } = useStore()
 
-  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [selectedId, setSelectedId] = useState<string | null>(() => {
+    return new URLSearchParams(window.location.search).get('id')
+  })
+  const [copied, setCopied] = useState(false)
+
+  useEffect(() => {
+    const id = new URLSearchParams(window.location.search).get('id')
+    if (id) setSelectedId(id)
+  }, [])
+
+  const copyEnlace = () => {
+    if (!selectedId) return
+    const url = `${window.location.origin}/convocatorias?id=${selectedId}`
+    navigator.clipboard.writeText(url).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    })
+  }
   const [showNewModal, setShowNewModal] = useState(false)
   const [showAddModal, setShowAddModal] = useState(false)
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
@@ -149,6 +166,14 @@ export default function Convocatorias() {
             Volver a convocatorias
           </button>
           <div className="flex gap-2">
+            <button
+              onClick={copyEnlace}
+              className="btn-secondary flex items-center gap-2 text-sm"
+              title="Copiar enlace para la agenda"
+            >
+              {copied ? <Check className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4" />}
+              <span className="hidden sm:inline">{copied ? '¡Copiado!' : 'Copiar enlace'}</span>
+            </button>
             <button
               onClick={handleExportPDF}
               disabled={uploadingPDF}

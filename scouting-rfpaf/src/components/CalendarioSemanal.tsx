@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ChevronLeft, ChevronRight, Plus, X, Trash2, Clock, Calendar } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Plus, X, Trash2, Clock, Calendar, ExternalLink, Link } from 'lucide-react'
 import type { Evento, TipoEvento } from '../types'
 
 const HOURS = Array.from({ length: 14 }, (_, i) => i + 8) // 8:00–21:00
@@ -48,6 +48,7 @@ const EMPTY_FORM = {
   hora_fin: '11:00',
   tipo: 'reunion' as TipoEvento,
   descripcion: '',
+  link: '',
 }
 
 interface Props {
@@ -93,6 +94,7 @@ export default function CalendarioSemanal({ eventos, onAdd, onDelete }: Props) {
       hora_fin: form.hora_fin || null,
       tipo: form.tipo,
       descripcion: form.descripcion.trim(),
+      link: form.link.trim() || null,
     })
     setSaving(false)
     setModalFecha(null)
@@ -263,6 +265,19 @@ export default function CalendarioSemanal({ eventos, onAdd, onDelete }: Props) {
                 rows={2}
                 className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-rfpaf-blue/30 resize-none"
               />
+              <div>
+                <label className="text-[10px] font-semibold text-gray-500 mb-0.5 block">Enlace (convocatoria, sesión…)</label>
+                <div className="relative">
+                  <Link className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+                  <input
+                    type="url"
+                    value={form.link}
+                    onChange={e => setForm(f => ({ ...f, link: e.target.value }))}
+                    placeholder="Pega aquí el enlace copiado…"
+                    className="w-full pl-8 pr-3 border border-gray-200 rounded-lg py-2 text-sm focus:outline-none focus:ring-2 focus:ring-rfpaf-blue/30"
+                  />
+                </div>
+              </div>
               <div className="flex gap-2 pt-1">
                 <button onClick={handleSave} disabled={saving || !form.titulo.trim()}
                   className="flex-1 py-2 bg-rfpaf-blue text-white rounded-lg text-sm font-semibold hover:bg-rfpaf-blue/90 disabled:opacity-40 transition-colors">
@@ -304,6 +319,16 @@ export default function CalendarioSemanal({ eventos, onAdd, onDelete }: Props) {
               </div>
               {detalle.descripcion && (
                 <p className="text-sm text-gray-600 bg-gray-50 rounded-lg p-2.5">{detalle.descripcion}</p>
+              )}
+              {detalle.link && (
+                <a
+                  href={detalle.link}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-center gap-1.5 w-full py-2 text-sm font-semibold text-rfpaf-blue border border-rfpaf-blue/30 rounded-lg hover:bg-rfpaf-blue/5 transition-colors"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" /> Abrir enlace
+                </a>
               )}
               <button onClick={handleDelete}
                 className="w-full flex items-center justify-center gap-1.5 py-2 text-sm font-semibold text-red-600 border border-red-200 rounded-lg hover:bg-red-50 transition-colors mt-1">
