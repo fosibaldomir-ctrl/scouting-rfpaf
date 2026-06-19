@@ -2,7 +2,7 @@ import { useState, useRef } from 'react'
 import { createEjercicio } from '../lib/supabase'
 import { v4 as uuidv4 } from 'uuid'
 import {
-  Plus, Trash2, Download, Camera,
+  Plus, Trash2, Download, Camera, Upload,
   Users, Clock, Wrench, ChevronDown,
   X, ListOrdered, Eye, Pencil, Eraser, Save,
 } from 'lucide-react'
@@ -23,6 +23,15 @@ const SesionEntrenamiento = () => {
   const [formEditEjSesion, setFormEditEjSesion] = useState(EJ_SESION_EMPTY)
   const [savingToLibrary, setSavingToLibrary] = useState(false)
   const tacticalCaptureRef = useRef<(() => string | null) | null>(null)
+  const uploadEjImagenRef = useRef<HTMLInputElement>(null)
+
+  const handleUploadEjImagen = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = () => setEjForm(f => ({ ...f, imagen: reader.result as string }))
+    reader.readAsDataURL(file)
+  }
 
   const addCaptura = (png: string) => setSesion((s: Sesion): Sesion => ({ ...s, capturas: [...s.capturas, png] }))
   const removeCaptura = (idx: number) => setSesion((s: Sesion): Sesion => ({ ...s, capturas: s.capturas.filter((_,i)=>i!==idx) }))
@@ -210,7 +219,12 @@ const SesionEntrenamiento = () => {
                   <div className="flex flex-col gap-2">
                     <button type="button" onClick={captureForEjercicio}
                       className="flex items-center gap-1.5 px-3 py-2 bg-green-600 text-white text-xs font-semibold rounded-lg hover:bg-green-700 transition-colors">
-                      <Camera className="w-3.5 h-3.5"/> Capturar pizarra ahora
+                      <Camera className="w-3.5 h-3.5"/> Capturar pizarra
+                    </button>
+                    <input ref={uploadEjImagenRef} type="file" accept="image/*" className="hidden" onChange={handleUploadEjImagen}/>
+                    <button type="button" onClick={() => uploadEjImagenRef.current?.click()}
+                      className="flex items-center gap-1.5 px-3 py-2 bg-rfpaf-blue text-white text-xs font-semibold rounded-lg hover:bg-rfpaf-blue/90 transition-colors">
+                      <Upload className="w-3.5 h-3.5"/> Subir imagen
                     </button>
                     {ejForm.imagen && (
                       <button type="button" onClick={() => setEjForm(f => ({ ...f, imagen: null }))}
@@ -218,7 +232,7 @@ const SesionEntrenamiento = () => {
                         <X className="w-3 h-3"/> Quitar imagen
                       </button>
                     )}
-                    <p className="text-[10px] text-gray-400 leading-tight">Dibuja en la pizarra de la derecha y pulsa el botón para capturarla.</p>
+                    <p className="text-[10px] text-gray-400 leading-tight">Captura la pizarra o sube una imagen desde tu dispositivo.</p>
                   </div>
                 </div>
               </div>
