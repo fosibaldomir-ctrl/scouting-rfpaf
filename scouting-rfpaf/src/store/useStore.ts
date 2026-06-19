@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { FichaJugadora, Observador, Club, CategoriaItem, PartidoCalendario, Convocatoria, JugadoraConvocada, Sesion } from '../types'
+import type { FichaJugadora, Observador, Club, CategoriaItem, PartidoCalendario, Convocatoria, JugadoraConvocada, Sesion, VideoSesion } from '../types'
 import type { EjercicioDB } from '../lib/supabase'
 import { OBSERVADORES, CATEGORIAS, CLUBES } from '../data/masterData'
 import { supabaseService } from '../services/supabaseService'
@@ -17,6 +17,7 @@ interface AppState {
   borrador: Partial<FichaJugadora> | null
   sesion: Sesion
   ejercicios: EjercicioDB[]
+  videosSesiones: VideoSesion[]
 
   login: (observadorId: string) => void
   logout: () => void
@@ -25,6 +26,9 @@ interface AppState {
   setPartidos: (partidos: PartidoCalendario[]) => void
   setSesion: (sesion: Sesion | ((s: Sesion) => Sesion)) => void
   setEjercicios: (ejercicios: EjercicioDB[]) => void
+  setVideosSesiones: (videos: VideoSesion[]) => void
+  addVideoSesion: (video: VideoSesion) => void
+  deleteVideoSesion: (id: string) => void
   addPartido: (p: PartidoCalendario) => Promise<void>
   deletePartido: (id: string) => Promise<void>
   addFicha: (ficha: FichaJugadora) => Promise<void>
@@ -61,6 +65,7 @@ export const useStore = create<AppState>()(
       borrador: null,
       sesion: SESION_EMPTY,
       ejercicios: [],
+      videosSesiones: [],
 
       login: (observadorId) => set({ currentObservador: observadorId }),
       logout: () => set({ currentObservador: null }),
@@ -76,6 +81,9 @@ export const useStore = create<AppState>()(
         }
       },
       setEjercicios: (ejercicios) => set({ ejercicios }),
+      setVideosSesiones: (videosSesiones) => set({ videosSesiones }),
+      addVideoSesion: (video) => set((s) => ({ videosSesiones: [video, ...s.videosSesiones] })),
+      deleteVideoSesion: (id) => set((s) => ({ videosSesiones: s.videosSesiones.filter((v) => v.id !== id) })),
 
       addPartido: async (p) => {
         set((state) => ({ partidos: [...state.partidos, p] }))
@@ -208,6 +216,7 @@ export const useStore = create<AppState>()(
         borrador: state.borrador,
         sesion: state.sesion,
         ejercicios: state.ejercicios,
+        videosSesiones: state.videosSesiones,
       }),
     }
   )

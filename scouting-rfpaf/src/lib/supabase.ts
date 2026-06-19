@@ -119,6 +119,39 @@ export async function searchEjercicios(filters: { tipo?: string; num_jugadores?:
   return data || []
 }
 
+/* ─── Videos Sesiones ─── */
+
+export async function fetchVideosSesiones() {
+  const { data, error } = await supabase
+    .from('videos_sesiones')
+    .select('*')
+    .order('fecha', { ascending: false })
+  if (error) { console.error('Error fetching videos_sesiones:', error); return [] }
+  return data || []
+}
+
+export async function createVideoSesion(video: Omit<import('../types').VideoSesion, 'id' | 'creado_en'>) {
+  const { data, error } = await supabase
+    .from('videos_sesiones')
+    .insert([{ ...video, creado_en: new Date().toISOString() }])
+    .select()
+    .single()
+  if (error) { console.error('Error creating video sesion:', error); return null }
+  return data
+}
+
+export async function deleteVideoSesion(id: string): Promise<boolean> {
+  const { data, error } = await supabase
+    .from('videos_sesiones')
+    .delete()
+    .eq('id', id)
+    .select()
+  if (error) { console.error('Error deleting video sesion:', error); return false }
+  return (data?.length ?? 0) > 0
+}
+
+/* ─── Ejercicios ─── */
+
 export async function deleteEjercicio(id: string): Promise<boolean> {
   try {
     const { data, error } = await supabase

@@ -128,6 +128,22 @@ export interface Convocatoria {
 }
 
 /* ═══════════════════════════════════════
+   VIDEOTECA SESIONES TYPES
+═══════════════════════════════════════ */
+
+export type SeleccionCategoria = 'SUB 12' | 'SUB 14' | 'SUB 16'
+
+export interface VideoSesion {
+  id: string
+  fecha: string           // YYYY-MM-DD
+  seleccion: SeleccionCategoria
+  titulo: string
+  descripcion: string
+  url_video: string
+  creado_en: string
+}
+
+/* ═══════════════════════════════════════
    ENTRENAMIENTOS / TRAINING TYPES
 ═══════════════════════════════════════ */
 

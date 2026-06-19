@@ -43,6 +43,7 @@ export function useSupabaseSync() {
   const setPartidos = useStore((s) => s.setPartidos)
   const setConvocatorias = useStore((s) => s.setConvocatorias)
   const setClubes = useStore((s) => s.setClubes)
+  const setVideosSesiones = useStore((s) => s.setVideosSesiones)
 
   useEffect(() => {
     async function init() {
@@ -61,11 +62,15 @@ export function useSupabaseSync() {
       const clubes = await supabaseService.getClubes()
       if (clubes.length > 0) setClubes(clubes)
 
-      console.log(`✅ Supabase sync lista. Fichas: ${fichas.length}, Partidos: ${partidos.length}, Convocatorias: ${convocatorias.length}, Clubes: ${clubes.length}`)
+      const { fetchVideosSesiones } = await import('../lib/supabase')
+      const videos = await fetchVideosSesiones()
+      setVideosSesiones(videos)
+
+      console.log(`✅ Supabase sync lista. Fichas: ${fichas.length}, Partidos: ${partidos.length}, Convocatorias: ${convocatorias.length}, Clubes: ${clubes.length}, Videos: ${videos.length}`)
     }
 
     init().catch((err) => {
       console.error('❌ Error en sincronización:', err)
     })
-  }, [setFichasWithSync, setFichasMain, setPartidos, setConvocatorias, setClubes])
+  }, [setFichasWithSync, setFichasMain, setPartidos, setConvocatorias, setClubes, setVideosSesiones])
 }
