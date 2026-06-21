@@ -5,7 +5,7 @@ import {
 } from 'react'
 import { Navigate } from 'react-router-dom'
 import { v4 as uuidv4 } from 'uuid'
-import { Move, Copy, Trash2, PenLine, Upload, Play } from 'lucide-react'
+import { Move, Copy, Trash2, PenLine, Upload, Play, RotateCcw, Clapperboard } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import RFPAFLogo from '../components/RFPAFLogo'
 
@@ -127,6 +127,10 @@ export default function PintadoAcciones() {
   const [currentEl, setCurrentEl] = useState<DrawEl | null>(null)
   const [zonePoints, setZonePoints] = useState<Pt[]>([])
 
+  const [animMode, setAnimMode] = useState(false)
+  const [animKey, setAnimKey] = useState(0)
+  const [animDuration, setAnimDuration] = useState(2)
+
   const [dragState, setDragState] = useState<{ elId: string; startPt: Pt; orig: DrawEl } | null>(null)
   const [editText, setEditText] = useState<{ id: string; x: number; y: number } | null>(null)
 
@@ -149,6 +153,7 @@ export default function PintadoAcciones() {
   }, [])
 
   const handleMouseDown = useCallback((e: RME) => {
+    if (animMode) return
     const pt = getSvgPt(e)
 
     if (pendingDorsal !== null) {
@@ -350,6 +355,39 @@ export default function PintadoAcciones() {
         : el.tool !== 'connector' ? arrowTip(ae.start, ae.end)
         : null
 
+      if (animMode) {
+        const pathId = `anim-${el.id}`
+        const ballR = Math.max(sw * 2.5, 7)
+        return (
+          <g key={`${key}-${animKey}`} opacity={alpha}>
+            {/* Ghost path */}
+            <path d={path} stroke={ae.stroke} strokeWidth={sw} fill="none" strokeLinecap="round" opacity={0.15} />
+            {/* Animated draw */}
+            <path id={pathId} d={path} pathLength="1"
+              stroke={ae.stroke} strokeWidth={sw} fill="none" strokeLinecap="round"
+              strokeDasharray="1" strokeDashoffset="1">
+              <animate attributeName="stroke-dashoffset" from="1" to="0"
+                dur={`${animDuration}s`} fill="freeze"
+                calcMode="spline" keyTimes="0;1" keySplines="0.42 0 0.58 1" />
+            </path>
+            {/* Arrowhead fades in at end */}
+            {tip && (
+              <path d={tip} fill={ae.stroke} stroke="none" opacity="0">
+                <animate attributeName="opacity" from="0" to="1"
+                  dur="0.05s" begin={`${animDuration * 0.92}s`} fill="freeze" />
+              </path>
+            )}
+            {/* Moving ball */}
+            <circle r={ballR} fill={ae.stroke} opacity="0.9">
+              <animateMotion dur={`${animDuration}s`} fill="freeze"
+                calcMode="spline" keyTimes="0;1" keySplines="0.42 0 0.58 1">
+                <mpath href={`#${pathId}`} />
+              </animateMotion>
+            </circle>
+          </g>
+        )
+      }
+
       return (
         <g key={key} opacity={alpha} style={selStyle} onMouseDown={onElMouseDown} cursor="move">
           <path d={path} stroke={ae.stroke} strokeWidth={sw * 3} fill="none" opacity={0} />
@@ -437,6 +475,16 @@ export default function PintadoAcciones() {
       const de = el as DorsalEl
       const fs = 13 * (sizeScale / 100)
       const sz = 26 * (sizeScale / 100)
+      if (animMode) {
+        return (
+          <g key={`${key}-${animKey}`} opacity={alpha}>
+            <rect x={de.pos.x - sz / 2} y={de.pos.y - sz / 2} width={sz} height={sz} rx={4} fill={de.fill} stroke="#fff" strokeWidth={2}>
+              <animate attributeName="opacity" values="1;0.5;1" dur="0.8s" repeatCount="3" begin="0s" />
+            </rect>
+            <text x={de.pos.x} y={de.pos.y + fs * 0.38} fill="white" fontSize={fs} fontWeight="bold" textAnchor="middle">{de.number}</text>
+          </g>
+        )
+      }
       return (
         <g key={key} opacity={alpha} style={selStyle} onMouseDown={onElMouseDown} cursor="move">
           <rect x={de.pos.x - sz / 2} y={de.pos.y - sz / 2} width={sz} height={sz} rx={4} fill={de.fill} stroke={de.stroke} strokeWidth={1} />
@@ -448,7 +496,7 @@ export default function PintadoAcciones() {
     return null
   }
 
-  const cursor = tool === 'select' ? (dragState ? 'grabbing' : 'default') : 'crosshair'
+  const cursor = animMode ? 'default' : tool === 'select' ? (dragState ? 'grabbing' : 'default') : 'crosshair'
 
   return (
     <div className="h-screen flex flex-col overflow-hidden">
@@ -594,7 +642,7 @@ export default function PintadoAcciones() {
         </aside>
 
         {/* Center Canvas */}
-        <div className={`${mobilePanel === 'lienzo' ? 'flex' : 'hidden'} lg:flex flex-1 bg-white rounded-xl shadow-sm overflow-hidden flex-col min-w-0 max-h-[calc(100vh-280px)] lg:max-h-none`} style={{ cursor }}>
+        <div className={`${mobilePanel === 'lienzo' ? 'flex' : 'hidden'} lg:flex flex-1 bg-white rounded-xl shadow-sm overflow-hidden flex-col min-w-0 max-h-[calc(100vh-280px)] lg:max-h-none relative`} style={{ cursor }}>
           {bgImage && (
             <img
               src={bgImage} alt="fondo"
@@ -643,6 +691,35 @@ export default function PintadoAcciones() {
               </>
             )}
           </svg>
+
+          {/* Animation overlay controls */}
+          {animMode && (
+            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 flex items-center gap-3 bg-gray-900/90 backdrop-blur-sm rounded-2xl px-4 py-2.5 shadow-xl">
+              <button
+                onClick={() => setAnimKey(k => k + 1)}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-green-500 hover:bg-green-400 text-white rounded-xl text-xs font-bold transition-colors"
+              >
+                <RotateCcw className="w-3.5 h-3.5" /> Reproducir
+              </button>
+              <div className="flex items-center gap-2 text-white text-xs">
+                <span className="opacity-60 whitespace-nowrap">Velocidad</span>
+                <input
+                  type="range" min="0.5" max="5" step="0.5"
+                  value={animDuration}
+                  onChange={e => setAnimDuration(+e.target.value)}
+                  className="w-20 accent-green-400 cursor-pointer"
+                />
+                <span className="opacity-80 w-8">{animDuration}s</span>
+              </div>
+              <div className="w-px h-5 bg-white/20" />
+              <button
+                onClick={() => setAnimMode(false)}
+                className="text-xs text-gray-400 hover:text-white font-semibold transition-colors"
+              >
+                Salir
+              </button>
+            </div>
+          )}
 
           {editText && (() => {
             const el = elements.find(e => e.id === editText.id) as TextEl | undefined
@@ -709,6 +786,14 @@ export default function PintadoAcciones() {
             >
               <Trash2 className="w-4 h-4" />
               <span className="text-xs font-semibold">Borrar</span>
+            </button>
+            <button
+              title="Modo Animación"
+              onClick={() => { setAnimMode(m => !m); setAnimKey(k => k + 1) }}
+              className={`w-full px-2 py-2 rounded-lg flex items-center justify-center gap-2 transition-all ${animMode ? 'bg-green-500 text-white shadow-md' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+            >
+              <Clapperboard className="w-4 h-4" />
+              <span className="text-xs font-semibold">{animMode ? 'Animando' : 'Animar'}</span>
             </button>
           </div>
 
