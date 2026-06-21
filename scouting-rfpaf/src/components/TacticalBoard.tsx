@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { v4 as uuidv4 } from 'uuid'
 import {
-  ChevronDown, Download, Camera,
+  ChevronDown, ChevronLeft, ChevronRight, Download, Camera,
   Pencil, Circle, Square, Minus, ArrowRight, Type, Undo2, Eraser, UserX,
   Clapperboard, RotateCcw, Film, Plus, Trash2, Play,
 } from 'lucide-react'
@@ -591,6 +591,7 @@ export default function TacticalBoard({ onCapture, onRegisterCapture }: Tactical
   // Sequence / keyframe animation
   const [seqMode, setSeqMode] = useState(false)
   const [animFrames, setAnimFrames] = useState<AnimFrame[]>([])
+  const [currentFrameIdx, setCurrentFrameIdx] = useState(0)
   const [seqPlaying, setSeqPlaying] = useState(false)
   const [isRecording, setIsRecording] = useState(false)
   const [seqDuration, setSeqDuration] = useState(1.5)
@@ -725,14 +726,63 @@ export default function TacticalBoard({ onCapture, onRegisterCapture }: Tactical
 
   /* ── Sequence helpers ─────────────────────────────── */
 
-  const saveFrame = useCallback(() => {
-    setAnimFrames(prev => [...prev, {
-      id: uuidv4(),
-      label: `F${prev.length + 1}`,
-      players: JSON.parse(JSON.stringify(placedPlayers)),
-      accessories: JSON.parse(JSON.stringify(placedAccessories)),
-    }])
-  }, [placedPlayers, placedAccessories])
+  const snap = useCallback(() => ({
+    players: JSON.parse(JSON.stringify(placedPlayers)) as PlacedPlayer[],
+    accessories: JSON.parse(JSON.stringify(placedAccessories)) as PlacedAccessory[],
+  }), [placedPlayers, placedAccessories])
+
+  // Enter sequence mode: auto-create Frame 1 from current board
+  const enterSeqMode = useCallback(() => {
+    const { players, accessories } = snap()
+    setAnimFrames([{ id: uuidv4(), label: 'F1', players, accessories }])
+    setCurrentFrameIdx(0)
+    setSeqMode(true)
+  }, [snap])
+
+  // Exit sequence mode: restore current frame's positions, clear frames
+  const exitSeqMode = useCallback(() => {
+    if (seqRafRef.current !== null) cancelAnimationFrame(seqRafRef.current)
+    setSeqPlaying(false)
+    setSeqMode(false)
+    setAnimFrames([])
+    setCurrentFrameIdx(0)
+  }, [])
+
+  // Add next frame cloning current positions (user then moves players)
+  const addNextFrame = useCallback(() => {
+    const { players, accessories } = snap()
+    setAnimFrames(prev => {
+      const next = [
+        ...prev.slice(0, currentFrameIdx + 1),
+        { id: uuidv4(), label: `F${currentFrameIdx + 2}`, players, accessories },
+        ...prev.slice(currentFrameIdx + 1),
+      ].map((f, i) => ({ ...f, label: `F${i + 1}` }))
+      return next
+    })
+    setCurrentFrameIdx(idx => idx + 1)
+  }, [snap, currentFrameIdx])
+
+  // Save current positions into current frame then navigate
+  const goToFrame = useCallback((idx: number, frames: AnimFrame[]) => {
+    if (idx < 0 || idx >= frames.length) return
+    const { players: cp, accessories: ca } = snap()
+    setAnimFrames(prev => prev.map((f, i) =>
+      i === currentFrameIdx ? { ...f, players: cp, accessories: ca } : f
+    ))
+    setCurrentFrameIdx(idx)
+    setPlacedPlayers(JSON.parse(JSON.stringify(frames[idx].players)))
+    setPlacedAccessories(JSON.parse(JSON.stringify(frames[idx].accessories)))
+  }, [snap, currentFrameIdx])
+
+  const deleteFrame = useCallback((idx: number) => {
+    if (animFrames.length <= 1) return
+    const next = animFrames.filter((_, i) => i !== idx).map((f, i) => ({ ...f, label: `F${i + 1}` }))
+    const newIdx = Math.min(idx, next.length - 1)
+    setAnimFrames(next)
+    setCurrentFrameIdx(newIdx)
+    setPlacedPlayers(JSON.parse(JSON.stringify(next[newIdx].players)))
+    setPlacedAccessories(JSON.parse(JSON.stringify(next[newIdx].accessories)))
+  }, [animFrames])
 
   const drawFrameState = useCallback((players: PlacedPlayer[], accessories: PlacedAccessory[]) => {
     const canvas = canvasRef.current; if (!canvas) return
@@ -761,12 +811,17 @@ export default function TacticalBoard({ onCapture, onRegisterCapture }: Tactical
   }
 
   const runSequence = useCallback((withRecord: boolean) => {
-    if (animFrames.length < 2) return
+    // Save current positions to current frame before playing
+    const { players: cp, accessories: ca } = snap()
+    const frames = animFrames.map((f, i) =>
+      i === currentFrameIdx ? { ...f, players: cp, accessories: ca } : f
+    )
+    if (frames.length < 2) return
     if (seqRafRef.current !== null) cancelAnimationFrame(seqRafRef.current)
 
     const canvas = canvasRef.current; if (!canvas) return
     const transMs = seqDuration * 1000
-    const totalMs = (animFrames.length - 1) * transMs
+    const totalMs = (frames.length - 1) * transMs
     const startTime = performance.now()
 
     let mediaRecorder: MediaRecorder | null = null
@@ -795,21 +850,21 @@ export default function TacticalBoard({ onCapture, onRegisterCapture }: Tactical
     const tick = (now: number) => {
       const elapsed = now - startTime
       if (elapsed >= totalMs) {
-        const last = animFrames[animFrames.length - 1]
+        const last = frames[frames.length - 1]
         drawFrameState(last.players, last.accessories)
         setSeqPlaying(false)
         if (mediaRecorder) setTimeout(() => mediaRecorder!.stop(), 400)
         return
       }
-      const fi = Math.min(Math.floor(elapsed / transMs), animFrames.length - 2)
+      const fi = Math.min(Math.floor(elapsed / transMs), frames.length - 2)
       const t = (elapsed - fi * transMs) / transMs
-      const [players, accessories] = lerpFrames(animFrames[fi], animFrames[fi + 1], t)
+      const [players, accessories] = lerpFrames(frames[fi], frames[fi + 1], t)
       drawFrameState(players, accessories)
       seqRafRef.current = requestAnimationFrame(tick)
     }
 
     seqRafRef.current = requestAnimationFrame(tick)
-  }, [animFrames, seqDuration, drawFrameState])
+  }, [animFrames, currentFrameIdx, snap, seqDuration, drawFrameState])
 
   const stopSequence = useCallback(() => {
     if (seqRafRef.current !== null) cancelAnimationFrame(seqRafRef.current)
@@ -1112,57 +1167,81 @@ export default function TacticalBoard({ onCapture, onRegisterCapture }: Tactical
           </div>
           {/* ── Sequence timeline ─────────────────────────── */}
           {seqMode && (
-            <div className="bg-gray-900/80 backdrop-blur-sm rounded-xl p-3 space-y-3 border border-white/10">
+            <div className="bg-gray-900/85 backdrop-blur-sm rounded-xl p-3 space-y-2.5 border border-purple-500/30">
+              {/* Header */}
               <div className="flex items-center justify-between">
-                <p className="text-white/60 text-[10px] uppercase tracking-widest font-semibold">Secuencia de movimiento</p>
+                <p className="text-purple-300 text-[10px] uppercase tracking-widest font-bold">
+                  Secuencia · {seqPlaying ? 'Reproduciendo…' : `Editando ${animFrames[currentFrameIdx]?.label ?? ''}`}
+                </p>
                 {isRecording && <span className="text-red-400 text-[10px] font-bold animate-pulse">⏺ Grabando…</span>}
               </div>
 
-              {/* Frame list */}
-              <div className="flex gap-2 overflow-x-auto pb-1 min-h-[52px] items-center">
-                {animFrames.length === 0 && (
-                  <p className="text-white/25 text-xs italic">Sin frames — coloca jugadores y pulsa <span className="text-white/50 font-semibold">+ Frame</span></p>
-                )}
-                {animFrames.map((f, i) => (
-                  <div key={f.id} className="flex-shrink-0 flex flex-col items-center gap-1">
-                    <div className="w-14 h-10 rounded-lg flex items-center justify-center text-xs font-bold text-white"
-                      style={{ background: i === 0 ? '#2563eb' : i === animFrames.length - 1 ? '#7c3aed' : '#374151' }}>
-                      {f.label}
-                    </div>
-                    <div className="flex items-center gap-0.5">
-                      {i < animFrames.length - 1 && <span className="text-white/30 text-[8px]">──▶</span>}
-                      <button onClick={() => setAnimFrames(prev => prev.filter((_, idx) => idx !== i))}
-                        className="text-red-400/60 hover:text-red-400 transition-colors">
-                        <Trash2 className="w-3 h-3"/>
+              {/* Frame navigation strip */}
+              <div className="flex items-center gap-1.5">
+                <button onClick={() => goToFrame(currentFrameIdx - 1, animFrames)}
+                  disabled={currentFrameIdx <= 0 || seqPlaying}
+                  className="w-7 h-7 flex-shrink-0 flex items-center justify-center rounded-lg bg-white/10 text-white/50 hover:bg-white/20 hover:text-white disabled:opacity-25 transition-all">
+                  <ChevronLeft className="w-4 h-4"/>
+                </button>
+
+                <div className="flex-1 flex gap-1.5 overflow-x-auto pb-0.5">
+                  {animFrames.map((f, i) => (
+                    <div key={f.id} className="flex-shrink-0 flex flex-col items-center gap-0.5">
+                      <button
+                        onClick={() => !seqPlaying && goToFrame(i, animFrames)}
+                        disabled={seqPlaying}
+                        className={`w-12 h-9 rounded-lg text-xs font-bold transition-all ${
+                          i === currentFrameIdx
+                            ? 'bg-purple-500 text-white ring-2 ring-purple-300/70 scale-105'
+                            : 'bg-white/10 text-white/50 hover:bg-white/20 hover:text-white'
+                        }`}>
+                        {f.label}
+                      </button>
+                      <button onClick={() => !seqPlaying && deleteFrame(i)}
+                        disabled={seqPlaying || animFrames.length <= 1}
+                        className="text-red-400/50 hover:text-red-400 disabled:opacity-20 transition-colors">
+                        <Trash2 className="w-2.5 h-2.5"/>
                       </button>
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
+
+                <button onClick={() => goToFrame(currentFrameIdx + 1, animFrames)}
+                  disabled={currentFrameIdx >= animFrames.length - 1 || seqPlaying}
+                  className="w-7 h-7 flex-shrink-0 flex items-center justify-center rounded-lg bg-white/10 text-white/50 hover:bg-white/20 hover:text-white disabled:opacity-25 transition-all">
+                  <ChevronRight className="w-4 h-4"/>
+                </button>
               </div>
 
-              {/* Controls row */}
-              <div className="flex flex-wrap items-center gap-2">
-                <button onClick={saveFrame} disabled={seqPlaying}
-                  className="flex items-center gap-1 px-3 py-1.5 bg-rfpaf-blue hover:bg-blue-500 disabled:opacity-40 text-white rounded-lg text-xs font-bold transition-colors">
-                  <Plus className="w-3.5 h-3.5"/> Frame
+              {/* Hint */}
+              {!seqPlaying && (
+                <p className="text-white/35 text-[10px] text-center">
+                  Mueve jugadoras/balones en el campo → pulsa <span className="text-purple-300 font-semibold">+ Siguiente frame</span> para capturar la nueva posición
+                </p>
+              )}
+
+              {/* Action buttons */}
+              <div className="flex flex-wrap items-center gap-1.5">
+                <button onClick={addNextFrame} disabled={seqPlaying}
+                  className="flex items-center gap-1 px-3 py-1.5 bg-purple-600 hover:bg-purple-500 disabled:opacity-40 text-white rounded-lg text-xs font-bold transition-colors">
+                  <Plus className="w-3.5 h-3.5"/> Siguiente frame
                 </button>
                 <button onClick={() => seqPlaying ? stopSequence() : runSequence(false)}
                   disabled={animFrames.length < 2 || isRecording}
                   className="flex items-center gap-1 px-3 py-1.5 bg-green-500 hover:bg-green-400 disabled:opacity-40 text-white rounded-lg text-xs font-bold transition-colors">
-                  {seqPlaying ? <RotateCcw className="w-3.5 h-3.5"/> : <Play className="w-3.5 h-3.5"/>}
-                  {seqPlaying ? 'Detener' : 'Reproducir'}
+                  {seqPlaying ? <><RotateCcw className="w-3.5 h-3.5"/> Detener</> : <><Play className="w-3.5 h-3.5"/> Reproducir</>}
                 </button>
                 <button onClick={() => runSequence(true)}
                   disabled={animFrames.length < 2 || seqPlaying || isRecording}
                   className="flex items-center gap-1 px-3 py-1.5 bg-red-600 hover:bg-red-500 disabled:opacity-40 text-white rounded-lg text-xs font-bold transition-colors">
-                  <Download className="w-3.5 h-3.5"/> Exportar WebM
+                  {isRecording ? <span className="animate-pulse">⏺ Grabando…</span> : <><Download className="w-3.5 h-3.5"/> Exportar</>}
                 </button>
-                <div className="flex items-center gap-2 text-white text-xs ml-auto">
-                  <span className="opacity-50 whitespace-nowrap">Duración/frame</span>
+                <div className="flex items-center gap-1 text-white text-xs ml-auto">
+                  <span className="opacity-40">Vel.</span>
                   <input type="range" min="0.5" max="4" step="0.5" value={seqDuration}
                     onChange={e => setSeqDuration(+e.target.value)}
-                    className="w-20 accent-purple-400 cursor-pointer"/>
-                  <span className="opacity-80 w-8">{seqDuration}s</span>
+                    className="w-16 accent-purple-400 cursor-pointer"/>
+                  <span className="opacity-70 w-7 text-right">{seqDuration}s</span>
                 </div>
               </div>
             </div>
@@ -1243,9 +1322,9 @@ export default function TacticalBoard({ onCapture, onRegisterCapture }: Tactical
                 className={`w-full flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${animMode ? 'bg-green-500 text-white shadow-md' : 'bg-white/10 text-white/70 hover:bg-white/20 hover:text-white'}`}>
                 <Clapperboard className="w-3.5 h-3.5"/> {animMode ? 'Animando' : 'Animar'}
               </button>
-              <button type="button" onClick={() => { setSeqMode(m => !m); if (seqPlaying) stopSequence() }}
+              <button type="button" onClick={() => seqMode ? exitSeqMode() : enterSeqMode()}
                 className={`w-full flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${seqMode ? 'bg-purple-500 text-white shadow-md' : 'bg-white/10 text-white/70 hover:bg-white/20 hover:text-white'}`}>
-                <Film className="w-3.5 h-3.5"/> Secuencia
+                <Film className="w-3.5 h-3.5"/> {seqMode ? 'Cerrar secuencia' : 'Secuencia'}
               </button>
               <button type="button" onClick={exportPNG}
                 className="w-full flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs bg-white/10 text-white/70 hover:bg-white/20 hover:text-white transition-all">
