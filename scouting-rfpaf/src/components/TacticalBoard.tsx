@@ -3,7 +3,7 @@ import { v4 as uuidv4 } from 'uuid'
 import {
   ChevronDown, ChevronLeft, ChevronRight, Download, Camera,
   Pencil, Circle, Square, Minus, ArrowRight, Type, Undo2, Eraser, UserX,
-  Clapperboard, RotateCcw, Plus, Trash2, Play,
+  Clapperboard, RotateCcw, Plus, Trash2, Play, Zap,
 } from 'lucide-react'
 
 /* ═══════════════════════════════════════
@@ -444,11 +444,23 @@ function drawCurveHandle(ctx: CanvasRenderingContext2D, s: Shape) {
   ctx.restore()
 }
 
-function drawPlacedPlayer(ctx: CanvasRenderingContext2D, p: PlacedPlayer, dragging: boolean) {
+function drawPlacedPlayer(ctx: CanvasRenderingContext2D, p: PlacedPlayer, dragging: boolean, highlighted: boolean = false) {
   const t = TEAMS[p.team]
+  if (highlighted) {
+    // Pulsing glow rings (outer → inner, fading in)
+    ctx.save();
+    ([{r: PLAYER_R+20, a: 0.08, w: 5}, {r: PLAYER_R+13, a: 0.18, w: 4}, {r: PLAYER_R+7, a: 0.38, w: 3}]).forEach(({r, a, w}) => {
+      ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, Math.PI*2)
+      ctx.strokeStyle = `rgba(250,204,21,${a})`; ctx.lineWidth = w; ctx.stroke()
+    })
+    // Solid bright ring just outside player
+    ctx.beginPath(); ctx.arc(p.x, p.y, PLAYER_R + 4, 0, Math.PI*2)
+    ctx.strokeStyle = '#facc15'; ctx.lineWidth = 2.5; ctx.stroke()
+    ctx.restore()
+  }
   ctx.shadowColor='rgba(0,0,0,0.45)'; ctx.shadowBlur=dragging?12:6; ctx.shadowOffsetY=dragging?4:2
   ctx.beginPath(); ctx.arc(p.x,p.y,PLAYER_R,0,Math.PI*2); ctx.fillStyle=t.bg; ctx.fill()
-  ctx.strokeStyle=dragging?'#fff':t.border; ctx.lineWidth=dragging?2.5:2; ctx.stroke()
+  ctx.strokeStyle=highlighted?'#facc15':dragging?'#fff':t.border; ctx.lineWidth=highlighted?2.5:dragging?2.5:2; ctx.stroke()
   ctx.shadowColor='transparent'; ctx.shadowBlur=0; ctx.shadowOffsetY=0
   ctx.fillStyle=t.text; ctx.font=`bold ${p.number>=10?10:12}px sans-serif`
   ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(p.number.toString(),p.x,p.y)
@@ -586,6 +598,8 @@ export default function TacticalBoard({ onCapture, onRegisterCapture }: Tactical
   const accDragRef = useRef<{ uid: string; startX: number; startY: number; accX: number; accY: number; mode?: 'move'|'resize'|'rotate'; startDist?: number; startAngle?: number; startRot?: number; startScale?: number } | null>(null)
   const textDragRef = useRef<{ idx: number; ox: number; oy: number } | null>(null)
   const cpDragRef = useRef<{ idx: number } | null>(null)
+  const [highlightedPlayers, setHighlightedPlayers] = useState<Set<string>>(new Set())
+  const [highlightMode, setHighlightMode] = useState(false)
   const [openTeams, setOpenTeams] = useState<Set<TeamId>>(new Set())
   // Sequence / keyframe animation
   const [seqMode, setSeqMode] = useState(false)
@@ -621,8 +635,8 @@ export default function TacticalBoard({ onCapture, onRegisterCapture }: Tactical
       drawAccessory(ctx,a,accDragRef.current?.uid===a.uid)
       if(selectedAccUid===a.uid) drawAccessoryHandles(ctx,a)
     })
-    placedPlayers.forEach(p=>drawPlacedPlayer(ctx,p,playerDragRef.current?.uid===p.uid))
-  }, [shapes,currentShape,placedPlayers,placedAccessories,draggedTextIdx,pitchType,selectedAccUid])
+    placedPlayers.forEach(p=>drawPlacedPlayer(ctx,p,playerDragRef.current?.uid===p.uid,highlightedPlayers.has(p.uid)))
+  }, [shapes,currentShape,placedPlayers,placedAccessories,draggedTextIdx,pitchType,selectedAccUid,highlightedPlayers])
 
   useEffect(() => { redraw() }, [redraw])
 
@@ -787,6 +801,16 @@ export default function TacticalBoard({ onCapture, onRegisterCapture }: Tactical
   const onMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
     if (seqPlaying) return
     const pos=getPos(e)
+    // Highlight mode: toggle player highlight on click
+    if(highlightMode && e.button!==2){
+      const hitP=nearPlayer(pos)
+      if(hitP){
+        setHighlightedPlayers(prev=>{
+          const n=new Set(prev); n.has(hitP.uid)?n.delete(hitP.uid):n.add(hitP.uid); return n
+        })
+        return
+      }
+    }
     // CP handle hit — check before everything else
     if(e.button!==2){
       for(let i=shapes.length-1;i>=0;i--){
@@ -976,7 +1000,20 @@ export default function TacticalBoard({ onCapture, onRegisterCapture }: Tactical
                 </div>
               )
             })}
-            <div className="px-3 py-2 border-t border-white/5">
+            <div className="px-3 py-2 border-t border-white/5 flex flex-col gap-1.5">
+              <button type="button"
+                onClick={()=>{ setHighlightMode(m=>!m); setSelPlayer(null) }}
+                className={`flex items-center gap-1.5 w-full px-2 py-1.5 rounded-lg text-[10px] font-semibold transition-all ${highlightMode?'bg-yellow-400/20 text-yellow-300 ring-1 ring-yellow-400/50':'text-white/40 hover:text-white/70 hover:bg-white/5'}`}>
+                <Zap className={`w-3 h-3 flex-shrink-0 ${highlightMode?'text-yellow-300':''}`}/>
+                {highlightMode?'Resaltando…':'Resaltar jugadora'}
+              </button>
+              {highlightedPlayers.size>0&&(
+                <button type="button"
+                  onClick={()=>setHighlightedPlayers(new Set())}
+                  className="flex items-center gap-1 text-[10px] text-yellow-400/60 hover:text-yellow-300 transition-colors">
+                  <RotateCcw className="w-2.5 h-2.5"/> Quitar resaltados ({highlightedPlayers.size})
+                </button>
+              )}
               <button type="button" onClick={()=>setPlacedPlayers([])}
                 className="flex items-center gap-1 text-[10px] text-white/30 hover:text-red-400 transition-colors">
                 <UserX className="w-3 h-3"/> Quitar todas del campo
