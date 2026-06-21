@@ -13,7 +13,7 @@ import {
 type DrawTool = 'freehand' | 'line' | 'arrow' | 'curve' | 'curvearrow' | 'circle' | 'rect' | 'text'
 type PitchType = 'full' | 'half' | 'blank'
 interface Point { x: number; y: number }
-interface Shape { type: DrawTool; color: string; fillColor?: string; opacity?: number; width: number; dashed?: boolean; start?: Point; end?: Point; points?: Point[]; text?: string }
+interface Shape { type: DrawTool; color: string; fillColor?: string; opacity?: number; width: number; dashed?: boolean; start?: Point; end?: Point; cp?: Point; points?: Point[]; text?: string }
 
 type TeamId = 1 | 2 | 3
 interface PlacedPlayer { uid: string; team: TeamId; number: number; x: number; y: number }
@@ -372,12 +372,12 @@ function drawShape(ctx: CanvasRenderingContext2D, s: Shape) {
       drawArrowhead(ctx, s.start, s.end); break
     case 'curve':
       if (!s.start || !s.end) return
-      { const cp = getCurveCP(s.start, s.end)
+      { const cp = s.cp ?? getCurveCP(s.start, s.end)
         ctx.beginPath(); ctx.moveTo(s.start.x, s.start.y)
         ctx.quadraticCurveTo(cp.x, cp.y, s.end.x, s.end.y); ctx.stroke(); break }
     case 'curvearrow':
       if (!s.start || !s.end) return
-      { const cp = getCurveCP(s.start, s.end)
+      { const cp = s.cp ?? getCurveCP(s.start, s.end)
         ctx.beginPath(); ctx.moveTo(s.start.x, s.start.y)
         ctx.quadraticCurveTo(cp.x, cp.y, s.end.x, s.end.y); ctx.stroke()
         ctx.setLineDash([])
@@ -409,6 +409,39 @@ function drawTextHandle(ctx: CanvasRenderingContext2D, s: Shape) {
   const fs = s.width*5+10; const estW = s.text.length*fs*0.58+12
   ctx.strokeStyle='rgba(255,255,100,0.55)'; ctx.lineWidth=1; ctx.setLineDash([4,3])
   ctx.strokeRect(s.start.x-4, s.start.y-fs-2, estW, fs+8); ctx.setLineDash([])
+}
+
+const CP_HIT_R = 11
+
+function drawCurveHandle(ctx: CanvasRenderingContext2D, s: Shape) {
+  if (!s.start || !s.end) return
+  const cp = s.cp ?? getCurveCP(s.start, s.end)
+  ctx.save()
+  // guide lines from endpoints to CP
+  ctx.strokeStyle = 'rgba(250,204,21,0.35)'
+  ctx.lineWidth = 1
+  ctx.setLineDash([5, 4])
+  ctx.beginPath()
+  ctx.moveTo(s.start.x, s.start.y)
+  ctx.lineTo(cp.x, cp.y)
+  ctx.lineTo(s.end.x, s.end.y)
+  ctx.stroke()
+  ctx.setLineDash([])
+  // CP handle circle
+  ctx.beginPath()
+  ctx.arc(cp.x, cp.y, 7, 0, Math.PI * 2)
+  ctx.fillStyle = '#facc15'
+  ctx.fill()
+  ctx.strokeStyle = '#1f2937'
+  ctx.lineWidth = 1.5
+  ctx.stroke()
+  // small arrow hint inside
+  ctx.fillStyle = '#1f2937'
+  ctx.font = 'bold 8px sans-serif'
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+  ctx.fillText('↔', cp.x, cp.y)
+  ctx.restore()
 }
 
 function drawPlacedPlayer(ctx: CanvasRenderingContext2D, p: PlacedPlayer, dragging: boolean) {
@@ -552,6 +585,7 @@ export default function TacticalBoard({ onCapture, onRegisterCapture }: Tactical
   const playerDragRef = useRef<{ uid: string; ox: number; oy: number } | null>(null)
   const accDragRef = useRef<{ uid: string; startX: number; startY: number; accX: number; accY: number; mode?: 'move'|'resize'|'rotate'; startDist?: number; startAngle?: number; startRot?: number; startScale?: number } | null>(null)
   const textDragRef = useRef<{ idx: number; ox: number; oy: number } | null>(null)
+  const cpDragRef = useRef<{ idx: number } | null>(null)
   const [openTeams, setOpenTeams] = useState<Set<TeamId>>(new Set())
   // Sequence / keyframe animation
   const [seqMode, setSeqMode] = useState(false)
@@ -577,7 +611,11 @@ export default function TacticalBoard({ onCapture, onRegisterCapture }: Tactical
     const canvas=canvasRef.current; if(!canvas) return
     const ctx=canvas.getContext('2d'); if(!ctx) return
     drawPitch(ctx,canvas.width,canvas.height,pitchType)
-    shapes.forEach((s,i)=>{drawShape(ctx,s); if(i===draggedTextIdx) drawTextHandle(ctx,s)})
+    shapes.forEach((s,i)=>{
+      drawShape(ctx,s)
+      if(i===draggedTextIdx) drawTextHandle(ctx,s)
+      if((s.type==='curve'||s.type==='curvearrow')&&s.start&&s.end) drawCurveHandle(ctx,s)
+    })
     if(currentShape) drawShape(ctx,currentShape)
     placedAccessories.forEach(a=>{
       drawAccessory(ctx,a,accDragRef.current?.uid===a.uid)
@@ -749,6 +787,20 @@ export default function TacticalBoard({ onCapture, onRegisterCapture }: Tactical
   const onMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
     if (seqPlaying) return
     const pos=getPos(e)
+    // CP handle hit — check before everything else
+    if(e.button!==2){
+      for(let i=shapes.length-1;i>=0;i--){
+        const s=shapes[i]
+        if((s.type==='curve'||s.type==='curvearrow')&&s.start&&s.end){
+          const cp=s.cp??getCurveCP(s.start,s.end)
+          if(Math.hypot(pos.x-cp.x,pos.y-cp.y)<=CP_HIT_R){
+            cpDragRef.current={idx:i}
+            if(!s.cp) setShapes(prev=>prev.map((sh,idx)=>idx===i?{...sh,cp}:sh))
+            return
+          }
+        }
+      }
+    }
     if(e.button===2){
       const hitP=nearPlayer(pos); if(hitP){ setPlacedPlayers(prev=>prev.filter(p=>p.uid!==hitP.uid)); return }
       const hitA=nearAccessory(pos); if(hitA){ setPlacedAccessories(prev=>prev.filter(a=>a.uid!==hitA.uid)); setSelectedAccUid(null); return }
@@ -787,6 +839,11 @@ export default function TacticalBoard({ onCapture, onRegisterCapture }: Tactical
 
   const onMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const pos=getPos(e)
+    if(cpDragRef.current!==null){
+      const{idx}=cpDragRef.current
+      setShapes(prev=>prev.map((s,i)=>i===idx?{...s,cp:pos}:s))
+      return
+    }
     if(textDragRef.current){ const{idx,ox,oy}=textDragRef.current; setShapes(prev=>prev.map((s,i)=>i!==idx?s:{...s,start:{x:pos.x-ox,y:pos.y-oy}})); return }
     if(playerDragRef.current){ const{uid,ox,oy}=playerDragRef.current; setPlacedPlayers(prev=>prev.map(p=>p.uid===uid?{...p,x:pos.x-ox,y:pos.y-oy}:p)); return }
     if(accDragRef.current){
@@ -811,11 +868,16 @@ export default function TacticalBoard({ onCapture, onRegisterCapture }: Tactical
   }
 
   const onMouseUp = () => {
+    if(cpDragRef.current!==null){ cpDragRef.current=null; return }
     if(textDragRef.current){ textDragRef.current=null; setDraggedTextIdx(null); return }
     if(playerDragRef.current){ playerDragRef.current=null; return }
     if(accDragRef.current){ accDragRef.current=null; return }
     if(!isDrawing||!currentShape) return
-    setIsDrawing(false); setShapes(prev=>[...prev,currentShape]); setCurrentShape(null)
+    // Store auto-CP so it becomes draggable after drawing
+    const final: Shape = (currentShape.type==='curve'||currentShape.type==='curvearrow')&&currentShape.start&&currentShape.end
+      ? {...currentShape, cp: currentShape.cp??getCurveCP(currentShape.start,currentShape.end)}
+      : currentShape
+    setIsDrawing(false); setShapes(prev=>[...prev,final]); setCurrentShape(null)
   }
 
   const onTouchStart = (e: React.TouchEvent<HTMLCanvasElement>) => { e.preventDefault(); onMouseDown(e as any) }
