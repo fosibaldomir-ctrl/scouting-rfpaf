@@ -3,6 +3,7 @@ import { v4 as uuidv4 } from 'uuid'
 import {
   ChevronDown, Download, Camera,
   Pencil, Circle, Square, Minus, ArrowRight, Type, Undo2, Eraser, UserX,
+  Clapperboard, RotateCcw,
 } from 'lucide-react'
 
 /* ═══════════════════════════════════════
@@ -574,6 +575,11 @@ export default function TacticalBoard({ onCapture, onRegisterCapture }: Tactical
   const accDragRef = useRef<{ uid: string; startX: number; startY: number; accX: number; accY: number; mode?: 'move'|'resize'|'rotate'; startDist?: number; startAngle?: number; startRot?: number; startScale?: number } | null>(null)
   const textDragRef = useRef<{ idx: number; ox: number; oy: number } | null>(null)
   const [openTeams, setOpenTeams] = useState<Set<TeamId>>(new Set())
+  const [animMode, setAnimMode] = useState(false)
+  const [animKey, setAnimKey] = useState(0)
+  const [animDuration, setAnimDuration] = useState(3)
+  const animFrameRef = useRef<number | null>(null)
+  const animStartRef = useRef<number>(0)
   const toggleTeam = (tid: TeamId) =>
     setOpenTeams(prev => { const n=new Set(prev); n.has(tid)?n.delete(tid):n.add(tid); return n })
 
@@ -599,7 +605,108 @@ export default function TacticalBoard({ onCapture, onRegisterCapture }: Tactical
     placedPlayers.forEach(p=>drawPlacedPlayer(ctx,p,playerDragRef.current?.uid===p.uid))
   }, [shapes,currentShape,placedPlayers,placedAccessories,draggedTextIdx,pitchType,selectedAccUid])
 
-  useEffect(() => { redraw() }, [redraw])
+  useEffect(() => { if (!animMode) redraw() }, [redraw, animMode])
+
+  const drawAnimated = useCallback((progress: number) => {
+    const canvas = canvasRef.current; if (!canvas) return
+    const ctx = canvas.getContext('2d'); if (!ctx) return
+    drawPitch(ctx, canvas.width, canvas.height, pitchType)
+
+    // Players pulse in at start
+    const pa = progress < 0.12 ? progress / 0.12 : 1
+    ctx.globalAlpha = pa
+    placedPlayers.forEach(p => drawPlacedPlayer(ctx, p, false))
+    ctx.globalAlpha = 1
+
+    // Accessories
+    placedAccessories.forEach(a => drawAccessory(ctx, a, false))
+
+    // Shapes animated
+    shapes.forEach(s => {
+      ctx.strokeStyle = s.color; ctx.fillStyle = s.color
+      ctx.lineWidth = s.width; ctx.lineCap = 'round'; ctx.lineJoin = 'round'
+      const ballR = Math.max(s.width * 2.5, 6)
+
+      if (s.type === 'line' || s.type === 'arrow') {
+        if (!s.start || !s.end) return
+        const cx = s.start.x + (s.end.x - s.start.x) * progress
+        const cy = s.start.y + (s.end.y - s.start.y) * progress
+        // ghost
+        ctx.globalAlpha = 0.15; ctx.setLineDash([])
+        ctx.beginPath(); ctx.moveTo(s.start.x, s.start.y); ctx.lineTo(s.end.x, s.end.y); ctx.stroke()
+        ctx.globalAlpha = 1
+        // animated path
+        ctx.setLineDash(s.dashed ? [s.width * 3 + 4, s.width * 2 + 3] : [])
+        ctx.beginPath(); ctx.moveTo(s.start.x, s.start.y); ctx.lineTo(cx, cy); ctx.stroke()
+        ctx.setLineDash([])
+        if (s.type === 'arrow' && progress > 0.88) {
+          ctx.globalAlpha = (progress - 0.88) / 0.12
+          drawArrowhead(ctx, s.start, s.end); ctx.globalAlpha = 1
+        }
+        ctx.beginPath(); ctx.arc(cx, cy, ballR, 0, Math.PI * 2); ctx.fill()
+
+      } else if (s.type === 'curve' || s.type === 'curvearrow') {
+        if (!s.start || !s.end) return
+        const cp = getCurveCP(s.start, s.end)
+        // ghost
+        ctx.globalAlpha = 0.15
+        ctx.beginPath(); ctx.moveTo(s.start.x, s.start.y)
+        ctx.quadraticCurveTo(cp.x, cp.y, s.end.x, s.end.y); ctx.stroke()
+        ctx.globalAlpha = 1
+        // animated curve sampled
+        ctx.setLineDash(s.dashed ? [s.width * 3 + 4, s.width * 2 + 3] : [])
+        const steps = 60
+        ctx.beginPath()
+        for (let i = 0; i <= Math.round(progress * steps); i++) {
+          const t = i / steps
+          const bx = (1-t)*(1-t)*s.start.x + 2*(1-t)*t*cp.x + t*t*s.end.x
+          const by = (1-t)*(1-t)*s.start.y + 2*(1-t)*t*cp.y + t*t*s.end.y
+          i === 0 ? ctx.moveTo(bx, by) : ctx.lineTo(bx, by)
+        }
+        ctx.stroke(); ctx.setLineDash([])
+        // ball
+        const bt = progress
+        const bxp = (1-bt)*(1-bt)*s.start.x + 2*(1-bt)*bt*cp.x + bt*bt*s.end.x
+        const byp = (1-bt)*(1-bt)*s.start.y + 2*(1-bt)*bt*cp.y + bt*bt*s.end.y
+        ctx.beginPath(); ctx.arc(bxp, byp, ballR, 0, Math.PI * 2); ctx.fill()
+        if (s.type === 'curvearrow' && progress > 0.88) {
+          ctx.globalAlpha = (progress - 0.88) / 0.12
+          drawArrowhead(ctx, cp, s.end); ctx.globalAlpha = 1
+        }
+
+      } else if (s.type === 'freehand') {
+        if (!s.points || s.points.length < 2) return
+        const n = Math.max(2, Math.round(progress * s.points.length))
+        ctx.globalAlpha = 0.15
+        ctx.beginPath(); ctx.moveTo(s.points[0].x, s.points[0].y)
+        s.points.forEach(p => ctx.lineTo(p.x, p.y)); ctx.stroke()
+        ctx.globalAlpha = 1
+        ctx.setLineDash(s.dashed ? [s.width * 3 + 4, s.width * 2 + 3] : [])
+        ctx.beginPath(); ctx.moveTo(s.points[0].x, s.points[0].y)
+        for (let i = 1; i < n; i++) ctx.lineTo(s.points[i].x, s.points[i].y)
+        ctx.stroke(); ctx.setLineDash([])
+        const tip = s.points[n - 1]
+        ctx.beginPath(); ctx.arc(tip.x, tip.y, ballR, 0, Math.PI * 2); ctx.fill()
+
+      } else {
+        ctx.globalAlpha = Math.min(progress * 4, 1)
+        drawShape(ctx, s); ctx.globalAlpha = 1
+      }
+    })
+  }, [shapes, placedPlayers, placedAccessories, pitchType])
+
+  useEffect(() => {
+    if (!animMode) return
+    if (animFrameRef.current !== null) cancelAnimationFrame(animFrameRef.current)
+    animStartRef.current = performance.now()
+    const loop = (now: number) => {
+      const p = Math.min((now - animStartRef.current) / (animDuration * 1000), 1)
+      drawAnimated(p)
+      if (p < 1) animFrameRef.current = requestAnimationFrame(loop)
+    }
+    animFrameRef.current = requestAnimationFrame(loop)
+    return () => { if (animFrameRef.current !== null) cancelAnimationFrame(animFrameRef.current) }
+  }, [animMode, animKey, animDuration, drawAnimated])
 
   const getPos = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>): Point => {
     const canvas=canvasRef.current!; const rect=canvas.getBoundingClientRect()
@@ -612,6 +719,7 @@ export default function TacticalBoard({ onCapture, onRegisterCapture }: Tactical
   const nearAccessory = (pos: Point) => [...placedAccessories].reverse().find(a => getAccHandleHit(pos, a) !== null)
 
   const onMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (animMode) return
     const pos=getPos(e)
     if(e.button===2){
       const hitP=nearPlayer(pos); if(hitP){ setPlacedPlayers(prev=>prev.filter(p=>p.uid!==hitP.uid)); return }
@@ -865,12 +973,34 @@ export default function TacticalBoard({ onCapture, onRegisterCapture }: Tactical
 
         {/* CENTER — canvas único, siempre en DOM */}
         <div className={`flex flex-1 flex-col gap-3 min-w-0 ${mobilePanel === 'canvas' ? '' : 'hidden'} lg:!flex`}>
-          <canvas ref={canvasRef} width={900} height={600}
-            onMouseDown={onMouseDown} onMouseMove={onMouseMove} onMouseUp={onMouseUp} onMouseLeave={onMouseUp}
-            onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}
-            onContextMenu={e=>{e.preventDefault();onMouseDown(e)}}
-            className={`w-full h-auto rounded-lg border border-white/10 select-none ${cursorClass}`}
-            style={{touchAction:'none', aspectRatio:'3/2'}}/>
+          <div className="relative">
+            <canvas ref={canvasRef} width={900} height={600}
+              onMouseDown={onMouseDown} onMouseMove={onMouseMove} onMouseUp={onMouseUp} onMouseLeave={onMouseUp}
+              onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}
+              onContextMenu={e=>{e.preventDefault();onMouseDown(e)}}
+              className={`w-full h-auto rounded-lg border border-white/10 select-none ${animMode ? 'cursor-default' : cursorClass}`}
+              style={{touchAction:'none', aspectRatio:'3/2'}}/>
+            {animMode && (
+              <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-3 bg-gray-900/90 backdrop-blur-sm rounded-2xl px-4 py-2 shadow-xl">
+                <button onClick={() => setAnimKey(k => k + 1)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-green-500 hover:bg-green-400 text-white rounded-xl text-xs font-bold transition-colors">
+                  <RotateCcw className="w-3.5 h-3.5"/> Reproducir
+                </button>
+                <div className="flex items-center gap-2 text-white text-xs">
+                  <span className="opacity-60 whitespace-nowrap">Velocidad</span>
+                  <input type="range" min="0.5" max="6" step="0.5" value={animDuration}
+                    onChange={e => setAnimDuration(+e.target.value)}
+                    className="w-20 accent-green-400 cursor-pointer"/>
+                  <span className="opacity-80 w-8">{animDuration}s</span>
+                </div>
+                <div className="w-px h-5 bg-white/20"/>
+                <button onClick={() => setAnimMode(false)}
+                  className="text-xs text-gray-400 hover:text-white font-semibold transition-colors">
+                  Salir
+                </button>
+              </div>
+            )}
+          </div>
           {tool==='text'&&!selPlayer&&(
             <div className="flex gap-2">
               <input type="text" value={textInput} onChange={e=>setTextInput(e.target.value)}
@@ -942,6 +1072,10 @@ export default function TacticalBoard({ onCapture, onRegisterCapture }: Tactical
                   <Eraser className="w-3.5 h-3.5"/>
                 </button>
               </div>
+              <button type="button" onClick={() => { setAnimMode(m => !m); setAnimKey(k => k + 1) }}
+                className={`w-full flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${animMode ? 'bg-green-500 text-white shadow-md' : 'bg-white/10 text-white/70 hover:bg-white/20 hover:text-white'}`}>
+                <Clapperboard className="w-3.5 h-3.5"/> {animMode ? 'Animando' : 'Animar'}
+              </button>
               <button type="button" onClick={exportPNG}
                 className="w-full flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs bg-white/10 text-white/70 hover:bg-white/20 hover:text-white transition-all">
                 <Download className="w-3.5 h-3.5"/> PNG
