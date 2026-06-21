@@ -3,7 +3,7 @@ import { v4 as uuidv4 } from 'uuid'
 import {
   ChevronDown, ChevronLeft, ChevronRight, Download, Camera,
   Pencil, Circle, Square, Minus, ArrowRight, Type, Undo2, Eraser, UserX,
-  Clapperboard, RotateCcw, Film, Plus, Trash2, Play,
+  Clapperboard, RotateCcw, Plus, Trash2, Play,
 } from 'lucide-react'
 
 /* ═══════════════════════════════════════
@@ -582,12 +582,6 @@ export default function TacticalBoard({ onCapture, onRegisterCapture }: Tactical
   const accDragRef = useRef<{ uid: string; startX: number; startY: number; accX: number; accY: number; mode?: 'move'|'resize'|'rotate'; startDist?: number; startAngle?: number; startRot?: number; startScale?: number } | null>(null)
   const textDragRef = useRef<{ idx: number; ox: number; oy: number } | null>(null)
   const [openTeams, setOpenTeams] = useState<Set<TeamId>>(new Set())
-  const [animMode, setAnimMode] = useState(false)
-  const [animKey, setAnimKey] = useState(0)
-  const [animDuration, setAnimDuration] = useState(3)
-  const animFrameRef = useRef<number | null>(null)
-  const animStartRef = useRef<number>(0)
-
   // Sequence / keyframe animation
   const [seqMode, setSeqMode] = useState(false)
   const [animFrames, setAnimFrames] = useState<AnimFrame[]>([])
@@ -621,108 +615,7 @@ export default function TacticalBoard({ onCapture, onRegisterCapture }: Tactical
     placedPlayers.forEach(p=>drawPlacedPlayer(ctx,p,playerDragRef.current?.uid===p.uid))
   }, [shapes,currentShape,placedPlayers,placedAccessories,draggedTextIdx,pitchType,selectedAccUid])
 
-  useEffect(() => { if (!animMode) redraw() }, [redraw, animMode])
-
-  const drawAnimated = useCallback((progress: number) => {
-    const canvas = canvasRef.current; if (!canvas) return
-    const ctx = canvas.getContext('2d'); if (!ctx) return
-    drawPitch(ctx, canvas.width, canvas.height, pitchType)
-
-    // Players pulse in at start
-    const pa = progress < 0.12 ? progress / 0.12 : 1
-    ctx.globalAlpha = pa
-    placedPlayers.forEach(p => drawPlacedPlayer(ctx, p, false))
-    ctx.globalAlpha = 1
-
-    // Accessories
-    placedAccessories.forEach(a => drawAccessory(ctx, a, false))
-
-    // Shapes animated
-    shapes.forEach(s => {
-      ctx.strokeStyle = s.color; ctx.fillStyle = s.color
-      ctx.lineWidth = s.width; ctx.lineCap = 'round'; ctx.lineJoin = 'round'
-      const ballR = Math.max(s.width * 2.5, 6)
-
-      if (s.type === 'line' || s.type === 'arrow') {
-        if (!s.start || !s.end) return
-        const cx = s.start.x + (s.end.x - s.start.x) * progress
-        const cy = s.start.y + (s.end.y - s.start.y) * progress
-        // ghost
-        ctx.globalAlpha = 0.15; ctx.setLineDash([])
-        ctx.beginPath(); ctx.moveTo(s.start.x, s.start.y); ctx.lineTo(s.end.x, s.end.y); ctx.stroke()
-        ctx.globalAlpha = 1
-        // animated path
-        ctx.setLineDash(s.dashed ? [s.width * 3 + 4, s.width * 2 + 3] : [])
-        ctx.beginPath(); ctx.moveTo(s.start.x, s.start.y); ctx.lineTo(cx, cy); ctx.stroke()
-        ctx.setLineDash([])
-        if (s.type === 'arrow' && progress > 0.88) {
-          ctx.globalAlpha = (progress - 0.88) / 0.12
-          drawArrowhead(ctx, s.start, s.end); ctx.globalAlpha = 1
-        }
-        ctx.beginPath(); ctx.arc(cx, cy, ballR, 0, Math.PI * 2); ctx.fill()
-
-      } else if (s.type === 'curve' || s.type === 'curvearrow') {
-        if (!s.start || !s.end) return
-        const cp = getCurveCP(s.start, s.end)
-        // ghost
-        ctx.globalAlpha = 0.15
-        ctx.beginPath(); ctx.moveTo(s.start.x, s.start.y)
-        ctx.quadraticCurveTo(cp.x, cp.y, s.end.x, s.end.y); ctx.stroke()
-        ctx.globalAlpha = 1
-        // animated curve sampled
-        ctx.setLineDash(s.dashed ? [s.width * 3 + 4, s.width * 2 + 3] : [])
-        const steps = 60
-        ctx.beginPath()
-        for (let i = 0; i <= Math.round(progress * steps); i++) {
-          const t = i / steps
-          const bx = (1-t)*(1-t)*s.start.x + 2*(1-t)*t*cp.x + t*t*s.end.x
-          const by = (1-t)*(1-t)*s.start.y + 2*(1-t)*t*cp.y + t*t*s.end.y
-          i === 0 ? ctx.moveTo(bx, by) : ctx.lineTo(bx, by)
-        }
-        ctx.stroke(); ctx.setLineDash([])
-        // ball
-        const bt = progress
-        const bxp = (1-bt)*(1-bt)*s.start.x + 2*(1-bt)*bt*cp.x + bt*bt*s.end.x
-        const byp = (1-bt)*(1-bt)*s.start.y + 2*(1-bt)*bt*cp.y + bt*bt*s.end.y
-        ctx.beginPath(); ctx.arc(bxp, byp, ballR, 0, Math.PI * 2); ctx.fill()
-        if (s.type === 'curvearrow' && progress > 0.88) {
-          ctx.globalAlpha = (progress - 0.88) / 0.12
-          drawArrowhead(ctx, cp, s.end); ctx.globalAlpha = 1
-        }
-
-      } else if (s.type === 'freehand') {
-        if (!s.points || s.points.length < 2) return
-        const n = Math.max(2, Math.round(progress * s.points.length))
-        ctx.globalAlpha = 0.15
-        ctx.beginPath(); ctx.moveTo(s.points[0].x, s.points[0].y)
-        s.points.forEach(p => ctx.lineTo(p.x, p.y)); ctx.stroke()
-        ctx.globalAlpha = 1
-        ctx.setLineDash(s.dashed ? [s.width * 3 + 4, s.width * 2 + 3] : [])
-        ctx.beginPath(); ctx.moveTo(s.points[0].x, s.points[0].y)
-        for (let i = 1; i < n; i++) ctx.lineTo(s.points[i].x, s.points[i].y)
-        ctx.stroke(); ctx.setLineDash([])
-        const tip = s.points[n - 1]
-        ctx.beginPath(); ctx.arc(tip.x, tip.y, ballR, 0, Math.PI * 2); ctx.fill()
-
-      } else {
-        ctx.globalAlpha = Math.min(progress * 4, 1)
-        drawShape(ctx, s); ctx.globalAlpha = 1
-      }
-    })
-  }, [shapes, placedPlayers, placedAccessories, pitchType])
-
-  useEffect(() => {
-    if (!animMode) return
-    if (animFrameRef.current !== null) cancelAnimationFrame(animFrameRef.current)
-    animStartRef.current = performance.now()
-    const loop = (now: number) => {
-      const p = Math.min((now - animStartRef.current) / (animDuration * 1000), 1)
-      drawAnimated(p)
-      if (p < 1) animFrameRef.current = requestAnimationFrame(loop)
-    }
-    animFrameRef.current = requestAnimationFrame(loop)
-    return () => { if (animFrameRef.current !== null) cancelAnimationFrame(animFrameRef.current) }
-  }, [animMode, animKey, animDuration, drawAnimated])
+  useEffect(() => { redraw() }, [redraw])
 
   /* ── Sequence helpers ─────────────────────────────── */
 
@@ -883,7 +776,7 @@ export default function TacticalBoard({ onCapture, onRegisterCapture }: Tactical
   const nearAccessory = (pos: Point) => [...placedAccessories].reverse().find(a => getAccHandleHit(pos, a) !== null)
 
   const onMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (animMode || seqPlaying) return
+    if (seqPlaying) return
     const pos=getPos(e)
     if(e.button===2){
       const hitP=nearPlayer(pos); if(hitP){ setPlacedPlayers(prev=>prev.filter(p=>p.uid!==hitP.uid)); return }
@@ -1137,113 +1030,108 @@ export default function TacticalBoard({ onCapture, onRegisterCapture }: Tactical
 
         {/* CENTER — canvas único, siempre en DOM */}
         <div className={`flex flex-1 flex-col gap-3 min-w-0 ${mobilePanel === 'canvas' ? '' : 'hidden'} lg:!flex`}>
-          <div className="relative">
-            <canvas ref={canvasRef} width={900} height={600}
-              onMouseDown={onMouseDown} onMouseMove={onMouseMove} onMouseUp={onMouseUp} onMouseLeave={onMouseUp}
-              onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}
-              onContextMenu={e=>{e.preventDefault();onMouseDown(e)}}
-              className={`w-full h-auto rounded-lg border border-white/10 select-none ${animMode ? 'cursor-default' : cursorClass}`}
-              style={{touchAction:'none', aspectRatio:'3/2'}}/>
-            {animMode && (
-              <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-3 bg-gray-900/90 backdrop-blur-sm rounded-2xl px-4 py-2 shadow-xl">
-                <button onClick={() => setAnimKey(k => k + 1)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-green-500 hover:bg-green-400 text-white rounded-xl text-xs font-bold transition-colors">
-                  <RotateCcw className="w-3.5 h-3.5"/> Reproducir
-                </button>
-                <div className="flex items-center gap-2 text-white text-xs">
-                  <span className="opacity-60 whitespace-nowrap">Velocidad</span>
-                  <input type="range" min="0.5" max="6" step="0.5" value={animDuration}
-                    onChange={e => setAnimDuration(+e.target.value)}
-                    className="w-20 accent-green-400 cursor-pointer"/>
-                  <span className="opacity-80 w-8">{animDuration}s</span>
-                </div>
-                <div className="w-px h-5 bg-white/20"/>
-                <button onClick={() => setAnimMode(false)}
-                  className="text-xs text-gray-400 hover:text-white font-semibold transition-colors">
-                  Salir
-                </button>
-              </div>
-            )}
-          </div>
-          {/* ── Sequence timeline ─────────────────────────── */}
+          <canvas ref={canvasRef} width={900} height={600}
+            onMouseDown={onMouseDown} onMouseMove={onMouseMove} onMouseUp={onMouseUp} onMouseLeave={onMouseUp}
+            onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}
+            onContextMenu={e=>{e.preventDefault();onMouseDown(e)}}
+            className={`w-full h-auto rounded-lg border border-white/10 select-none ${seqPlaying ? 'cursor-default' : cursorClass}`}
+            style={{touchAction:'none', aspectRatio:'3/2'}}/>
+
+          {/* ── Panel de animación ─────────────────────────── */}
           {seqMode && (
-            <div className="bg-gray-900/85 backdrop-blur-sm rounded-xl p-3 space-y-2.5 border border-purple-500/30">
-              {/* Header */}
-              <div className="flex items-center justify-between">
-                <p className="text-purple-300 text-[10px] uppercase tracking-widest font-bold">
-                  Secuencia · {seqPlaying ? 'Reproduciendo…' : `Editando ${animFrames[currentFrameIdx]?.label ?? ''}`}
-                </p>
-                {isRecording && <span className="text-red-400 text-[10px] font-bold animate-pulse">⏺ Grabando…</span>}
-              </div>
+            <div className="bg-gray-950/90 backdrop-blur-sm rounded-xl border border-purple-500/30 overflow-hidden">
 
-              {/* Frame navigation strip */}
-              <div className="flex items-center gap-1.5">
-                <button onClick={() => goToFrame(currentFrameIdx - 1, animFrames)}
-                  disabled={currentFrameIdx <= 0 || seqPlaying}
-                  className="w-7 h-7 flex-shrink-0 flex items-center justify-center rounded-lg bg-white/10 text-white/50 hover:bg-white/20 hover:text-white disabled:opacity-25 transition-all">
-                  <ChevronLeft className="w-4 h-4"/>
-                </button>
+              {/* ① Frame strip */}
+              <div className="p-3 space-y-2">
+                <div className="flex items-center justify-between mb-0.5">
+                  <span className="text-purple-300 text-[10px] font-bold uppercase tracking-widest">
+                    {isRecording ? '⏺ Grabando video…' : seqPlaying ? '▶ Reproduciendo…' : `Posición ${currentFrameIdx + 1} de ${animFrames.length}`}
+                  </span>
+                  <button onClick={exitSeqMode} disabled={seqPlaying || isRecording}
+                    className="text-white/30 hover:text-white text-[10px] font-semibold transition-colors disabled:opacity-20">
+                    Salir ✕
+                  </button>
+                </div>
 
-                <div className="flex-1 flex gap-1.5 overflow-x-auto pb-0.5">
-                  {animFrames.map((f, i) => (
-                    <div key={f.id} className="flex-shrink-0 flex flex-col items-center gap-0.5">
-                      <button
+                {/* Frame navigation */}
+                <div className="flex items-center gap-1">
+                  <button onClick={() => goToFrame(currentFrameIdx - 1, animFrames)}
+                    disabled={currentFrameIdx <= 0 || seqPlaying}
+                    className="w-7 h-8 flex-shrink-0 flex items-center justify-center rounded-lg bg-white/10 text-white/50 hover:bg-white/20 disabled:opacity-20 transition-all">
+                    <ChevronLeft className="w-4 h-4"/>
+                  </button>
+
+                  <div className="flex-1 flex gap-1 overflow-x-auto py-0.5">
+                    {animFrames.map((f, i) => (
+                      <button key={f.id}
                         onClick={() => !seqPlaying && goToFrame(i, animFrames)}
                         disabled={seqPlaying}
-                        className={`w-12 h-9 rounded-lg text-xs font-bold transition-all ${
+                        className={`flex-shrink-0 h-8 px-3 rounded-lg text-[11px] font-bold transition-all ${
                           i === currentFrameIdx
-                            ? 'bg-purple-500 text-white ring-2 ring-purple-300/70 scale-105'
-                            : 'bg-white/10 text-white/50 hover:bg-white/20 hover:text-white'
+                            ? 'bg-purple-500 text-white ring-1 ring-purple-300/60 shadow-md'
+                            : 'bg-white/10 text-white/40 hover:bg-white/20 hover:text-white'
                         }`}>
                         {f.label}
                       </button>
-                      <button onClick={() => !seqPlaying && deleteFrame(i)}
-                        disabled={seqPlaying || animFrames.length <= 1}
-                        className="text-red-400/50 hover:text-red-400 disabled:opacity-20 transition-colors">
-                        <Trash2 className="w-2.5 h-2.5"/>
-                      </button>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
+
+                  <button onClick={() => goToFrame(currentFrameIdx + 1, animFrames)}
+                    disabled={currentFrameIdx >= animFrames.length - 1 || seqPlaying}
+                    className="w-7 h-8 flex-shrink-0 flex items-center justify-center rounded-lg bg-white/10 text-white/50 hover:bg-white/20 disabled:opacity-20 transition-all">
+                    <ChevronRight className="w-4 h-4"/>
+                  </button>
                 </div>
 
-                <button onClick={() => goToFrame(currentFrameIdx + 1, animFrames)}
-                  disabled={currentFrameIdx >= animFrames.length - 1 || seqPlaying}
-                  className="w-7 h-7 flex-shrink-0 flex items-center justify-center rounded-lg bg-white/10 text-white/50 hover:bg-white/20 hover:text-white disabled:opacity-25 transition-all">
-                  <ChevronRight className="w-4 h-4"/>
-                </button>
+                {/* Add / Delete frame */}
+                <div className="flex gap-1.5">
+                  <button onClick={addNextFrame} disabled={seqPlaying}
+                    className="flex-1 flex items-center justify-center gap-1.5 py-1.5 bg-white/10 hover:bg-white/20 disabled:opacity-30 text-white/70 hover:text-white rounded-lg text-xs font-semibold transition-all">
+                    <Plus className="w-3.5 h-3.5"/> Capturar posición
+                  </button>
+                  <button onClick={() => deleteFrame(currentFrameIdx)}
+                    disabled={seqPlaying || animFrames.length <= 1}
+                    className="w-9 flex items-center justify-center rounded-lg bg-red-500/20 hover:bg-red-500/40 disabled:opacity-20 text-red-400 transition-all">
+                    <Trash2 className="w-3.5 h-3.5"/>
+                  </button>
+                </div>
+
+                {!seqPlaying && !isRecording && (
+                  <p className="text-white/25 text-[10px] text-center leading-relaxed">
+                    Mueve jugadoras/balones en el campo · pulsa <span className="text-purple-300 font-semibold">Capturar posición</span> para añadir frame
+                  </p>
+                )}
               </div>
 
-              {/* Hint */}
-              {!seqPlaying && (
-                <p className="text-white/35 text-[10px] text-center">
-                  Mueve jugadoras/balones en el campo → pulsa <span className="text-purple-300 font-semibold">+ Siguiente frame</span> para capturar la nueva posición
-                </p>
-              )}
+              <div className="h-px bg-white/8"/>
 
-              {/* Action buttons */}
-              <div className="flex flex-wrap items-center gap-1.5">
-                <button onClick={addNextFrame} disabled={seqPlaying}
-                  className="flex items-center gap-1 px-3 py-1.5 bg-purple-600 hover:bg-purple-500 disabled:opacity-40 text-white rounded-lg text-xs font-bold transition-colors">
-                  <Plus className="w-3.5 h-3.5"/> Siguiente frame
-                </button>
-                <button onClick={() => seqPlaying ? stopSequence() : runSequence(false)}
-                  disabled={animFrames.length < 2 || isRecording}
-                  className="flex items-center gap-1 px-3 py-1.5 bg-green-500 hover:bg-green-400 disabled:opacity-40 text-white rounded-lg text-xs font-bold transition-colors">
-                  {seqPlaying ? <><RotateCcw className="w-3.5 h-3.5"/> Detener</> : <><Play className="w-3.5 h-3.5"/> Reproducir</>}
-                </button>
-                <button onClick={() => runSequence(true)}
-                  disabled={animFrames.length < 2 || seqPlaying || isRecording}
-                  className="flex items-center gap-1 px-3 py-1.5 bg-red-600 hover:bg-red-500 disabled:opacity-40 text-white rounded-lg text-xs font-bold transition-colors">
-                  {isRecording ? <span className="animate-pulse">⏺ Grabando…</span> : <><Download className="w-3.5 h-3.5"/> Exportar</>}
-                </button>
-                <div className="flex items-center gap-1 text-white text-xs ml-auto">
-                  <span className="opacity-40">Vel.</span>
+              {/* ② Playback & Export */}
+              <div className="p-3 space-y-2">
+                <div className="flex items-center gap-2 text-white text-xs">
+                  <span className="opacity-40 whitespace-nowrap">Velocidad</span>
                   <input type="range" min="0.5" max="4" step="0.5" value={seqDuration}
                     onChange={e => setSeqDuration(+e.target.value)}
-                    className="w-16 accent-purple-400 cursor-pointer"/>
-                  <span className="opacity-70 w-7 text-right">{seqDuration}s</span>
+                    className="flex-1 accent-purple-400 cursor-pointer"/>
+                  <span className="opacity-60 w-8 text-right">{seqDuration}s/pos.</span>
                 </div>
+
+                <button onClick={() => seqPlaying ? stopSequence() : runSequence(false)}
+                  disabled={animFrames.length < 2 || isRecording}
+                  className="w-full flex items-center justify-center gap-1.5 py-1.5 bg-white/10 hover:bg-white/20 disabled:opacity-30 text-white/70 hover:text-white rounded-lg text-xs font-semibold transition-all">
+                  {seqPlaying
+                    ? <><RotateCcw className="w-3.5 h-3.5"/> Detener</>
+                    : <><Play className="w-3.5 h-3.5"/> Previsualizar</>}
+                </button>
+
+                <button onClick={() => runSequence(true)}
+                  disabled={animFrames.length < 2 || seqPlaying || isRecording}
+                  className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold transition-all shadow-lg bg-gradient-to-r from-red-600 to-rose-500 hover:from-red-500 hover:to-rose-400 text-white disabled:opacity-30 disabled:shadow-none">
+                  {isRecording
+                    ? <><span className="w-2 h-2 rounded-full bg-white animate-pulse inline-block"/> Grabando…</>
+                    : <><Download className="w-4 h-4"/> Grabar y Exportar Video</>}
+                </button>
               </div>
+
             </div>
           )}
 
@@ -1318,13 +1206,9 @@ export default function TacticalBoard({ onCapture, onRegisterCapture }: Tactical
                   <Eraser className="w-3.5 h-3.5"/>
                 </button>
               </div>
-              <button type="button" onClick={() => { setAnimMode(m => !m); setAnimKey(k => k + 1) }}
-                className={`w-full flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${animMode ? 'bg-green-500 text-white shadow-md' : 'bg-white/10 text-white/70 hover:bg-white/20 hover:text-white'}`}>
-                <Clapperboard className="w-3.5 h-3.5"/> {animMode ? 'Animando' : 'Animar'}
-              </button>
               <button type="button" onClick={() => seqMode ? exitSeqMode() : enterSeqMode()}
-                className={`w-full flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${seqMode ? 'bg-purple-500 text-white shadow-md' : 'bg-white/10 text-white/70 hover:bg-white/20 hover:text-white'}`}>
-                <Film className="w-3.5 h-3.5"/> {seqMode ? 'Cerrar secuencia' : 'Secuencia'}
+                className={`w-full flex items-center justify-center gap-1.5 px-2.5 py-2 rounded-lg text-xs font-bold transition-all ${seqMode ? 'bg-purple-500 text-white shadow-lg ring-1 ring-purple-300/50' : 'bg-white/10 text-white/70 hover:bg-white/20 hover:text-white'}`}>
+                <Clapperboard className="w-4 h-4"/> {seqMode ? 'Animando…' : 'Animar'}
               </button>
               <button type="button" onClick={exportPNG}
                 className="w-full flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs bg-white/10 text-white/70 hover:bg-white/20 hover:text-white transition-all">
