@@ -13,7 +13,7 @@ import {
 type DrawTool = 'freehand' | 'line' | 'arrow' | 'curve' | 'curvearrow' | 'circle' | 'rect' | 'text'
 type PitchType = 'full' | 'half' | 'blank'
 interface Point { x: number; y: number }
-interface Shape { type: DrawTool; color: string; width: number; dashed?: boolean; start?: Point; end?: Point; points?: Point[]; text?: string }
+interface Shape { type: DrawTool; color: string; fillColor?: string; opacity?: number; width: number; dashed?: boolean; start?: Point; end?: Point; points?: Point[]; text?: string }
 
 type TeamId = 1 | 2 | 3
 interface PlacedPlayer { uid: string; team: TeamId; number: number; x: number; y: number }
@@ -291,12 +291,6 @@ function drawAccessory(ctx: CanvasRenderingContext2D, a: PlacedAccessory, draggi
   ctx.restore()
 }
 
-const PALETTE = [
-  '#ffffff','#facc15','#f87171','#4ade80',
-  '#60a5fa','#e879f9','#fb923c','#000000',
-  '#a855f7','#06b6d4','#f97316','#84cc16',
-  '#ec4899','#14b8a6','#f43f5e','#6366f1',
-]
 
 function drawAccessoryHandles(ctx: CanvasRenderingContext2D, a: PlacedAccessory) {
   const hw = ACC_LOCAL_HALF * a.scale
@@ -359,7 +353,9 @@ function drawArrowhead(ctx: CanvasRenderingContext2D, from: Point, to: Point, le
 }
 
 function drawShape(ctx: CanvasRenderingContext2D, s: Shape) {
-  ctx.strokeStyle = s.color; ctx.fillStyle = s.color; ctx.lineWidth = s.width
+  const alpha = (s.opacity ?? 100) / 100
+  ctx.globalAlpha = alpha
+  ctx.strokeStyle = s.color; ctx.fillStyle = s.fillColor ?? s.color; ctx.lineWidth = s.width
   ctx.lineJoin = 'round'; ctx.lineCap = 'round'
   ctx.setLineDash(s.dashed ? [s.width * 3 + 4, s.width * 2 + 3] : [])
   switch (s.type) {
@@ -389,16 +385,23 @@ function drawShape(ctx: CanvasRenderingContext2D, s: Shape) {
     case 'circle':
       if (!s.start || !s.end) return
       { const rx = Math.abs(s.end.x - s.start.x) / 2, ry = Math.abs(s.end.y - s.start.y) / 2
-        ctx.beginPath(); ctx.ellipse(Math.min(s.start.x,s.end.x)+rx, Math.min(s.start.y,s.end.y)+ry, Math.max(rx,1), Math.max(ry,1), 0, 0, Math.PI*2); ctx.stroke(); break }
+        const cx = Math.min(s.start.x, s.end.x) + rx, cy = Math.min(s.start.y, s.end.y) + ry
+        ctx.beginPath(); ctx.ellipse(cx, cy, Math.max(rx,1), Math.max(ry,1), 0, 0, Math.PI*2)
+        ctx.globalAlpha = alpha * 0.28; ctx.fill()
+        ctx.globalAlpha = alpha; ctx.stroke(); break }
     case 'rect':
       if (!s.start || !s.end) return
-      ctx.beginPath(); ctx.strokeRect(s.start.x,s.start.y,s.end.x-s.start.x,s.end.y-s.start.y); break
+      { const w = s.end.x - s.start.x, h = s.end.y - s.start.y
+        ctx.globalAlpha = alpha * 0.28; ctx.fillRect(s.start.x, s.start.y, w, h)
+        ctx.globalAlpha = alpha; ctx.strokeRect(s.start.x, s.start.y, w, h); break }
     case 'text':
       if (!s.start || !s.text) return
       ctx.setLineDash([])
+      ctx.fillStyle = s.color
       ctx.font = `bold ${s.width*5+10}px sans-serif`; ctx.fillText(s.text, s.start.x, s.start.y); break
   }
   ctx.setLineDash([])
+  ctx.globalAlpha = 1
 }
 
 function drawTextHandle(ctx: CanvasRenderingContext2D, s: Shape) {
@@ -473,40 +476,6 @@ function drawPitch(ctx: CanvasRenderingContext2D, w: number, h: number, type: Pi
   if(type==='full') drawFullPitch(ctx,w,h); else drawHalfPitch(ctx,w,h)
 }
 
-/* ═══════════════════════════════════════
-   COLOR PICKER
-═══════════════════════════════════════ */
-
-function ColorPicker({ value, onChange }: { value: string; onChange: (c: string) => void }) {
-  const [open, setOpen] = useState(false)
-  const ref = useRef<HTMLDivElement>(null)
-  useEffect(() => {
-    const h = (e: MouseEvent) => { if(ref.current && !ref.current.contains(e.target as Node)) setOpen(false) }
-    document.addEventListener('mousedown', h); return () => document.removeEventListener('mousedown', h)
-  }, [])
-  return (
-    <div className="relative" ref={ref}>
-      <button type="button" onClick={() => setOpen(o=>!o)}
-        className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs bg-white/10 text-white/70 hover:bg-white/20 hover:text-white transition-all">
-        <span className="w-4 h-4 rounded-full border-2 border-white/40" style={{backgroundColor:value}} />
-        <span>Color</span>
-        <ChevronDown className={`w-3 h-3 transition-transform ${open?'rotate-180':''}`} />
-      </button>
-      {open && (
-        <div className="absolute top-full left-0 mt-1.5 z-50 bg-gray-700 rounded-xl p-3 shadow-2xl border border-white/10 w-48">
-          <p className="text-white/40 text-[10px] uppercase tracking-wider mb-2">Color de trazo</p>
-          <div className="grid grid-cols-4 gap-1.5">
-            {PALETTE.map(c => (
-              <button key={c} type="button" onClick={() => { onChange(c); setOpen(false) }}
-                className={`w-8 h-8 rounded-full border-2 transition-all hover:scale-110 ${value===c?'border-white scale-110 shadow-md':'border-white/20 hover:border-white/60'}`}
-                style={{backgroundColor:c}} />
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}
 
 /* ═══════════════════════════════════════
    LISTS
@@ -560,7 +529,9 @@ export default function TacticalBoard({ onCapture, onRegisterCapture }: Tactical
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [tool, setTool] = useState<DrawTool>('freehand')
   const [color, setColor] = useState('#ffffff')
+  const [fillColor, setFillColor] = useState('#2563eb')
   const [strokeWidth, setStrokeWidth] = useState(3)
+  const [shapeOpacity, setShapeOpacity] = useState(100)
   const [dashed, setDashed] = useState(false)
   const [shapes, setShapes] = useState<Shape[]>([])
   const [isDrawing, setIsDrawing] = useState(false)
@@ -811,7 +782,7 @@ export default function TacticalBoard({ onCapture, onRegisterCapture }: Tactical
     if(selAcc){ const gDef=GOAL_LIST.find(g=>g.type===selAcc.type); setPlacedAccessories(prev=>[...prev,{uid:uuidv4(),type:selAcc.type,x:pos.x,y:pos.y,rotation:gDef?.initRot??0,color:selAcc.color,scale:1}]); return }
     if(tool==='text'){ setTextPos(pos); return }
     setIsDrawing(true)
-    setCurrentShape({type:tool,color,width:strokeWidth,dashed,start:pos,end:pos,points:tool==='freehand'?[pos]:undefined})
+    setCurrentShape({type:tool,color,fillColor,opacity:shapeOpacity,width:strokeWidth,dashed,start:pos,end:pos,points:tool==='freehand'?[pos]:undefined})
   }
 
   const onMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -853,7 +824,7 @@ export default function TacticalBoard({ onCapture, onRegisterCapture }: Tactical
 
   const handleAddText = () => {
     if(!textPos||!textInput.trim()) return
-    setShapes(prev=>[...prev,{type:'text',color,width:strokeWidth,start:textPos,text:textInput}])
+    setShapes(prev=>[...prev,{type:'text',color,fillColor,opacity:shapeOpacity,width:strokeWidth,start:textPos,text:textInput}])
     setTextInput(''); setTextPos(null)
   }
 
@@ -1182,11 +1153,35 @@ export default function TacticalBoard({ onCapture, onRegisterCapture }: Tactical
                   </button>
                 ))}
               </div>
-              <ColorPicker value={color} onChange={setColor}/>
-              <select value={strokeWidth} onChange={e=>setStrokeWidth(Number(e.target.value))}
-                className="w-full bg-white/10 text-white text-xs rounded-lg px-2 py-1.5 border border-white/20 focus:outline-none">
-                <option value={2}>Fino</option><option value={3}>Normal</option><option value={5}>Grueso</option><option value={8}>Extra</option>
-              </select>
+              {/* Trazo */}
+              <div className="space-y-1">
+                <p className="text-white/40 text-[10px] uppercase tracking-widest font-semibold">Trazo</p>
+                <input type="color" value={color} onChange={e=>setColor(e.target.value)}
+                  className="w-full h-9 rounded-lg border-2 border-white/20 cursor-pointer bg-transparent"
+                  style={{padding:'2px'}}/>
+              </div>
+              {/* Relleno */}
+              <div className="space-y-1">
+                <p className="text-white/40 text-[10px] uppercase tracking-widest font-semibold">Relleno</p>
+                <input type="color" value={fillColor} onChange={e=>setFillColor(e.target.value)}
+                  className="w-full h-9 rounded-lg border-2 border-white/20 cursor-pointer bg-transparent"
+                  style={{padding:'2px'}}/>
+              </div>
+              {/* Grosor */}
+              <div className="space-y-1">
+                <p className="text-white/40 text-[10px] uppercase tracking-widest font-semibold">Grosor: {strokeWidth}</p>
+                <input type="range" min={1} max={14} value={strokeWidth}
+                  onChange={e=>setStrokeWidth(+e.target.value)}
+                  className="w-full accent-rfpaf-blue cursor-pointer"/>
+              </div>
+              {/* Opacidad */}
+              <div className="space-y-1">
+                <p className="text-white/40 text-[10px] uppercase tracking-widest font-semibold">Opacidad: {shapeOpacity}%</p>
+                <input type="range" min={10} max={100} step={5} value={shapeOpacity}
+                  onChange={e=>setShapeOpacity(+e.target.value)}
+                  className="w-full accent-rfpaf-blue cursor-pointer"/>
+              </div>
+              {/* Discontinua */}
               <button type="button" onClick={()=>setDashed(d=>!d)}
                 className={`w-full flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all ${dashed?'bg-rfpaf-blue text-white shadow-sm':'bg-white/10 text-white/70 hover:bg-white/20 hover:text-white'}`}>
                 <svg width="14" height="14" viewBox="0 0 14 14" fill="none" className="flex-shrink-0">
