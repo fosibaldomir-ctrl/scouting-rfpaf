@@ -525,7 +525,7 @@ export default function PintadoAcciones() {
   return (
     <div className="h-screen flex flex-col overflow-hidden">
       {/* Header Corporate Style */}
-      <div className="bg-slate-100 text-gray-800 px-4 sm:px-6 py-3 flex-shrink-0 border-b-4 border-rfpaf-red">
+      <div className="bg-slate-100 text-gray-800 px-4 sm:px-6 py-3 flex-shrink-0 border-b-4 border-rfpaf-blue">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 bg-rfpaf-blue rounded-lg flex items-center justify-center flex-shrink-0">
