@@ -9,6 +9,22 @@ import { Move, Copy, Trash2, PenLine, Upload, Play, RotateCcw, Clapperboard } fr
 import { useStore } from '../store/useStore'
 import RFPAFLogo from '../components/RFPAFLogo'
 
+/* ─── Jersey SVG component ─── */
+const JERSEY_PATH = "M13 2 L6 2 L0 6 L0 16 L10 13 L10 38 L30 38 L30 13 L40 16 L40 6 L34 2 L27 2 Q23 8 20 7 Q17 8 13 2 Z"
+
+function JerseyIcon({ fill, number, size = 44 }: { fill: string; number: number; size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 40 40" fill="none" style={{ display:'block' }}>
+      <path d={JERSEY_PATH} fill={fill} stroke="rgba(255,255,255,0.5)" strokeWidth="1.5" strokeLinejoin="round"/>
+      <text x="20" y="27" textAnchor="middle" dominantBaseline="middle"
+        fill="white" fontSize={number >= 10 ? 11 : 13} fontWeight="bold"
+        fontFamily="system-ui,-apple-system,Arial,sans-serif">
+        {number}
+      </text>
+    </svg>
+  )
+}
+
 type ToolType =
   | 'select'
   | 'arrow-straight' | 'arrow-curved' | 'arrow-wave'
@@ -473,22 +489,30 @@ export default function PintadoAcciones() {
 
     if (el.tool === 'dorsal') {
       const de = el as DorsalEl
-      const fs = 13 * (sizeScale / 100)
-      const sz = 26 * (sizeScale / 100)
+      const sz = 32 * (sizeScale / 100)
+      const sc = sz / 40
+      const tx = de.pos.x - sz / 2
+      const ty = de.pos.y - sz / 2
+      const numFs = (de.number >= 10 ? 11 : 13) * sc
+      const numY = ty + sz * 0.675
       if (animMode) {
         return (
           <g key={`${key}-${animKey}`} opacity={alpha}>
-            <rect x={de.pos.x - sz / 2} y={de.pos.y - sz / 2} width={sz} height={sz} rx={4} fill={de.fill} stroke="#fff" strokeWidth={2}>
-              <animate attributeName="opacity" values="1;0.5;1" dur="0.8s" repeatCount="3" begin="0s" />
-            </rect>
-            <text x={de.pos.x} y={de.pos.y + fs * 0.38} fill="white" fontSize={fs} fontWeight="bold" textAnchor="middle">{de.number}</text>
+            <g transform={`translate(${tx},${ty}) scale(${sc})`}>
+              <path d={JERSEY_PATH} fill={de.fill} stroke="rgba(255,255,255,0.5)" strokeWidth={1.5 / sc} strokeLinejoin="round">
+                <animate attributeName="opacity" values="1;0.5;1" dur="0.8s" repeatCount="3" begin="0s" />
+              </path>
+            </g>
+            <text x={de.pos.x} y={numY} fill="white" fontSize={numFs} fontWeight="bold" textAnchor="middle" dominantBaseline="middle" fontFamily="system-ui,-apple-system,Arial,sans-serif">{de.number}</text>
           </g>
         )
       }
       return (
         <g key={key} opacity={alpha} style={selStyle} onMouseDown={onElMouseDown} cursor="move">
-          <rect x={de.pos.x - sz / 2} y={de.pos.y - sz / 2} width={sz} height={sz} rx={4} fill={de.fill} stroke={de.stroke} strokeWidth={1} />
-          <text x={de.pos.x} y={de.pos.y + fs * 0.38} fill="white" fontSize={fs} fontWeight="bold" textAnchor="middle">{de.number}</text>
+          <g transform={`translate(${tx},${ty}) scale(${sc})`}>
+            <path d={JERSEY_PATH} fill={de.fill} stroke="rgba(255,255,255,0.5)" strokeWidth={1.5 / sc} strokeLinejoin="round"/>
+          </g>
+          <text x={de.pos.x} y={numY} fill="white" fontSize={numFs} fontWeight="bold" textAnchor="middle" dominantBaseline="middle" fontFamily="system-ui,-apple-system,Arial,sans-serif">{de.number}</text>
         </g>
       )
     }
@@ -618,18 +642,23 @@ export default function PintadoAcciones() {
           {/* Dorsales */}
           <div>
             <p className="text-xs font-semibold text-gray-600 mb-3 uppercase tracking-wide">Dorsales</p>
-            <div className="grid grid-cols-3 gap-2 mb-3">
+            <div className="grid grid-cols-4 gap-1.5 mb-3">
               {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map(n => (
                 <button
                   key={n}
                   onClick={() => setPendingDorsal(pendingDorsal === n ? null : n)}
-                  className={`h-8 rounded text-sm font-bold transition-all border-2 ${
+                  title={`Dorsal ${n}`}
+                  className={`flex items-center justify-center rounded-lg p-1 transition-all border-2 ${
                     pendingDorsal === n
-                      ? 'bg-rfpaf-red border-rfpaf-red text-white shadow-md'
-                      : 'bg-gray-100 border-gray-300 text-gray-700 hover:bg-gray-200'
+                      ? 'border-rfpaf-red bg-red-50 shadow-md scale-105'
+                      : 'border-transparent hover:border-gray-300 hover:bg-gray-50'
                   }`}
                 >
-                  {n}
+                  <JerseyIcon
+                    fill={pendingDorsal === n ? '#dc2626' : fillColor}
+                    number={n}
+                    size={40}
+                  />
                 </button>
               ))}
             </div>
