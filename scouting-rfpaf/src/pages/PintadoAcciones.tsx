@@ -1,5 +1,5 @@
 import {
-  useRef, useState, useCallback,
+  useRef, useState, useCallback, useEffect,
   type MouseEvent as RME,
   type ChangeEvent,
 } from 'react'
@@ -124,6 +124,11 @@ function curvedTip(s: Pt, e: Pt, size = 14): string {
   return arrowTip(pseudo, e, size)
 }
 
+/* Ease-in-out (aprox. cubic-bezier 0.42 0 0.58 1) para la animación JS */
+function easeInOut(t: number): number {
+  return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2
+}
+
 export default function PintadoAcciones() {
   const { currentObservador } = useStore()
   if (!currentObservador) return <Navigate to="/login" replace />
@@ -146,6 +151,10 @@ export default function PintadoAcciones() {
   const [animMode, setAnimMode] = useState(false)
   const [animKey, setAnimKey] = useState(0)
   const [animDuration, setAnimDuration] = useState(2)
+  const [animProgress, setAnimProgress] = useState(0)   // 0..1 reloj de animación (JS rAF)
+  const rafRef = useRef<number | null>(null)
+  const animStartRef = useRef<number>(0)
+  const animPathRefs = useRef<Record<string, SVGPathElement | null>>({})
 
   const [dragState, setDragState] = useState<{ elId: string; startPt: Pt; orig: DrawEl } | null>(null)
   const [editText, setEditText] = useState<{ id: string; x: number; y: number } | null>(null)
@@ -338,6 +347,25 @@ export default function PintadoAcciones() {
     setMobilePanel('lienzo')
   }
 
+  // Motor de animación por JS (requestAnimationFrame) — funciona igual en
+  // escritorio, tablet y móvil. Sustituye a SMIL (<animate>/<animateMotion>),
+  // que iOS/Safari no reproduce de forma fiable.
+  useEffect(() => {
+    if (rafRef.current) { cancelAnimationFrame(rafRef.current); rafRef.current = null }
+    if (!animMode) { setAnimProgress(0); return }
+    animStartRef.current = performance.now()
+    const dur = Math.max(animDuration, 0.1) * 1000
+    const tick = (now: number) => {
+      const t = Math.min((now - animStartRef.current) / dur, 1)
+      setAnimProgress(t)
+      if (t < 1) rafRef.current = requestAnimationFrame(tick)
+      else rafRef.current = null
+    }
+    setAnimProgress(0)
+    rafRef.current = requestAnimationFrame(tick)
+    return () => { if (rafRef.current) { cancelAnimationFrame(rafRef.current); rafRef.current = null } }
+  }, [animMode, animKey, animDuration])
+
   const handleImageUpload = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
@@ -379,34 +407,33 @@ export default function PintadoAcciones() {
         : null
 
       if (animMode) {
-        const pathId = `anim-${el.id}`
         const ballR = Math.max(sw * 2.5, 7)
+        const p = easeInOut(animProgress)            // progreso suavizado 0..1
+        const dashOffset = 1 - p                      // dibuja el trazo (pathLength=1)
+        const tipOpacity = animProgress >= 0.92 ? 1 : 0
+        // Posición del balón a lo largo del trazo real (getPointAtLength)
+        let ballPt: Pt = ae.start
+        const node = animPathRefs.current[el.id]
+        if (node) {
+          try {
+            const total = node.getTotalLength()
+            const pt = node.getPointAtLength(p * total)
+            ballPt = { x: pt.x, y: pt.y }
+          } catch { /* nodo aún no medible */ }
+        }
         return (
-          <g key={`${key}-${animKey}`} opacity={alpha}>
-            {/* Ghost path */}
+          <g key={key} opacity={alpha}>
+            {/* Trazo fantasma */}
             <path d={path} stroke={ae.stroke} strokeWidth={sw} fill="none" strokeLinecap="round" opacity={0.15} />
-            {/* Animated draw */}
-            <path id={pathId} d={path} pathLength="1"
+            {/* Trazo que se dibuja */}
+            <path ref={n => { animPathRefs.current[el.id] = n }}
+              d={path} pathLength="1"
               stroke={ae.stroke} strokeWidth={sw} fill="none" strokeLinecap="round"
-              strokeDasharray="1" strokeDashoffset="1">
-              <animate attributeName="stroke-dashoffset" from="1" to="0"
-                dur={`${animDuration}s`} fill="freeze"
-                calcMode="spline" keyTimes="0;1" keySplines="0.42 0 0.58 1" />
-            </path>
-            {/* Arrowhead fades in at end */}
-            {tip && (
-              <path d={tip} fill={ae.stroke} stroke="none" opacity="0">
-                <animate attributeName="opacity" from="0" to="1"
-                  dur="0.05s" begin={`${animDuration * 0.92}s`} fill="freeze" />
-              </path>
-            )}
-            {/* Moving ball */}
-            <circle r={ballR} fill={ae.stroke} opacity="0.9">
-              <animateMotion dur={`${animDuration}s`} fill="freeze"
-                calcMode="spline" keyTimes="0;1" keySplines="0.42 0 0.58 1">
-                <mpath href={`#${pathId}`} />
-              </animateMotion>
-            </circle>
+              strokeDasharray="1" strokeDashoffset={dashOffset} />
+            {/* Punta de flecha al final */}
+            {tip && <path d={tip} fill={ae.stroke} stroke="none" opacity={tipOpacity} />}
+            {/* Balón en movimiento */}
+            <circle cx={ballPt.x} cy={ballPt.y} r={ballR} fill={ae.stroke} opacity={0.9} />
           </g>
         )
       }
@@ -503,12 +530,18 @@ export default function PintadoAcciones() {
       const numFs = (de.number >= 10 ? 11 : 13) * sc
       const numY = ty + sz * 0.675
       if (animMode) {
+        // Parpadeo 1→0.5→1 durante las 3 primeras "pulsaciones" (0.8s c/u)
+        const elapsed = animProgress * Math.max(animDuration, 0.1)
+        let jerseyOpacity = 1
+        if (elapsed < 2.4) {
+          const phase = (elapsed % 0.8) / 0.8
+          const tri = 1 - Math.abs(2 * phase - 1)   // 0 en extremos, 1 en el centro
+          jerseyOpacity = 1 - 0.5 * tri
+        }
         return (
-          <g key={`${key}-${animKey}`} opacity={alpha}>
+          <g key={key} opacity={alpha}>
             <g transform={`translate(${tx},${ty}) scale(${sc})`}>
-              <path d={JERSEY_PATH} fill={de.fill} stroke="rgba(255,255,255,0.5)" strokeWidth={1.5 / sc} strokeLinejoin="round">
-                <animate attributeName="opacity" values="1;0.5;1" dur="0.8s" repeatCount="3" begin="0s" />
-              </path>
+              <path d={JERSEY_PATH} fill={de.fill} stroke="rgba(255,255,255,0.5)" strokeWidth={1.5 / sc} strokeLinejoin="round" opacity={jerseyOpacity}/>
             </g>
             <text x={de.pos.x} y={numY} fill="white" fontSize={numFs} fontWeight="bold" textAnchor="middle" dominantBaseline="middle" fontFamily="system-ui,-apple-system,Arial,sans-serif">{de.number}</text>
           </g>
@@ -741,7 +774,7 @@ export default function PintadoAcciones() {
           {animMode && (
             <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 flex items-center gap-3 bg-gray-900/90 backdrop-blur-sm rounded-2xl px-4 py-2.5 shadow-xl">
               <button
-                onClick={() => setAnimKey(k => k + 1)}
+                onClick={() => { setAnimProgress(0); setAnimKey(k => k + 1) }}
                 className="flex items-center gap-1.5 px-3 py-1.5 bg-green-500 hover:bg-green-400 text-white rounded-xl text-xs font-bold transition-colors"
               >
                 <RotateCcw className="w-3.5 h-3.5" /> Reproducir
@@ -834,7 +867,7 @@ export default function PintadoAcciones() {
             </button>
             <button
               title="Modo Animación"
-              onClick={() => { setAnimMode(m => !m); setAnimKey(k => k + 1); setMobilePanel('lienzo') }}
+              onClick={() => { setAnimProgress(0); setAnimMode(m => !m); setAnimKey(k => k + 1); setMobilePanel('lienzo') }}
               className={`w-full px-2 py-2 rounded-lg flex items-center justify-center gap-2 transition-all ${animMode ? 'bg-green-500 text-white shadow-md' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
             >
               <Clapperboard className="w-4 h-4" />
