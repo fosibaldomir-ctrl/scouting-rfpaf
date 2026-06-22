@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import {
   Plus, X, Trash2, ChevronLeft, Image as ImageIcon,
-  FileText, Video, Target, Eye, Edit3, Upload, Search, Database, Loader2,
+  FileText, Video, Target, Eye, Edit3, Upload, Search, Database, Loader2, Download,
 } from 'lucide-react'
 import type {
   ObjetivoJugadora, HistorialAccion,
@@ -584,6 +584,38 @@ function DetailView({ objetivo, onBack, onEdit, onDelete, onAddAccion, onDeleteA
   const { clubes } = useStore()
   const escudo = clubes.find(c => c.nombre.toLowerCase() === o.playerClub.toLowerCase())?.escudo
   const sortedHistory = [...o.historial].sort((a,b)=>b.fecha.localeCompare(a.fecha))
+  const pdfRef = useRef<HTMLDivElement>(null)
+  const [pdfLoading, setPdfLoading] = useState(false)
+
+  const handlePDF = async () => {
+    if (!pdfRef.current) return
+    setPdfLoading(true)
+    const el = pdfRef.current
+    const prevCss = el.style.cssText
+    el.style.cssText = 'position:fixed;top:0;left:0;width:794px;z-index:99999;background:white;padding:32px;box-sizing:border-box;'
+    await new Promise<void>(r => requestAnimationFrame(() => requestAnimationFrame(() => r())))
+    try {
+      const html2canvas = (await import('html2canvas')).default
+      const canvas = await html2canvas(el, { scale: 2, useCORS: true, logging: false, backgroundColor: '#ffffff', allowTaint: true })
+      const { jsPDF } = await import('jspdf')
+      const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
+      const pdfW = pdf.internal.pageSize.getWidth()
+      const pdfH = pdf.internal.pageSize.getHeight()
+      const imgH = (canvas.height / canvas.width) * pdfW
+      const imgData = canvas.toDataURL('image/png', 1.0)
+      let yOffset = 0, remaining = imgH
+      while (remaining > 0) {
+        if (yOffset > 0) pdf.addPage()
+        pdf.addImage(imgData, 'PNG', 0, -yOffset, pdfW, imgH)
+        yOffset += pdfH; remaining -= pdfH
+      }
+      const safeName = o.playerName.replace(/\s+/g, '-').toLowerCase()
+      pdf.save(`desarrollo-individual-${safeName}.pdf`)
+    } finally {
+      el.style.cssText = prevCss
+      setPdfLoading(false)
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -593,6 +625,11 @@ function DetailView({ objetivo, onBack, onEdit, onDelete, onAddAccion, onDeleteA
           <ChevronLeft className="w-4 h-4"/> Todos los objetivos
         </button>
         <div className="flex gap-2">
+          <button onClick={handlePDF} disabled={pdfLoading}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-300 text-xs font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50 transition-colors">
+            {pdfLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin"/> : <Download className="w-3.5 h-3.5"/>}
+            {pdfLoading ? 'Generando…' : 'Descargar PDF'}
+          </button>
           <button onClick={onEdit}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold text-gray-600 hover:bg-gray-50">
             <Edit3 className="w-3.5 h-3.5"/> Editar
@@ -603,6 +640,9 @@ function DetailView({ objetivo, onBack, onEdit, onDelete, onAddAccion, onDeleteA
           </button>
         </div>
       </div>
+
+      {/* ── Printable content ── */}
+      <div ref={pdfRef}>
 
       {/* ── Objective card (matches screenshot 2) ── */}
       <div className="bg-white border-2 border-gray-900 rounded-xl overflow-hidden shadow-lg">
@@ -717,6 +757,8 @@ function DetailView({ objetivo, onBack, onEdit, onDelete, onAddAccion, onDeleteA
           </div>
         )}
       </div>
+
+      </div>{/* end pdfRef */}
     </div>
   )
 }
