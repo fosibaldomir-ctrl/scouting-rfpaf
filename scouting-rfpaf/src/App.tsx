@@ -17,6 +17,7 @@ import VideotecaSesiones from './pages/VideotecaSesiones'
 import Convocatorias from './pages/Convocatorias'
 import Admin from './pages/Admin'
 import PintadoAcciones from './pages/PintadoAcciones'
+import DesarrolloIndividual from './pages/DesarrolloIndividual'
 
 function AppContent() {
   useSupabaseSync()
@@ -47,6 +48,7 @@ function AppContent() {
           <Route path="/ficha/:id" element={<FichaJugadora />} />
           <Route path="/admin" element={<Admin />} />
           <Route path="/analisis-lab" element={<PintadoAcciones />} />
+          <Route path="/desarrollo-individual" element={<DesarrolloIndividual />} />
         </Route>
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>

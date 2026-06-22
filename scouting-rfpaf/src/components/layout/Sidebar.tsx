@@ -1,5 +1,5 @@
-import { NavLink, useNavigate } from 'react-router-dom'
-import { LayoutDashboard, Database, PlusCircle, Settings, LogOut, LayoutGrid, X, CalendarDays, ChevronDown, Dumbbell, ClipboardList, PenLine, BookOpen, Video } from 'lucide-react'
+import { NavLink, useNavigate, useLocation } from 'react-router-dom'
+import { LayoutDashboard, Database, PlusCircle, Settings, LogOut, LayoutGrid, X, CalendarDays, ChevronDown, Dumbbell, ClipboardList, PenLine, BookOpen, Video, TrendingUp, User } from 'lucide-react'
 import { useState } from 'react'
 import { useStore } from '../../store/useStore'
 import RFPAFLogo from '../RFPAFLogo'
@@ -23,8 +23,9 @@ const entrenamientosItems = [
   { to: '/entrenamientos/videoteca', icon: Video, label: 'Videoteca Sesiones' },
 ]
 
-const extraItems = [
+const desarrolloItems = [
   { to: '/analisis-lab', icon: PenLine, label: 'Análisis Lab' },
+  { to: '/desarrollo-individual', icon: User, label: 'Desarrollo Individual' },
 ]
 
 interface SidebarProps {
@@ -35,9 +36,13 @@ interface SidebarProps {
 export default function Sidebar({ mobileOpen, onClose }: SidebarProps) {
   const { currentObservador, observadores, logout } = useStore()
   const navigate = useNavigate()
+  const location = useLocation()
   const obs = observadores.find((o) => o.id === currentObservador)
   const [scoutingOpen, setScoutingOpen] = useState(false)
   const [entrenamientosOpen, setEntrenamientosOpen] = useState(false)
+  const [desarrolloOpen, setDesarrolloOpen] = useState(
+    desarrolloItems.some(i => location.pathname.startsWith(i.to))
+  )
 
   const handleLogout = () => {
     logout()
@@ -174,24 +179,43 @@ export default function Sidebar({ mobileOpen, onClose }: SidebarProps) {
             )}
           </div>
 
-          {/* Items fuera del grupo Scouting */}
-          {extraItems.map(({ to, icon: Icon, label }) => (
-            <NavLink
-              key={to}
-              to={to}
-              onClick={onClose}
-              className={({ isActive }) =>
-                `flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all mt-1 ${
-                  isActive
-                    ? 'bg-white text-rfpaf-blue shadow-sm'
-                    : 'text-white/80 hover:bg-white/10 hover:text-white'
-                }`
-              }
+          {/* Desplegable Desarrollo Individual */}
+          <div className="mt-2">
+            <button
+              onClick={() => setDesarrolloOpen((o) => !o)}
+              className="w-full flex items-center justify-between gap-3 px-4 py-3 rounded-xl text-sm font-medium text-white/80 hover:bg-white/10 hover:text-white transition-all"
             >
-              <Icon className="w-5 h-5 flex-shrink-0" />
-              {label}
-            </NavLink>
-          ))}
+              <span className="flex items-center gap-3">
+                <TrendingUp className="w-5 h-5 flex-shrink-0" />
+                Desarrollo Individual
+              </span>
+              <ChevronDown
+                className={`w-4 h-4 transition-transform ${desarrolloOpen ? 'rotate-180' : ''}`}
+              />
+            </button>
+
+            {desarrolloOpen && (
+              <div className="mt-1 space-y-1 pl-2">
+                {desarrolloItems.map(({ to, icon: Icon, label }) => (
+                  <NavLink
+                    key={to}
+                    to={to}
+                    onClick={onClose}
+                    className={({ isActive }) =>
+                      `flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all ${
+                        isActive
+                          ? 'bg-white text-rfpaf-blue shadow-sm'
+                          : 'text-white/70 hover:bg-white/10 hover:text-white'
+                      }`
+                    }
+                  >
+                    <Icon className="w-5 h-5 flex-shrink-0" />
+                    {label}
+                  </NavLink>
+                ))}
+              </div>
+            )}
+          </div>
         </nav>
 
         {/* User */}

@@ -190,6 +190,46 @@ export interface Sesion {
   ejercicios: EjercicioSesion[]
 }
 
+/* ═══════════════════════════════════════
+   DESARROLLO INDIVIDUAL TYPES
+═══════════════════════════════════════ */
+
+export type EstadoObjetivo = 'EN_CURSO' | 'COMPLETADO' | 'ABANDONADO'
+export type TipoObjetivo = 'DEPORTIVO' | 'FISICO' | 'MENTAL' | 'TECNICO' | 'TACTICO'
+export type AccionObjetivo = 'MEJORAR' | 'MANTENER' | 'DESARROLLAR' | 'CORREGIR'
+export type TipoHistorial = 'SESION' | 'PARTIDO' | 'EVALUACION'
+export type EstadoBadgeHistorial = 'EN_CURSO' | 'CONSEGUIDO' | 'EN_REVISION'
+
+export interface HistorialAccion {
+  id: string
+  fecha: string
+  tipo: TipoHistorial
+  titulo?: string
+  comentario: string
+  imagenUrl?: string
+  videoUrl?: string
+  estadoBadge?: EstadoBadgeHistorial
+}
+
+export interface ObjetivoJugadora {
+  id: string
+  playerName: string
+  playerClub: string
+  playerPhoto?: string
+  playerNumber?: number
+  titulo: string
+  descripcion: string
+  fechaInicio: string
+  estado: EstadoObjetivo
+  tipo: TipoObjetivo
+  accion: AccionObjetivo
+  imagenUrl?: string
+  pdfUrl?: string
+  videoUrl?: string
+  historial: HistorialAccion[]
+  creadoEn: string
+}
+
 export type DrawTool = 'freehand' | 'line' | 'arrow' | 'curve' | 'curvearrow' | 'circle' | 'rect' | 'text'
 export type PitchType = 'full' | 'half' | 'blank'
 export interface Point {
