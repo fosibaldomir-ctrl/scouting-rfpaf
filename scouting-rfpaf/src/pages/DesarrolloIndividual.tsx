@@ -513,6 +513,8 @@ export default function DesarrolloIndividual() {
 function ObjectiveCard({ objetivo, onClick, onEdit, onDelete }:
   { objetivo: ObjetivoJugadora; onClick: ()=>void; onEdit: ()=>void; onDelete: ()=>void }) {
   const o = objetivo
+  const { clubes } = useStore()
+  const escudo = clubes.find(c => c.nombre.toLowerCase() === o.playerClub.toLowerCase())?.escudo
   return (
     <div className="bg-white rounded-xl border-2 border-gray-200 hover:border-gray-400 transition-all shadow-sm hover:shadow-md overflow-hidden">
       {/* Player banner */}
@@ -526,7 +528,10 @@ function ObjectiveCard({ objetivo, onClick, onEdit, onDelete }:
         </div>
         <div className="min-w-0">
           <p className="text-white font-extrabold text-sm uppercase truncate">{o.playerName}</p>
-          <p className="text-white/50 text-xs truncate">{o.playerClub}</p>
+          <p className="text-white/50 text-xs truncate flex items-center gap-1.5">
+              {escudo && <img src={escudo} alt="" className="w-4 h-4 object-contain flex-shrink-0"/>}
+              {o.playerClub}
+            </p>
         </div>
         {o.playerNumber && (
           <span className="ml-auto text-red-400 font-black text-xl flex-shrink-0">{o.playerNumber}</span>
@@ -576,6 +581,8 @@ function DetailView({ objetivo, onBack, onEdit, onDelete, onAddAccion, onDeleteA
   { objetivo: ObjetivoJugadora; onBack:()=>void; onEdit:()=>void; onDelete:()=>void;
     onAddAccion:()=>void; onDeleteAccion:(id:string)=>void; onViewImg:(u:string)=>void }) {
   const o = objetivo
+  const { clubes } = useStore()
+  const escudo = clubes.find(c => c.nombre.toLowerCase() === o.playerClub.toLowerCase())?.escudo
   const sortedHistory = [...o.historial].sort((a,b)=>b.fecha.localeCompare(a.fecha))
 
   return (
@@ -613,7 +620,12 @@ function DetailView({ objetivo, onBack, onEdit, onDelete, onAddAccion, onDeleteA
               )}
               <div className="bg-white px-3 py-2 mt-auto">
                 <p className="font-extrabold text-gray-900 uppercase text-base leading-tight">{o.playerName}</p>
-                {o.playerClub && <p className="text-gray-500 text-xs uppercase font-semibold">{o.playerClub}</p>}
+                {o.playerClub && (
+                  <p className="text-gray-500 text-xs uppercase font-semibold flex items-center gap-1.5 mt-0.5">
+                    {escudo && <img src={escudo} alt="" className="w-5 h-5 object-contain flex-shrink-0"/>}
+                    {o.playerClub}
+                  </p>
+                )}
               </div>
             </div>
           </div>
