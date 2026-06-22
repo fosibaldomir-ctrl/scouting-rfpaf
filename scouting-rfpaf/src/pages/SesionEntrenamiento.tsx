@@ -90,7 +90,7 @@ const SesionEntrenamiento = () => {
     setSesion((s: Sesion): Sesion => ({ ...s, ejercicios: s.ejercicios.filter(e => e.id !== id).map((e, i) => ({ ...e, orden: i + 1 })) }))
 
   return (
-    <div className="flex flex-col gap-5 w-full">
+    <div className="p-4 sm:p-6 flex flex-col gap-5 w-full">
 
       {/* ── Top: session form + captures ── */}
       <div className="space-y-4">
