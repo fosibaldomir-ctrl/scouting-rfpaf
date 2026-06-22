@@ -181,6 +181,151 @@ export async function deleteVideoSesion(id: string): Promise<boolean> {
   return (data?.length ?? 0) > 0
 }
 
+/* ─── Desarrollo Individual ─── */
+
+import type { ObjetivoJugadora, HistorialAccion } from '../types'
+
+function mapObjetivoRow(row: any): ObjetivoJugadora {
+  return {
+    id:           row.id,
+    fichaId:      row.ficha_id    ?? undefined,
+    playerName:   row.player_name,
+    playerClub:   row.player_club  ?? '',
+    playerPhoto:  row.player_photo ?? '',
+    playerNumber: row.player_number ?? undefined,
+    titulo:       row.titulo,
+    descripcion:  row.descripcion  ?? '',
+    fechaInicio:  row.fecha_inicio,
+    estado:       row.estado,
+    tipo:         row.tipo,
+    accion:       row.accion,
+    imagenUrl:    row.imagen_url   ?? '',
+    pdfUrl:       row.pdf_url      ?? '',
+    videoUrl:     row.video_url    ?? '',
+    creadoEn:     row.creado_en,
+    historial:    (row.historial_acciones ?? []).map(mapHistorialRow)
+      .sort((a: HistorialAccion, b: HistorialAccion) => b.fecha.localeCompare(a.fecha)),
+  }
+}
+
+function mapHistorialRow(r: any): HistorialAccion {
+  return {
+    id:          r.id,
+    fecha:       r.fecha,
+    tipo:        r.tipo,
+    titulo:      r.titulo      ?? undefined,
+    comentario:  r.comentario,
+    imagenUrl:   r.imagen_url  ?? '',
+    videoUrl:    r.video_url   ?? '',
+    estadoBadge: r.estado_badge ?? undefined,
+  }
+}
+
+export async function fetchObjetivos(): Promise<ObjetivoJugadora[]> {
+  const { data, error } = await supabase
+    .from('objetivos_individuales')
+    .select('*, historial_acciones(*)')
+    .order('creado_en', { ascending: false })
+  if (error) { console.error('Error fetching objetivos:', error); return [] }
+  return (data ?? []).map(mapObjetivoRow)
+}
+
+export async function createObjetivo(
+  o: Omit<ObjetivoJugadora, 'id' | 'historial' | 'creadoEn'>
+): Promise<ObjetivoJugadora | null> {
+  const { data, error } = await supabase
+    .from('objetivos_individuales')
+    .insert([{
+      ficha_id:      o.fichaId      || null,
+      player_name:   o.playerName,
+      player_club:   o.playerClub   || null,
+      player_photo:  o.playerPhoto  || null,
+      player_number: o.playerNumber ?? null,
+      titulo:        o.titulo,
+      descripcion:   o.descripcion  || null,
+      fecha_inicio:  o.fechaInicio,
+      estado:        o.estado,
+      tipo:          o.tipo,
+      accion:        o.accion,
+      imagen_url:    o.imagenUrl    || null,
+      pdf_url:       o.pdfUrl       || null,
+      video_url:     o.videoUrl     || null,
+    }])
+    .select('*, historial_acciones(*)')
+    .single()
+  if (error) { console.error('Error creating objetivo:', error); return null }
+  return mapObjetivoRow(data)
+}
+
+export async function updateObjetivo(
+  id: string,
+  o: Omit<ObjetivoJugadora, 'id' | 'historial' | 'creadoEn'>
+): Promise<ObjetivoJugadora | null> {
+  const { data, error } = await supabase
+    .from('objetivos_individuales')
+    .update({
+      ficha_id:      o.fichaId      || null,
+      player_name:   o.playerName,
+      player_club:   o.playerClub   || null,
+      player_photo:  o.playerPhoto  || null,
+      player_number: o.playerNumber ?? null,
+      titulo:        o.titulo,
+      descripcion:   o.descripcion  || null,
+      fecha_inicio:  o.fechaInicio,
+      estado:        o.estado,
+      tipo:          o.tipo,
+      accion:        o.accion,
+      imagen_url:    o.imagenUrl    || null,
+      pdf_url:       o.pdfUrl       || null,
+      video_url:     o.videoUrl     || null,
+    })
+    .eq('id', id)
+    .select('*, historial_acciones(*)')
+    .single()
+  if (error) { console.error('Error updating objetivo:', error); return null }
+  return mapObjetivoRow(data)
+}
+
+export async function deleteObjetivo(id: string): Promise<boolean> {
+  const { error } = await supabase
+    .from('objetivos_individuales')
+    .delete()
+    .eq('id', id)
+  if (error) { console.error('Error deleting objetivo:', error); return false }
+  return true
+}
+
+export async function addHistorialAccion(
+  objetivoId: string,
+  a: Omit<HistorialAccion, 'id'>
+): Promise<HistorialAccion | null> {
+  const { data, error } = await supabase
+    .from('historial_acciones')
+    .insert([{
+      objetivo_id:  objetivoId,
+      fecha:        a.fecha,
+      tipo:         a.tipo,
+      titulo:       a.titulo       || null,
+      comentario:   a.comentario,
+      imagen_url:   a.imagenUrl    || null,
+      video_url:    a.videoUrl     || null,
+      estado_badge: a.estadoBadge  || null,
+    }])
+    .select()
+    .single()
+  if (error) { console.error('Error adding historial accion:', error); return null }
+  return mapHistorialRow(data)
+}
+
+export async function deleteHistorialAccion(id: string): Promise<boolean> {
+  const { error } = await supabase
+    .from('historial_acciones')
+    .delete()
+    .eq('id', id)
+  if (error) { console.error('Error deleting historial accion:', error); return false }
+  return true
+}
+
 /* ─── Ejercicios ─── */
 
 export async function deleteEjercicio(id: string): Promise<boolean> {

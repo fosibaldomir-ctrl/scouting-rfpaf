@@ -1,8 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
-import { v4 as uuidv4 } from 'uuid'
 import {
   Plus, X, Trash2, ChevronLeft, Image as ImageIcon,
-  FileText, Video, Target, Eye, Edit3, Upload, Search, Database,
+  FileText, Video, Target, Eye, Edit3, Upload, Search, Database, Loader2,
 } from 'lucide-react'
 import type {
   ObjetivoJugadora, HistorialAccion,
@@ -10,6 +9,10 @@ import type {
   TipoHistorial, EstadoBadgeHistorial, FichaJugadora,
 } from '../types'
 import { useStore } from '../store/useStore'
+import {
+  fetchObjetivos, createObjetivo, updateObjetivo, deleteObjetivo,
+  addHistorialAccion, deleteHistorialAccion,
+} from '../lib/supabase'
 
 /* ═══ helpers ═══ */
 const fmtDate = (d: string) => { const [y,m,day]=d.split('-'); return `${day}/${m}/${y}` }
@@ -62,13 +65,13 @@ const emptyAcc = (): Omit<HistorialAccion,'id'> => ({
 export default function DesarrolloIndividual() {
   const { fichas } = useStore()
 
-  const [objetivos, setObjetivos] = useState<ObjetivoJugadora[]>(() => {
-    try { return JSON.parse(localStorage.getItem('dev_individual_objetivos') ?? '[]') }
-    catch { return [] }
-  })
+  const [objetivos, setObjetivos] = useState<ObjetivoJugadora[]>([])
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+
   useEffect(() => {
-    localStorage.setItem('dev_individual_objetivos', JSON.stringify(objetivos))
-  }, [objetivos])
+    fetchObjetivos().then(data => { setObjetivos(data); setLoading(false) })
+  }, [])
 
   const [selected, setSelected] = useState<ObjetivoJugadora | null>(null)
   const [showFormObj, setShowFormObj] = useState(false)
@@ -120,35 +123,51 @@ export default function DesarrolloIndividual() {
     setFichaSearch(o.playerName); setFichaDropdownOpen(false)
     setEditingObj(o); setShowFormObj(true)
   }
-  const saveObj = () => {
+  const saveObj = async () => {
     if(!formObj.playerName.trim()||!formObj.titulo.trim()) return
+    setSaving(true)
     if(editingObj) {
-      setObjetivos(prev=>prev.map(o=>o.id===editingObj.id?{...editingObj,...formObj}:o))
-      setSelected(prev=>prev?.id===editingObj.id?{...editingObj,...formObj}:prev)
+      const updated = await updateObjetivo(editingObj.id, formObj)
+      if(updated) {
+        setObjetivos(prev=>prev.map(o=>o.id===editingObj.id?updated:o))
+        setSelected(prev=>prev?.id===editingObj.id?updated:prev)
+      }
     } else {
-      const n: ObjetivoJugadora = {...formObj,id:uuidv4(),historial:[],creadoEn:new Date().toISOString()}
-      setObjetivos(prev=>[n,...prev])
+      const created = await createObjetivo(formObj)
+      if(created) setObjetivos(prev=>[created,...prev])
     }
+    setSaving(false)
     setShowFormObj(false)
   }
-  const deleteObj = (id: string) => {
+  const deleteObj = async (id: string) => {
+    setSaving(true)
+    await deleteObjetivo(id)
     setObjetivos(prev=>prev.filter(o=>o.id!==id))
     if(selected?.id===id) setSelected(null)
+    setSaving(false)
   }
 
   /* ── form acción ── */
   const [formAcc, setFormAcc] = useState(emptyAcc())
-  const saveAcc = () => {
+  const saveAcc = async () => {
     if(!formAcc.comentario.trim()||!selected) return
-    const acc: HistorialAccion = {...formAcc,id:uuidv4(),
-      titulo:formAcc.tipo==='EVALUACION'?undefined:formAcc.titulo||undefined}
-    const updated = {...selected, historial:[...selected.historial,acc]}
-    setObjetivos(prev=>prev.map(o=>o.id===selected.id?updated:o))
-    setSelected(updated)
+    setSaving(true)
+    const payload: Omit<HistorialAccion,'id'> = {
+      ...formAcc,
+      titulo: formAcc.tipo==='EVALUACION' ? undefined : formAcc.titulo||undefined,
+    }
+    const acc = await addHistorialAccion(selected.id, payload)
+    if(acc) {
+      const updated = {...selected, historial:[acc,...selected.historial]}
+      setObjetivos(prev=>prev.map(o=>o.id===selected.id?updated:o))
+      setSelected(updated)
+    }
+    setSaving(false)
     setFormAcc(emptyAcc()); setShowFormAcc(false)
   }
-  const deleteAcc = (accId: string) => {
+  const deleteAcc = async (accId: string) => {
     if(!selected) return
+    await deleteHistorialAccion(accId)
     const updated = {...selected, historial:selected.historial.filter(a=>a.id!==accId)}
     setObjetivos(prev=>prev.map(o=>o.id===selected.id?updated:o))
     setSelected(updated)
@@ -160,8 +179,23 @@ export default function DesarrolloIndividual() {
   }
 
   /* ═══════════════ RENDER ═══════════════ */
+  if (loading) return (
+    <div className="flex items-center justify-center py-32">
+      <Loader2 className="w-8 h-8 text-red-500 animate-spin"/>
+    </div>
+  )
+
   return (
-    <div className="p-4 sm:p-6 max-w-7xl mx-auto">
+    <div className="p-4 sm:p-6 max-w-7xl mx-auto relative">
+      {/* Saving overlay */}
+      {saving && (
+        <div className="fixed inset-0 bg-black/20 z-50 flex items-center justify-center">
+          <div className="bg-white rounded-xl px-6 py-4 shadow-xl flex items-center gap-3">
+            <Loader2 className="w-5 h-5 text-red-500 animate-spin"/>
+            <span className="font-semibold text-gray-700 text-sm">Guardando…</span>
+          </div>
+        </div>
+      )}
 
       {/* ── detail view ── */}
       {selected ? (
