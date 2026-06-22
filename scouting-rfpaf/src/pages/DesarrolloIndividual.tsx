@@ -1,14 +1,15 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { v4 as uuidv4 } from 'uuid'
 import {
   Plus, X, Trash2, ChevronLeft, Image as ImageIcon,
-  FileText, Video, Target, Eye, Edit3, Upload,
+  FileText, Video, Target, Eye, Edit3, Upload, Search, Database,
 } from 'lucide-react'
 import type {
   ObjetivoJugadora, HistorialAccion,
   EstadoObjetivo, TipoObjetivo, AccionObjetivo,
-  TipoHistorial, EstadoBadgeHistorial,
+  TipoHistorial, EstadoBadgeHistorial, FichaJugadora,
 } from '../types'
+import { useStore } from '../store/useStore'
 
 /* ═══ helpers ═══ */
 const fmtDate = (d: string) => { const [y,m,day]=d.split('-'); return `${day}/${m}/${y}` }
@@ -45,7 +46,7 @@ const TIPO_H_LABEL: Record<TipoHistorial, string> = {
 
 /* ═══ initial empty forms ═══ */
 const emptyObj = (): Omit<ObjetivoJugadora,'id'|'historial'|'creadoEn'> => ({
-  playerName:'', playerClub:'', playerPhoto:'', playerNumber:undefined,
+  fichaId:undefined, playerName:'', playerClub:'', playerPhoto:'', playerNumber:undefined,
   titulo:'', descripcion:'', fechaInicio:today(),
   estado:'EN_CURSO', tipo:'DEPORTIVO', accion:'MEJORAR',
   imagenUrl:'', pdfUrl:'', videoUrl:'',
@@ -59,6 +60,8 @@ const emptyAcc = (): Omit<HistorialAccion,'id'> => ({
    MAIN PAGE
 ═══════════════════════════════════════════════════════ */
 export default function DesarrolloIndividual() {
+  const { fichas } = useStore()
+
   const [objetivos, setObjetivos] = useState<ObjetivoJugadora[]>(() => {
     try { return JSON.parse(localStorage.getItem('dev_individual_objetivos') ?? '[]') }
     catch { return [] }
@@ -74,15 +77,47 @@ export default function DesarrolloIndividual() {
   const [viewImg, setViewImg] = useState<string|null>(null)
   const photoInputRef = useRef<HTMLInputElement>(null)
 
+  /* ── player search state (used inside form) ── */
+  const [fichaSearch, setFichaSearch] = useState('')
+  const [fichaDropdownOpen, setFichaDropdownOpen] = useState(false)
+
+  const fichasFiltradas = useMemo(() => {
+    if (!fichaSearch.trim()) return fichas.slice(0, 20)
+    const q = fichaSearch.toLowerCase()
+    return fichas.filter(f =>
+      `${f.nombre} ${f.primerApellido} ${f.segundoApellido}`.toLowerCase().includes(q) ||
+      f.equipo.toLowerCase().includes(q)
+    ).slice(0, 20)
+  }, [fichas, fichaSearch])
+
+  const applyFicha = (f: FichaJugadora) => {
+    setFormObj(prev => ({
+      ...prev,
+      fichaId: f.id,
+      playerName: `${f.nombre} ${f.primerApellido} ${f.segundoApellido}`.trim(),
+      playerClub: f.equipo,
+      playerPhoto: f.foto ?? '',
+      playerNumber: f.dorsal ?? undefined,
+    }))
+    setFichaSearch(`${f.nombre} ${f.primerApellido}`)
+    setFichaDropdownOpen(false)
+  }
+
   /* ── form objective ── */
   const [formObj, setFormObj] = useState(emptyObj())
 
-  const openNewObj = () => { setFormObj(emptyObj()); setEditingObj(null); setShowFormObj(true) }
+  const openNewObj = () => {
+    setFormObj(emptyObj()); setEditingObj(null)
+    setFichaSearch(''); setFichaDropdownOpen(false)
+    setShowFormObj(true)
+  }
   const openEditObj = (o: ObjetivoJugadora) => {
-    setFormObj({ playerName:o.playerName, playerClub:o.playerClub, playerPhoto:o.playerPhoto??'',
-      playerNumber:o.playerNumber, titulo:o.titulo, descripcion:o.descripcion,
-      fechaInicio:o.fechaInicio, estado:o.estado, tipo:o.tipo, accion:o.accion,
+    setFormObj({ fichaId:o.fichaId, playerName:o.playerName, playerClub:o.playerClub,
+      playerPhoto:o.playerPhoto??'', playerNumber:o.playerNumber,
+      titulo:o.titulo, descripcion:o.descripcion, fechaInicio:o.fechaInicio,
+      estado:o.estado, tipo:o.tipo, accion:o.accion,
       imagenUrl:o.imagenUrl??'', pdfUrl:o.pdfUrl??'', videoUrl:o.videoUrl??'' })
+    setFichaSearch(o.playerName); setFichaDropdownOpen(false)
     setEditingObj(o); setShowFormObj(true)
   }
   const saveObj = () => {
@@ -187,9 +222,60 @@ export default function DesarrolloIndividual() {
             <div className="p-5 space-y-4">
 
               {/* Player section */}
-              <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Jugadora</p>
+              <div className="flex items-center justify-between">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Jugadora</p>
+              </div>
+
+              {/* ── Buscador de fichas ── */}
+              {fichas.length > 0 && (
+                <div className="relative">
+                  <label className="text-[10px] font-semibold text-gray-500 uppercase flex items-center gap-1.5 mb-1">
+                    <Database className="w-3 h-3"/> Cargar desde Base de Datos
+                  </label>
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none"/>
+                    <input
+                      value={fichaSearch}
+                      onChange={e=>{ setFichaSearch(e.target.value); setFichaDropdownOpen(true) }}
+                      onFocus={()=>setFichaDropdownOpen(true)}
+                      className="input-field pl-9"
+                      placeholder="Buscar jugadora por nombre o club…"
+                    />
+                    {fichaDropdownOpen && fichasFiltradas.length > 0 && (
+                      <div className="absolute z-50 top-full mt-1 left-0 right-0 bg-white border border-gray-200 rounded-lg shadow-xl max-h-52 overflow-y-auto">
+                        {fichasFiltradas.map(f => (
+                          <button key={f.id} type="button"
+                            onMouseDown={()=>applyFicha(f)}
+                            className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-blue-50 text-left transition-colors border-b border-gray-50 last:border-0">
+                            {f.foto
+                              ? <img src={f.foto} alt="" className="w-8 h-8 rounded-full object-cover flex-shrink-0"/>
+                              : <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-xs font-bold text-gray-500 flex-shrink-0">
+                                  {f.nombre.charAt(0)}{f.primerApellido.charAt(0)}
+                                </div>}
+                            <div className="min-w-0">
+                              <p className="font-bold text-sm text-gray-900 truncate">
+                                {f.nombre} {f.primerApellido} {f.segundoApellido}
+                              </p>
+                              <p className="text-xs text-gray-500 truncate">{f.equipo} · {f.demarcacion} · Dorsal {f.dorsal}</p>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  {formObj.fichaId && (
+                    <p className="text-[10px] text-green-600 font-semibold mt-1 flex items-center gap-1">
+                      ✓ Datos cargados desde Base de Datos
+                      <button type="button" onClick={()=>{ setFormObj(p=>({...p,fichaId:undefined})); setFichaSearch('') }}
+                        className="ml-1 text-gray-400 hover:text-red-500 underline">desvincular</button>
+                    </p>
+                  )}
+                  <div className="border-b border-dashed border-gray-200 my-3"/>
+                </div>
+              )}
+
+              {/* Photo + manual fields */}
               <div className="flex gap-3 items-start">
-                {/* Photo */}
                 <div className="flex-shrink-0">
                   <div className="w-20 h-20 bg-gray-100 rounded-lg border-2 border-dashed border-gray-300 flex items-center justify-center overflow-hidden cursor-pointer"
                     onClick={()=>photoInputRef.current?.click()}>
@@ -203,7 +289,7 @@ export default function DesarrolloIndividual() {
                 <div className="flex-1 grid grid-cols-2 gap-3">
                   <div className="col-span-2">
                     <label className="text-[10px] font-semibold text-gray-500 uppercase">Nombre completo *</label>
-                    <input value={formObj.playerName} onChange={e=>setFormObj(p=>({...p,playerName:e.target.value}))}
+                    <input value={formObj.playerName} onChange={e=>setFormObj(p=>({...p,playerName:e.target.value,fichaId:undefined}))}
                       className="input-field mt-1" placeholder="Ej: Alejandro Rego"/>
                   </div>
                   <div>

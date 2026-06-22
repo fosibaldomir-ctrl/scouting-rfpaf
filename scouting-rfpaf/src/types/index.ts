@@ -213,6 +213,7 @@ export interface HistorialAccion {
 
 export interface ObjetivoJugadora {
   id: string
+  fichaId?: string          // reference to FichaJugadora.id if loaded from BD
   playerName: string
   playerClub: string
   playerPhoto?: string
