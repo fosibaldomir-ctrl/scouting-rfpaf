@@ -331,6 +331,13 @@ export default function PintadoAcciones() {
     setSelectedId(null)
   }
 
+  // Selecciona herramienta y, en móvil/tablet, salta al lienzo para poder usarla
+  const chooseTool = (t: ToolType) => {
+    setTool(t)
+    setPendingDorsal(null)
+    setMobilePanel('lienzo')
+  }
+
   const handleImageUpload = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
@@ -405,7 +412,7 @@ export default function PintadoAcciones() {
       }
 
       return (
-        <g key={key} opacity={alpha} style={selStyle} onMouseDown={onElMouseDown} cursor="move">
+        <g key={key} opacity={alpha} style={selStyle} onPointerDown={onElMouseDown} cursor="move">
           <path d={path} stroke={ae.stroke} strokeWidth={sw * 3} fill="none" opacity={0} />
           <path d={path} stroke={ae.stroke} strokeWidth={sw} fill="none" strokeLinecap="round" />
           {tip && <path d={tip} fill={ae.stroke} stroke="none" />}
@@ -418,7 +425,7 @@ export default function PintadoAcciones() {
       return (
         <rect key={key} x={se.x} y={se.y} width={se.w} height={se.h}
           stroke={se.stroke} strokeWidth={sw} fill={se.fill} fillOpacity={0.25}
-          opacity={alpha} style={selStyle} onMouseDown={onElMouseDown} cursor="move" />
+          opacity={alpha} style={selStyle} onPointerDown={onElMouseDown} cursor="move" />
       )
     }
 
@@ -428,7 +435,7 @@ export default function PintadoAcciones() {
         <ellipse key={key} cx={se.x + se.w / 2} cy={se.y + se.h / 2}
           rx={Math.abs(se.w / 2)} ry={Math.abs(se.h / 2)}
           stroke={se.stroke} strokeWidth={sw} fill={se.fill} fillOpacity={0.25}
-          opacity={alpha} style={selStyle} onMouseDown={onElMouseDown} cursor="move" />
+          opacity={alpha} style={selStyle} onPointerDown={onElMouseDown} cursor="move" />
       )
     }
 
@@ -438,7 +445,7 @@ export default function PintadoAcciones() {
         <ellipse key={key} cx={se.x + se.w / 2} cy={se.y + se.h / 2}
           rx={Math.abs(se.w / 2)} ry={Math.abs(se.h / 2)}
           fill="rgba(0,0,0,0.55)" stroke="none"
-          opacity={alpha} style={selStyle} onMouseDown={onElMouseDown} cursor="move" />
+          opacity={alpha} style={selStyle} onPointerDown={onElMouseDown} cursor="move" />
       )
     }
 
@@ -448,7 +455,7 @@ export default function PintadoAcciones() {
       return (
         <polygon key={key} points={pts}
           stroke={se.stroke} strokeWidth={sw} fill={se.fill} fillOpacity={0.25}
-          opacity={alpha} style={selStyle} onMouseDown={onElMouseDown} cursor="move" />
+          opacity={alpha} style={selStyle} onPointerDown={onElMouseDown} cursor="move" />
       )
     }
 
@@ -458,7 +465,7 @@ export default function PintadoAcciones() {
       return (
         <polygon key={key} points={pts}
           stroke={ze.stroke} strokeWidth={sw} fill={ze.fill}
-          opacity={alpha} style={selStyle} onMouseDown={onElMouseDown} cursor="move" />
+          opacity={alpha} style={selStyle} onPointerDown={onElMouseDown} cursor="move" />
       )
     }
 
@@ -468,7 +475,7 @@ export default function PintadoAcciones() {
       return (
         <text key={key} x={te.pos.x} y={te.pos.y}
           fill={te.stroke} fontSize={fs} fontWeight="bold"
-          opacity={alpha} style={selStyle} onMouseDown={onElMouseDown} cursor="move"
+          opacity={alpha} style={selStyle} onPointerDown={onElMouseDown} cursor="move"
         >{te.text}</text>
       )
     }
@@ -479,7 +486,7 @@ export default function PintadoAcciones() {
       const pw = te.text.length * fs * 0.65 + 16
       const ph = fs + 12
       return (
-        <g key={key} opacity={alpha} style={selStyle} onMouseDown={onElMouseDown} cursor="move">
+        <g key={key} opacity={alpha} style={selStyle} onPointerDown={onElMouseDown} cursor="move">
           <rect x={te.pos.x} y={te.pos.y - ph + 4} width={pw} height={ph} rx={3} fill={te.fill} />
           <polygon points={`${te.pos.x + 8},${te.pos.y + 4} ${te.pos.x + 18},${te.pos.y + 4} ${te.pos.x + 13},${te.pos.y + 14}`} fill={te.fill} />
           <text x={te.pos.x + 8} y={te.pos.y - 3} fill="white" fontSize={fs} fontWeight="bold">{te.text}</text>
@@ -508,7 +515,7 @@ export default function PintadoAcciones() {
         )
       }
       return (
-        <g key={key} opacity={alpha} style={selStyle} onMouseDown={onElMouseDown} cursor="move">
+        <g key={key} opacity={alpha} style={selStyle} onPointerDown={onElMouseDown} cursor="move">
           <g transform={`translate(${tx},${ty}) scale(${sc})`}>
             <path d={JERSEY_PATH} fill={de.fill} stroke="rgba(255,255,255,0.5)" strokeWidth={1.5 / sc} strokeLinejoin="round"/>
           </g>
@@ -646,7 +653,11 @@ export default function PintadoAcciones() {
               {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map(n => (
                 <button
                   key={n}
-                  onClick={() => setPendingDorsal(pendingDorsal === n ? null : n)}
+                  onClick={() => {
+                    const v = pendingDorsal === n ? null : n
+                    setPendingDorsal(v)
+                    if (v !== null) setMobilePanel('lienzo')
+                  }}
                   title={`Dorsal ${n}`}
                   className={`flex items-center justify-center rounded-lg p-1 transition-all border-2 ${
                     pendingDorsal === n
@@ -700,13 +711,14 @@ export default function PintadoAcciones() {
             </div>
           )}
 
-          {/* Lienzo SVG — siempre encima (z-10) capturando eventos */}
+          {/* Lienzo SVG — siempre encima (z-10) capturando eventos (ratón + táctil) */}
           <svg
             ref={svgRef}
             className="absolute inset-0 w-full h-full z-10"
-            onMouseDown={handleMouseDown}
-            onMouseMove={handleMouseMove}
-            onMouseUp={handleMouseUp}
+            style={{ touchAction: 'none' }}
+            onPointerDown={handleMouseDown}
+            onPointerMove={handleMouseMove}
+            onPointerUp={handleMouseUp}
             onDoubleClick={handleDblClick}
           >
             {elements.map(el => renderEl(el, el.id))}
@@ -794,7 +806,7 @@ export default function PintadoAcciones() {
           <div className="flex gap-2 flex-col w-full">
             <button
               title="Mover"
-              onClick={() => { setTool('select'); setPendingDorsal(null) }}
+              onClick={() => chooseTool('select')}
               className={`w-full px-2 py-2 rounded-lg flex items-center justify-center gap-2 transition-all ${
                 tool === 'select'
                   ? 'bg-rfpaf-blue text-white'
@@ -822,7 +834,7 @@ export default function PintadoAcciones() {
             </button>
             <button
               title="Modo Animación"
-              onClick={() => { setAnimMode(m => !m); setAnimKey(k => k + 1) }}
+              onClick={() => { setAnimMode(m => !m); setAnimKey(k => k + 1); setMobilePanel('lienzo') }}
               className={`w-full px-2 py-2 rounded-lg flex items-center justify-center gap-2 transition-all ${animMode ? 'bg-green-500 text-white shadow-md' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
             >
               <Clapperboard className="w-4 h-4" />
@@ -837,13 +849,13 @@ export default function PintadoAcciones() {
             <div>
               <p className="text-xs font-bold text-gray-600 mb-2 uppercase tracking-wider text-center">Flechas</p>
               <div className="grid grid-cols-2 gap-2">
-                <ToolBtn title="Recta" active={tool === 'arrow-straight'} onClick={() => setTool('arrow-straight')}>
+                <ToolBtn title="Recta" active={tool === 'arrow-straight'} onClick={() => chooseTool('arrow-straight')}>
                   <IcoStraightArrow />
                 </ToolBtn>
-                <ToolBtn title="Curva" active={tool === 'arrow-curved'} onClick={() => setTool('arrow-curved')}>
+                <ToolBtn title="Curva" active={tool === 'arrow-curved'} onClick={() => chooseTool('arrow-curved')}>
                   <IcoCurvedArrow />
                 </ToolBtn>
-                <ToolBtn title="Onda" active={tool === 'arrow-wave'} onClick={() => setTool('arrow-wave')}>
+                <ToolBtn title="Onda" active={tool === 'arrow-wave'} onClick={() => chooseTool('arrow-wave')}>
                   <IcoWaveArrow />
                 </ToolBtn>
               </div>
@@ -852,10 +864,10 @@ export default function PintadoAcciones() {
             <div>
               <p className="text-xs font-bold text-gray-600 mb-2 uppercase tracking-wider text-center">Textos</p>
               <div className="grid grid-cols-2 gap-2">
-                <ToolBtn title="Texto" active={tool === 'text'} onClick={() => setTool('text')}>
+                <ToolBtn title="Texto" active={tool === 'text'} onClick={() => chooseTool('text')}>
                   <span className="text-xs font-bold">T</span>
                 </ToolBtn>
-                <ToolBtn title="Etiqueta" active={tool === 'label'} onClick={() => setTool('label')}>
+                <ToolBtn title="Etiqueta" active={tool === 'label'} onClick={() => chooseTool('label')}>
                   <IcoLabel />
                 </ToolBtn>
               </div>
@@ -864,13 +876,13 @@ export default function PintadoAcciones() {
             <div>
               <p className="text-xs font-bold text-gray-600 mb-2 uppercase tracking-wider text-center">Zonas</p>
               <div className="grid grid-cols-2 gap-2">
-                <ToolBtn title="Rect" active={tool === 'rect'} onClick={() => setTool('rect')}>
+                <ToolBtn title="Rect" active={tool === 'rect'} onClick={() => chooseTool('rect')}>
                   <IcoRect />
                 </ToolBtn>
-                <ToolBtn title="Círculo" active={tool === 'circle'} onClick={() => setTool('circle')}>
+                <ToolBtn title="Círculo" active={tool === 'circle'} onClick={() => chooseTool('circle')}>
                   <IcoCircle />
                 </ToolBtn>
-                <ToolBtn title="Zona libre" active={tool === 'zone'} onClick={() => setTool('zone')}>
+                <ToolBtn title="Zona libre" active={tool === 'zone'} onClick={() => chooseTool('zone')}>
                   <IcoZone />
                 </ToolBtn>
               </div>
@@ -879,13 +891,13 @@ export default function PintadoAcciones() {
             <div>
               <p className="text-xs font-bold text-gray-600 mb-2 uppercase tracking-wider text-center">Otros</p>
               <div className="grid grid-cols-2 gap-2">
-                <ToolBtn title="Conector" active={tool === 'connector'} onClick={() => setTool('connector')}>
+                <ToolBtn title="Conector" active={tool === 'connector'} onClick={() => chooseTool('connector')}>
                   <IcoConnector />
                 </ToolBtn>
-                <ToolBtn title="Foco" active={tool === 'focus'} onClick={() => setTool('focus')}>
+                <ToolBtn title="Foco" active={tool === 'focus'} onClick={() => chooseTool('focus')}>
                   <IcoFocus />
                 </ToolBtn>
-                <ToolBtn title="Triángulo" active={tool === 'triangle'} onClick={() => setTool('triangle')}>
+                <ToolBtn title="Triángulo" active={tool === 'triangle'} onClick={() => chooseTool('triangle')}>
                   <IcoTriangle />
                 </ToolBtn>
               </div>
