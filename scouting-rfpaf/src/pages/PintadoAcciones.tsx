@@ -671,23 +671,26 @@ export default function PintadoAcciones() {
         </aside>
 
         {/* Center Canvas */}
-        <div className={`${mobilePanel === 'lienzo' ? 'flex' : 'hidden'} lg:flex flex-1 bg-white rounded-xl shadow-sm overflow-hidden flex-col min-w-0 max-h-[calc(100vh-280px)] lg:max-h-none relative`} style={{ cursor }}>
+        <div className={`${mobilePanel === 'lienzo' ? 'flex' : 'hidden'} lg:flex flex-1 bg-white rounded-xl shadow-sm overflow-hidden min-w-0 max-h-[calc(100vh-280px)] lg:max-h-none relative`} style={{ cursor }}>
+          {/* Fondo: imagen estática */}
           {bgImage && (
             <img
               src={bgImage} alt="fondo"
-              className="absolute inset-0 w-full h-full object-contain pointer-events-none"
+              className="absolute inset-0 w-full h-full object-contain pointer-events-none z-0"
             />
           )}
+          {/* Fondo: iframe YouTube */}
           {ytEmbedUrl && (
             <iframe
               src={ytEmbedUrl}
-              className="w-full h-full border-0"
+              className="absolute inset-0 w-full h-full border-0 z-0"
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
               allowFullScreen
             />
           )}
+          {/* Estado vacío */}
           {!bgImage && !ytEmbedUrl && (
-            <div className="w-full h-full flex flex-col items-center justify-center text-gray-300">
+            <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-300 z-0 pointer-events-none">
               <svg viewBox="0 0 64 64" width="80" height="80" fill="none" stroke="currentColor" strokeWidth="1.5">
                 <circle cx="32" cy="32" r="28" />
                 <path d="M32 8 L32 12 M32 52 L32 56 M8 32 L12 32 M52 32 L56 32" />
@@ -697,9 +700,10 @@ export default function PintadoAcciones() {
             </div>
           )}
 
+          {/* Lienzo SVG — siempre encima (z-10) capturando eventos */}
           <svg
             ref={svgRef}
-            className="w-full h-full"
+            className="absolute inset-0 w-full h-full z-10"
             onMouseDown={handleMouseDown}
             onMouseMove={handleMouseMove}
             onMouseUp={handleMouseUp}
