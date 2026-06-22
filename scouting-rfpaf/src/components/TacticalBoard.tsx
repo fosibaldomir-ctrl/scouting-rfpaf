@@ -411,7 +411,7 @@ function drawTextHandle(ctx: CanvasRenderingContext2D, s: Shape) {
   ctx.strokeRect(s.start.x-4, s.start.y-fs-2, estW, fs+8); ctx.setLineDash([])
 }
 
-const CP_HIT_R = 11
+const CP_HIT_R = 22
 
 function drawCurveHandle(ctx: CanvasRenderingContext2D, s: Shape) {
   if (!s.start || !s.end) return
@@ -429,7 +429,7 @@ function drawCurveHandle(ctx: CanvasRenderingContext2D, s: Shape) {
   ctx.setLineDash([])
   // CP handle circle
   ctx.beginPath()
-  ctx.arc(cp.x, cp.y, 7, 0, Math.PI * 2)
+  ctx.arc(cp.x, cp.y, 9, 0, Math.PI * 2)
   ctx.fillStyle = '#facc15'
   ctx.fill()
   ctx.strokeStyle = '#1f2937'
@@ -795,7 +795,7 @@ export default function TacticalBoard({ onCapture, onRegisterCapture }: Tactical
     return { x:(clientX-rect.left)*(canvas.width/rect.width), y:(clientY-rect.top)*(canvas.height/rect.height) }
   }
 
-  const nearPlayer = (pos: Point) => placedPlayers.find(p=>Math.hypot(p.x-pos.x,p.y-pos.y)<=PLAYER_R+3)
+  const nearPlayer = (pos: Point) => placedPlayers.find(p=>Math.hypot(p.x-pos.x,p.y-pos.y)<=PLAYER_R+8)
   const nearAccessory = (pos: Point) => [...placedAccessories].reverse().find(a => getAccHandleHit(pos, a) !== null)
 
   const onMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -904,9 +904,18 @@ export default function TacticalBoard({ onCapture, onRegisterCapture }: Tactical
     setIsDrawing(false); setShapes(prev=>[...prev,final]); setCurrentShape(null)
   }
 
+  const onTouchStartRef = useRef<(e: any) => void>(() => {})
+  const onTouchMoveRef  = useRef<(e: any) => void>(() => {})
+  const onTouchEndRef   = useRef<(e: any) => void>(() => {})
+
   const onTouchStart = (e: React.TouchEvent<HTMLCanvasElement>) => { e.preventDefault(); onMouseDown(e as any) }
   const onTouchMove  = (e: React.TouchEvent<HTMLCanvasElement>) => { e.preventDefault(); onMouseMove(e as any) }
   const onTouchEnd   = (e: React.TouchEvent<HTMLCanvasElement>) => { e.preventDefault(); onMouseUp() }
+
+  // Keep refs fresh so the passive listeners see current handlers
+  onTouchStartRef.current = onTouchStart as any
+  onTouchMoveRef.current  = onTouchMove  as any
+  onTouchEndRef.current   = onTouchEnd   as any
 
   const handleAddText = () => {
     if(!textPos||!textInput.trim()) return
@@ -917,6 +926,23 @@ export default function TacticalBoard({ onCapture, onRegisterCapture }: Tactical
   useEffect(() => {
     onRegisterCapture?.(() => canvasRef.current?.toDataURL('image/png') ?? null)
   }, [onRegisterCapture])
+
+  // Non-passive touch listeners so e.preventDefault() works on iOS Safari
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const tsHandler = (e: TouchEvent) => { e.preventDefault(); onTouchStartRef.current(e as any) }
+    const tmHandler = (e: TouchEvent) => { e.preventDefault(); onTouchMoveRef.current(e as any) }
+    const teHandler = (e: TouchEvent) => { e.preventDefault(); onTouchEndRef.current(e as any) }
+    canvas.addEventListener('touchstart', tsHandler, { passive: false })
+    canvas.addEventListener('touchmove',  tmHandler, { passive: false })
+    canvas.addEventListener('touchend',   teHandler, { passive: false })
+    return () => {
+      canvas.removeEventListener('touchstart', tsHandler)
+      canvas.removeEventListener('touchmove',  tmHandler)
+      canvas.removeEventListener('touchend',   teHandler)
+    }
+  }, [])
 
   const captureBoard = () => {
     const canvas=canvasRef.current; if(!canvas) return
@@ -1099,7 +1125,7 @@ export default function TacticalBoard({ onCapture, onRegisterCapture }: Tactical
         </div>
 
         {/* CENTER — canvas único, siempre en DOM */}
-        <div className={`flex flex-1 flex-col gap-3 min-w-0 ${mobilePanel === 'canvas' ? '' : 'hidden'} lg:!flex`}>
+        <div className={`flex flex-1 flex-col gap-3 min-w-0 ${mobilePanel === 'canvas' ? '' : 'hidden'} lg:!flex`} style={{touchAction:'none'}}>
           <canvas ref={canvasRef} width={900} height={600}
             onMouseDown={onMouseDown} onMouseMove={onMouseMove} onMouseUp={onMouseUp} onMouseLeave={onMouseUp}
             onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}
