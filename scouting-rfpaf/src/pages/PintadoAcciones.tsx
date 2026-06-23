@@ -82,6 +82,15 @@ interface DorsalEl extends BaseEl {
 
 type DrawEl = ArrowEl | TextEl | ShapeEl | ZoneEl | ConnectorEl | DorsalEl
 
+// Un "momento" guarda un instante del vídeo + una copia de los dibujos de ese instante
+interface Moment {
+  id: string
+  time: number          // segundos en el vídeo
+  label: string
+  elements: DrawEl[]    // snapshot de los dibujos
+  source: 'yt' | 'video'
+}
+
 function linePath(s: Pt, e: Pt) {
   return `M ${s.x} ${s.y} L ${e.x} ${e.y}`
 }
@@ -189,6 +198,10 @@ export default function PintadoAcciones() {
   const [ytCurrent, setYtCurrent] = useState(0)
   const [ytDuration, setYtDuration] = useState(0)
   const ytPollRef = useRef<number | null>(null)
+  // Momentos guardados (Opción B)
+  const [moments, setMoments] = useState<Moment[]>([])
+  const [activeMomentId, setActiveMomentId] = useState<string | null>(null)
+  const [editingMomentId, setEditingMomentId] = useState<string | null>(null)
 
   const [mobilePanel, setMobilePanel] = useState<'estilos' | 'lienzo' | 'herramientas'>('lienzo')
 
@@ -557,6 +570,62 @@ export default function PintadoAcciones() {
     setYtCurrent(t)
     const p = ytPlayerRef.current
     if (p && p.seekTo) p.seekTo(t, true)
+  }
+
+  /* ─── Momentos guardados (Opción B) ─── */
+  const currentVideoTime = () => (videoUrl ? videoCurrentTime : ytEmbedUrl ? ytCurrent : 0)
+
+  const fmtTime = (s: number) => {
+    const m = Math.floor(s / 60)
+    const sec = Math.floor(s % 60)
+    return `${m}:${sec.toString().padStart(2, '0')}`
+  }
+
+  const saveMoment = () => {
+    if (!videoUrl && !ytEmbedUrl) return
+    const time = currentVideoTime()
+    const m: Moment = {
+      id: uuidv4(),
+      time,
+      label: `Momento ${moments.length + 1}`,
+      elements: JSON.parse(JSON.stringify(elements)),
+      source: videoUrl ? 'video' : 'yt',
+    }
+    setMoments(prev => [...prev, m].sort((a, b) => a.time - b.time))
+    setActiveMomentId(m.id)
+  }
+
+  const loadMoment = (m: Moment) => {
+    // Saltar al instante y pausar
+    if (videoUrl && videoRef.current) {
+      videoRef.current.pause()
+      videoRef.current.currentTime = m.time
+      setVideoCurrentTime(m.time)
+    } else if (ytEmbedUrl && ytPlayerRef.current) {
+      ytPlayerRef.current.seekTo?.(m.time, true)
+      ytPlayerRef.current.pauseVideo?.()
+      setYtCurrent(m.time)
+    }
+    // Cargar los dibujos del momento (copia para no mutar el guardado)
+    setElements(JSON.parse(JSON.stringify(m.elements)))
+    setSelectedId(null)
+    setActiveMomentId(m.id)
+  }
+
+  const updateMoment = (id: string) => {
+    setMoments(prev => prev.map(m =>
+      m.id === id ? { ...m, elements: JSON.parse(JSON.stringify(elements)), time: currentVideoTime() } : m
+    ).sort((a, b) => a.time - b.time))
+    setActiveMomentId(id)
+  }
+
+  const deleteMoment = (id: string) => {
+    setMoments(prev => prev.filter(m => m.id !== id))
+    if (activeMomentId === id) setActiveMomentId(null)
+  }
+
+  const renameMoment = (id: string, label: string) => {
+    setMoments(prev => prev.map(m => m.id === id ? { ...m, label } : m))
   }
 
   const handleVideoUpload = (e: ChangeEvent<HTMLInputElement>) => {
@@ -1035,6 +1104,13 @@ export default function PintadoAcciones() {
               <span className="text-green-400 text-xs font-semibold whitespace-nowrap">⬛ Frame capturado — dibuja encima</span>
             )}
             <button
+              onClick={saveMoment}
+              disabled={!!videoError}
+              className="px-3 py-1.5 rounded-lg bg-green-600 hover:bg-green-700 disabled:opacity-40 text-white font-bold text-sm transition-colors whitespace-nowrap"
+            >
+              ＋ Guardar momento
+            </button>
+            <button
               onClick={() => {
                 if (videoRef.current) videoRef.current.pause()
                 setVideoFrameCanvas(null)
@@ -1082,6 +1158,12 @@ export default function PintadoAcciones() {
           {!ytPlaying && (
             <span className="text-green-400 text-xs font-semibold whitespace-nowrap">⏸ Pausado — dibuja encima</span>
           )}
+          <button
+            onClick={saveMoment}
+            className="px-3 py-1.5 rounded-lg bg-green-600 hover:bg-green-700 text-white font-bold text-sm transition-colors whitespace-nowrap"
+          >
+            ＋ Guardar momento
+          </button>
           <button
             onClick={() => { setYtEmbedUrl(null); setYtUrl('') }}
             className="px-3 py-1.5 rounded-lg bg-rfpaf-red hover:bg-red-700 text-white font-bold text-sm transition-colors whitespace-nowrap"
@@ -1220,6 +1302,73 @@ export default function PintadoAcciones() {
               </p>
             )}
           </div>
+
+          {/* Momentos guardados (Opción B) */}
+          {(videoUrl || ytEmbedUrl || moments.length > 0) && (
+            <>
+              <hr className="my-4" />
+              <div>
+                <p className="text-xs font-semibold text-gray-600 mb-3 uppercase tracking-wide">
+                  Momentos {moments.length > 0 && <span className="text-rfpaf-blue">({moments.length})</span>}
+                </p>
+                {moments.length === 0 && (
+                  <p className="text-[11px] text-gray-400 mb-2 leading-snug">
+                    Pausa el vídeo en una jugada, dibuja y pulsa <span className="font-semibold text-green-600">＋ Guardar momento</span> en la barra del vídeo.
+                  </p>
+                )}
+                <div className="space-y-1.5">
+                  {moments.map(m => (
+                    <div
+                      key={m.id}
+                      className={`rounded-lg border-2 px-2 py-1.5 transition-all ${
+                        activeMomentId === m.id
+                          ? 'border-rfpaf-blue bg-blue-50'
+                          : 'border-gray-200 hover:border-gray-300 bg-white'
+                      }`}
+                    >
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          onClick={() => loadMoment(m)}
+                          className="flex items-center gap-1.5 flex-1 min-w-0 text-left"
+                          title="Ir a este momento"
+                        >
+                          <span className="text-rfpaf-blue text-sm font-bold">▸</span>
+                          <span className="text-xs font-mono font-bold text-gray-700 tabular-nums whitespace-nowrap">{fmtTime(m.time)}</span>
+                          {editingMomentId === m.id ? (
+                            <input
+                              autoFocus
+                              defaultValue={m.label}
+                              onClick={e => e.stopPropagation()}
+                              onBlur={e => { renameMoment(m.id, e.target.value || m.label); setEditingMomentId(null) }}
+                              onKeyDown={e => { if (e.key === 'Enter') { renameMoment(m.id, (e.target as HTMLInputElement).value || m.label); setEditingMomentId(null) } }}
+                              className="flex-1 min-w-0 text-xs border border-rfpaf-blue rounded px-1 py-0.5"
+                            />
+                          ) : (
+                            <span className="text-xs text-gray-600 truncate">{m.label}</span>
+                          )}
+                        </button>
+                        <button
+                          onClick={() => setEditingMomentId(m.id)}
+                          title="Renombrar"
+                          className="text-gray-400 hover:text-rfpaf-blue text-xs p-1"
+                        >✎</button>
+                        <button
+                          onClick={() => updateMoment(m.id)}
+                          title="Actualizar con los dibujos actuales"
+                          className="text-gray-400 hover:text-green-600 text-xs p-1"
+                        >⟳</button>
+                        <button
+                          onClick={() => deleteMoment(m.id)}
+                          title="Borrar momento"
+                          className="text-gray-400 hover:text-rfpaf-red text-xs p-1"
+                        >🗑</button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
         </aside>
 
         {/* Center Canvas */}
@@ -1233,6 +1382,7 @@ export default function PintadoAcciones() {
               playsInline
               onPlay={() => setIsVideoPlaying(true)}
               onPause={() => { setIsVideoPlaying(false); captureFrame() }}
+              onSeeked={() => { if (videoRef.current?.paused) captureFrame() }}
               onTimeUpdate={handleTimeUpdate}
               onLoadedMetadata={handleLoadedMetadata}
               onError={() => setVideoError('Este formato de vídeo no se puede reproducir en el navegador. Conviértelo a MP4 (H.264) — por ejemplo con HandBrake o exportando desde el móvil como "más compatible".')}
