@@ -421,10 +421,10 @@ export default function PintadoAcciones() {
     setSelectedId(null)
   }
 
-  // Finaliza una zona/conector pendiente (nodos en zonePoints) antes de
-  // cambiar de contexto, para no perder la unión ya marcada.
-  const finalizePending = () => {
-    if (zonePoints.length === 0) return
+  // Construye (sin tocar estado) el elemento de una zona/conector pendiente
+  // a partir de los nodos en zonePoints. Devuelve null si no hay nada válido.
+  const buildPendingEl = (): DrawEl | null => {
+    if (zonePoints.length === 0) return null
     if (tool === 'connector') {
       const pts = zonePoints.filter((p, i) => {
         if (i === 0) return true
@@ -432,18 +432,27 @@ export default function PintadoAcciones() {
         return Math.hypot(p.x - prev.x, p.y - prev.y) > 8
       })
       if (pts.length >= 2) {
-        setElements(prev => [...prev, {
+        return {
           id: uuidv4(), tool: 'connector', points: pts,
           stroke: strokeColor, fill: strokeColor, strokeWidth, opacity,
           sizeScale, tilt: connectorTilt, flatten: connectorFlatten,
-        }])
+        }
       }
     } else if (tool === 'zone' && zonePoints.length >= 3) {
-      setElements(prev => [...prev, {
+      return {
         id: uuidv4(), tool: 'zone', points: zonePoints,
         stroke: strokeColor, fill: fillColor + '40', strokeWidth, opacity, sizeScale,
-      }])
+      }
     }
+    return null
+  }
+
+  // Finaliza una zona/conector pendiente (nodos en zonePoints) antes de
+  // cambiar de contexto, para no perder la unión ya marcada.
+  const finalizePending = () => {
+    if (zonePoints.length === 0) return
+    const pend = buildPendingEl()
+    if (pend) setElements(prev => [...prev, pend])
     setZonePoints([])
     setIsDrawing(false)
   }
@@ -583,18 +592,23 @@ export default function PintadoAcciones() {
 
   const saveMoment = () => {
     if (!videoUrl && !ytEmbedUrl) return
-    if (elements.length === 0) return  // nada que guardar
+    // Incluir un conector/zona pendiente (aún sin doble-clic de cierre)
+    const pend = buildPendingEl()
+    const all = pend ? [...elements, pend] : elements
+    if (all.length === 0) return  // nada que guardar
     const time = currentVideoTime()
     const m: Moment = {
       id: uuidv4(),
       time,
       label: `Momento ${moments.length + 1}`,
-      elements: JSON.parse(JSON.stringify(elements)),
+      elements: JSON.parse(JSON.stringify(all)),
       source: videoUrl ? 'video' : 'yt',
     }
     setMoments(prev => [...prev, m].sort((a, b) => a.time - b.time))
     // Limpiar el lienzo para la siguiente jugada (los dibujos quedan guardados en el momento)
     setElements([])
+    setZonePoints([])
+    setIsDrawing(false)
     setSelectedId(null)
     setActiveMomentId(null)
   }
@@ -1445,7 +1459,7 @@ export default function PintadoAcciones() {
             {!mediaPlaying && elements.map(el => renderEl(el, el.id))}
             {!mediaPlaying && currentEl && renderEl(currentEl, 'preview')}
 
-            {zonePoints.length >= 1 && (
+            {!mediaPlaying && zonePoints.length >= 1 && (
               <>
                 <path
                   d={`M ${zonePoints[0].x} ${zonePoints[0].y} ${zonePoints.slice(1).map(p => `L ${p.x} ${p.y}`).join(' ')}`}
