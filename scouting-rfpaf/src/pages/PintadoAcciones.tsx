@@ -509,10 +509,8 @@ export default function PintadoAcciones() {
       const rx = Math.max(Math.abs(se.w / 2), 1)
       const ryE = Math.max(Math.abs(se.w) * 0.22, 4)
       const botCy = se.y + se.h - ryE
-      const bodyPath = `M ${cx},${se.y} L ${se.x},${botCy} A ${rx},${ryE} 0 0 0 ${se.x + se.w},${botCy} L ${cx},${se.y}`
       return (
         <g key={key} opacity={alpha} style={selStyle} onPointerDown={onElMouseDown} cursor="move">
-          <path d={bodyPath} stroke={se.stroke} strokeWidth={sw} fill={se.fill} fillOpacity={0.35} />
           <ellipse cx={cx} cy={botCy} rx={rx} ry={ryE}
             stroke={se.stroke} strokeWidth={sw} fill={se.fill} fillOpacity={0.55} />
         </g>
