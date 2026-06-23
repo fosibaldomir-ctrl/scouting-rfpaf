@@ -179,6 +179,8 @@ export default function PintadoAcciones() {
   const [videoUrl, setVideoUrl] = useState<string | null>(null)
   const [videoFrameCanvas, setVideoFrameCanvas] = useState<string | null>(null)
   const [isVideoPlaying, setIsVideoPlaying] = useState(false)
+  const [videoDuration, setVideoDuration] = useState(0)
+  const [videoCurrentTime, setVideoCurrentTime] = useState(0)
 
   const [mobilePanel, setMobilePanel] = useState<'estilos' | 'lienzo' | 'herramientas'>('lienzo')
 
@@ -474,44 +476,49 @@ export default function PintadoAcciones() {
     if (!file) return
     const url = URL.createObjectURL(file)
     setVideoUrl(url)
+    setVideoFrameCanvas(null)
+    setIsVideoPlaying(false)
+    setVideoDuration(0)
+    setVideoCurrentTime(0)
     setYtEmbedUrl(null)
     setBgImage(null)
     e.target.value = ''
   }
 
-  const captureVideoFrame = () => {
-    if (!videoRef.current) return
-    const canvas = document.createElement('canvas')
-    const ctx = canvas.getContext('2d')
-    if (!ctx) return
-    canvas.width = videoRef.current.videoWidth
-    canvas.height = videoRef.current.videoHeight
-    ctx.drawImage(videoRef.current, 0, 0)
-    setVideoFrameCanvas(canvas.toDataURL('image/png'))
-  }
-
-  // Capturar fotograma cuando se pausa
+  // Adjuntar listeners cuando el vídeo está listo (depende de videoUrl)
   useEffect(() => {
     const video = videoRef.current
-    if (!video) return
-    const handlePause = () => captureVideoFrame()
-    video.addEventListener('pause', handlePause)
-    return () => video.removeEventListener('pause', handlePause)
-  }, [])
+    if (!video || !videoUrl) return
 
-  // Sincronizar estado de reproducción
-  useEffect(() => {
-    const video = videoRef.current
-    if (!video) return
-    const handlePlay = () => setIsVideoPlaying(true)
-    const handlePause = () => setIsVideoPlaying(false)
-    video.addEventListener('play', handlePlay)
-    video.addEventListener('pause', handlePause)
-    return () => {
-      video.removeEventListener('play', handlePlay)
-      video.removeEventListener('pause', handlePause)
+    const onPlay = () => setIsVideoPlaying(true)
+    const onPause = () => {
+      setIsVideoPlaying(false)
+      // Capturar fotograma al pausar
+      const canvas = document.createElement('canvas')
+      const ctx = canvas.getContext('2d')
+      if (!ctx) return
+      canvas.width = video.videoWidth || 640
+      canvas.height = video.videoHeight || 360
+      ctx.drawImage(video, 0, 0)
+      setVideoFrameCanvas(canvas.toDataURL('image/png'))
     }
-  }, [])
+    const onTimeUpdate = () => setVideoCurrentTime(video.currentTime)
+    const onLoadedMetadata = () => {
+      setVideoDuration(video.duration)
+      setVideoCurrentTime(0)
+    }
+
+    video.addEventListener('play', onPlay)
+    video.addEventListener('pause', onPause)
+    video.addEventListener('timeupdate', onTimeUpdate)
+    video.addEventListener('loadedmetadata', onLoadedMetadata)
+    return () => {
+      video.removeEventListener('play', onPlay)
+      video.removeEventListener('pause', onPause)
+      video.removeEventListener('timeupdate', onTimeUpdate)
+      video.removeEventListener('loadedmetadata', onLoadedMetadata)
+    }
+  }, [videoUrl])
 
   function renderEl(el: DrawEl, key: string) {
     const isSelected = el.id === selectedId
@@ -1017,20 +1024,20 @@ export default function PintadoAcciones() {
 
         {/* Center Canvas */}
         <div className={`${mobilePanel === 'lienzo' ? 'flex' : 'hidden'} lg:flex flex-1 bg-white rounded-xl shadow-sm overflow-hidden min-w-0 max-h-[calc(100vh-280px)] lg:max-h-none relative flex-col`} style={{ cursor }}>
-          {/* Fondo: fotograma de vídeo capturado */}
-          {videoFrameCanvas && (
-            <img
-              src={videoFrameCanvas} alt="video-frame"
-              className="absolute inset-0 w-full h-full object-contain pointer-events-none z-0"
-            />
-          )}
-          {/* Fondo: vídeo HTML5 (solo mientras se reproduce) */}
-          {videoUrl && !videoFrameCanvas && (
+          {/* Vídeo HTML5 — siempre en el DOM cuando hay videoUrl para que el ref no se pierda */}
+          {videoUrl && (
             <video
               ref={videoRef}
               src={videoUrl}
               className="absolute inset-0 w-full h-full object-contain pointer-events-none z-0"
-              controls={false}
+              playsInline
+            />
+          )}
+          {/* Fotograma capturado — encima del vídeo cuando está pausado, permite dibujar */}
+          {videoFrameCanvas && (
+            <img
+              src={videoFrameCanvas} alt="video-frame"
+              className="absolute inset-0 w-full h-full object-contain pointer-events-none z-[1]"
             />
           )}
           {/* Fondo: imagen estática */}
@@ -1099,10 +1106,19 @@ export default function PintadoAcciones() {
           {/* Animation overlay controls */}
           {/* Controles del vídeo */}
           {videoUrl && (
-            <div className="absolute bottom-0 left-0 right-0 z-30 bg-gradient-to-t from-black/80 to-black/40 p-4 pointer-events-auto">
+            <div className="absolute bottom-0 left-0 right-0 z-30 bg-gradient-to-t from-black/80 to-black/40 p-4">
               <div className="flex items-center gap-3 text-white text-xs">
                 <button
-                  onClick={() => videoRef.current && (isVideoPlaying ? videoRef.current.pause() : videoRef.current.play())}
+                  onClick={() => {
+                    const v = videoRef.current
+                    if (!v) return
+                    if (isVideoPlaying) {
+                      v.pause()
+                    } else {
+                      setVideoFrameCanvas(null)
+                      v.play().catch(() => {})
+                    }
+                  }}
                   className="px-3 py-1.5 rounded bg-rfpaf-blue hover:bg-blue-700 font-bold transition-colors whitespace-nowrap"
                 >
                   {isVideoPlaying ? '⏸ Pausar' : '▶ Reproducir'}
@@ -1110,19 +1126,27 @@ export default function PintadoAcciones() {
                 <input
                   type="range"
                   min="0"
-                  max={videoRef.current?.duration || 100}
-                  value={videoRef.current?.currentTime || 0}
+                  max={videoDuration || 100}
+                  step="0.1"
+                  value={videoCurrentTime}
                   onChange={e => {
-                    if (videoRef.current) videoRef.current.currentTime = parseFloat(e.target.value)
+                    const t = parseFloat(e.target.value)
+                    setVideoCurrentTime(t)
+                    if (videoRef.current) videoRef.current.currentTime = t
                   }}
                   className="flex-1 lab-range text-rfpaf-blue cursor-pointer"
                 />
-                <span className="opacity-80 whitespace-nowrap text-xs">{videoRef.current?.currentTime.toFixed(1) || '0.0'}s</span>
+                <span className="opacity-80 whitespace-nowrap tabular-nums">
+                  {videoCurrentTime.toFixed(1)}s / {videoDuration.toFixed(1)}s
+                </span>
                 <button
                   onClick={() => {
                     if (videoRef.current) videoRef.current.pause()
                     setVideoFrameCanvas(null)
                     setVideoUrl(null)
+                    setIsVideoPlaying(false)
+                    setVideoDuration(0)
+                    setVideoCurrentTime(0)
                   }}
                   className="px-3 py-1.5 rounded bg-rfpaf-red hover:bg-red-700 font-bold transition-colors whitespace-nowrap"
                 >
