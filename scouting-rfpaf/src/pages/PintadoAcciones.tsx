@@ -194,6 +194,9 @@ export default function PintadoAcciones() {
   const [exporting, setExporting] = useState(false)
   const [exportProgress, setExportProgress] = useState(0)
   const [exportMsg, setExportMsg] = useState('')
+  const [exportPre, setExportPre] = useState(5)    // s antes del momento
+  const [exportPost, setExportPost] = useState(5)  // s después del momento
+  const [exportHold, setExportHold] = useState(3)  // s de congelado con dibujos
   const exportingRef = useRef(false)
   const exportCancelRef = useRef(false)
 
@@ -706,7 +709,6 @@ export default function PintadoAcciones() {
 
   // Exporta un vídeo anotado: reproduce el MP4 y, al llegar a cada momento,
   // congela el frame y superpone los dibujos unos segundos (Opción B 3/3)
-  const HOLD_MS = 3500
   const exportVideo = async () => {
     const video = videoRef.current
     const svg = svgRef.current
@@ -783,7 +785,7 @@ export default function PintadoAcciones() {
       })
 
       // 3) Grabar un clip por momento: PRE s antes + congelado + POST s después
-      const PRE = 5, POST = 5
+      const PRE = exportPre, POST = exportPost, HOLD_MS = Math.max(exportHold, 0.5) * 1000
       video.muted = true
       rec.start(100)
       for (let mi = 0; mi < overlays.length; mi++) {
@@ -1567,6 +1569,32 @@ export default function PintadoAcciones() {
                   >
                     ⬇ Exportar PNG (vista actual)
                   </button>
+
+                  {/* Duración de cada clip del vídeo anotado */}
+                  <div className="grid grid-cols-3 gap-1.5">
+                    {([
+                      ['Antes', exportPre, setExportPre],
+                      ['Después', exportPost, setExportPost],
+                      ['Congelado', exportHold, setExportHold],
+                    ] as const).map(([label, val, setter]) => (
+                      <label key={label} className="flex flex-col gap-0.5">
+                        <span className="text-[9px] font-semibold text-gray-500 uppercase tracking-wide">{label}</span>
+                        <div className="flex items-center border border-gray-300 rounded-md overflow-hidden">
+                          <input
+                            type="number" min={0} max={60} step={1} value={val}
+                            disabled={exporting}
+                            onChange={(e: ChangeEvent<HTMLInputElement>) => {
+                              const v = Math.max(0, Math.min(60, +e.target.value || 0))
+                              setter(v)
+                            }}
+                            className="w-full text-xs px-1.5 py-1 outline-none disabled:opacity-40"
+                          />
+                          <span className="text-[9px] text-gray-400 pr-1.5">s</span>
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+
                   <button
                     onClick={exportVideo}
                     disabled={exporting || !videoUrl || moments.filter(m => m.source === 'video').length === 0}
@@ -1695,7 +1723,7 @@ export default function PintadoAcciones() {
                 Cancelar
               </button>
               <p className="text-white/50 text-[10px] mt-3 max-w-xs text-center leading-snug">
-                No cierres la pestaña. Se graba un clip por momento (5 s antes + dibujos + 5 s después), en tiempo real.
+                No cierres la pestaña. Se graba un clip por momento ({exportPre} s antes + {exportHold} s dibujos + {exportPost} s después), en tiempo real.
               </p>
             </div>
           )}
