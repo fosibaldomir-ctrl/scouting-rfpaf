@@ -371,8 +371,35 @@ export default function PintadoAcciones() {
     setSelectedId(null)
   }
 
+  // Finaliza una zona/conector pendiente (nodos en zonePoints) antes de
+  // cambiar de contexto, para no perder la unión ya marcada.
+  const finalizePending = () => {
+    if (zonePoints.length === 0) return
+    if (tool === 'connector') {
+      const pts = zonePoints.filter((p, i) => {
+        if (i === 0) return true
+        const prev = zonePoints[i - 1]
+        return Math.hypot(p.x - prev.x, p.y - prev.y) > 8
+      })
+      if (pts.length >= 2) {
+        setElements(prev => [...prev, {
+          id: uuidv4(), tool: 'connector', points: pts,
+          stroke: strokeColor, fill: strokeColor, strokeWidth, opacity,
+        }])
+      }
+    } else if (tool === 'zone' && zonePoints.length >= 3) {
+      setElements(prev => [...prev, {
+        id: uuidv4(), tool: 'zone', points: zonePoints,
+        stroke: strokeColor, fill: fillColor + '40', strokeWidth, opacity,
+      }])
+    }
+    setZonePoints([])
+    setIsDrawing(false)
+  }
+
   // Selecciona herramienta y, en móvil/tablet, salta al lienzo para poder usarla
   const chooseTool = (t: ToolType) => {
+    if (t !== tool) finalizePending()
     setTool(t)
     setPendingDorsal(null)
     setMobilePanel('lienzo')
@@ -595,7 +622,7 @@ export default function PintadoAcciones() {
       const ce = el as ConnectorEl
       if (ce.points.length < 2) return null
       const d = ce.points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ')
-      const nr = Math.max(sw * 2.5, 6)
+      const nr = Math.max(10 * (sizeScale / 100), sw * 1.5)
       return (
         <g key={key} opacity={alpha} style={selStyle} onPointerDown={onElMouseDown} cursor="move">
           <path d={d} stroke={ce.stroke} strokeWidth={sw} fill="none"
@@ -881,7 +908,8 @@ export default function PintadoAcciones() {
                 {zonePoints.map((p, i) =>
                   tool === 'connector'
                     ? <ellipse key={i} cx={p.x} cy={p.y}
-                        rx={Math.max(strokeWidth * 2.5, 6)} ry={Math.max(strokeWidth * 1.6, 4)}
+                        rx={Math.max(10 * (sizeScale / 100), strokeWidth * 1.5)}
+                        ry={Math.max(10 * (sizeScale / 100), strokeWidth * 1.5) * 0.65}
                         fill={strokeColor} fillOpacity={0.85} stroke="white" strokeWidth={1} />
                     : <circle key={i} cx={p.x} cy={p.y} r={3} fill={strokeColor} />
                 )}
