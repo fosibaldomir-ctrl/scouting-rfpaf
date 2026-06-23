@@ -202,6 +202,12 @@ export default function PintadoAcciones() {
   const [moments, setMoments] = useState<Moment[]>([])
   const [activeMomentId, setActiveMomentId] = useState<string | null>(null)
   const [editingMomentId, setEditingMomentId] = useState<string | null>(null)
+  // Exportar vídeo anotado (Opción B 3/3)
+  const [exporting, setExporting] = useState(false)
+  const [exportProgress, setExportProgress] = useState(0)
+  const [exportMsg, setExportMsg] = useState('')
+  const exportingRef = useRef(false)
+  const exportCancelRef = useRef(false)
 
   const [mobilePanel, setMobilePanel] = useState<'estilos' | 'lienzo' | 'herramientas'>('lienzo')
 
@@ -708,6 +714,132 @@ export default function PintadoAcciones() {
     a.click()
   }
 
+  // Rasteriza el SVG del lienzo a una imagen W×H (para superponer en el vídeo exportado)
+  const rasterizeSvg = (svg: SVGSVGElement, W: number, H: number): Promise<HTMLImageElement> =>
+    new Promise(res => {
+      const clone = svg.cloneNode(true) as SVGSVGElement
+      clone.setAttribute('width', String(W))
+      clone.setAttribute('height', String(H))
+      clone.setAttribute('viewBox', `0 0 ${W} ${H}`)
+      const xml = new XMLSerializer().serializeToString(clone)
+      const url = URL.createObjectURL(new Blob([xml], { type: 'image/svg+xml;charset=utf-8' }))
+      const img = new Image()
+      img.onload = () => { URL.revokeObjectURL(url); res(img) }
+      img.onerror = () => { URL.revokeObjectURL(url); res(img) }
+      img.src = url
+    })
+
+  const pickRecorderMime = () => {
+    const cands = ['video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm']
+    for (const c of cands) if (MediaRecorder.isTypeSupported(c)) return c
+    return 'video/webm'
+  }
+
+  // Exporta un vídeo anotado: reproduce el MP4 y, al llegar a cada momento,
+  // congela el frame y superpone los dibujos unos segundos (Opción B 3/3)
+  const HOLD_MS = 3500
+  const exportVideo = async () => {
+    const video = videoRef.current
+    const svg = svgRef.current
+    if (!videoUrl || !video || !svg) { setExportMsg('Solo disponible con vídeo MP4 local'); return }
+    const vids = moments.filter(m => m.source === 'video').sort((a, b) => a.time - b.time)
+    if (vids.length === 0) { setExportMsg('Guarda al menos un momento antes de exportar'); return }
+
+    const W = svg.clientWidth, H = svg.clientHeight
+    if (W === 0 || H === 0) return
+    const savedEls = elements
+
+    setExporting(true); exportingRef.current = true; exportCancelRef.current = false
+    setExportProgress(0); setExportMsg('Preparando dibujos…')
+
+    try {
+      // 1) Pre-rasterizar el overlay de cada momento usando el propio lienzo
+      const overlays: { time: number; img: HTMLImageElement }[] = []
+      for (const m of vids) {
+        if (exportCancelRef.current) throw new Error('cancel')
+        setElements(JSON.parse(JSON.stringify(m.elements)))
+        setSelectedId(null)
+        await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))
+        const img = await rasterizeSvg(svg, W, H)
+        overlays.push({ time: m.time, img })
+      }
+      setElements([])
+      await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))
+
+      // 2) Canvas + MediaRecorder
+      const canvas = document.createElement('canvas')
+      canvas.width = W; canvas.height = H
+      const ctx = canvas.getContext('2d')!
+      const stream = canvas.captureStream(30)
+      const rec = new MediaRecorder(stream, { mimeType: pickRecorderMime() })
+      const chunks: BlobPart[] = []
+      rec.ondataavailable = e => { if (e.data && e.data.size) chunks.push(e.data) }
+      const stopped = new Promise<void>(res => { rec.onstop = () => res() })
+      rec.start(100)
+
+      // 3) Reproducir y dibujar frame a frame
+      setExportMsg('Grabando…')
+      video.muted = true
+      video.currentTime = 0
+      await new Promise(r => { const h = () => { video.removeEventListener('seeked', h); r(null) }; video.addEventListener('seeked', h) })
+      await video.play().catch(() => {})
+
+      let heldIdx = -1, holding = false, holdEnd = 0
+      await new Promise<void>(resolve => {
+        const draw = () => {
+          if (!exportingRef.current) { resolve(); return }
+          const dur = video.duration || 1
+          ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H)
+          if (video.videoWidth) {
+            const sc = Math.min(W / video.videoWidth, H / video.videoHeight)
+            const dw = video.videoWidth * sc, dh = video.videoHeight * sc
+            ctx.drawImage(video, (W - dw) / 2, (H - dh) / 2, dw, dh)
+          }
+          const t = video.currentTime
+          if (!holding) {
+            // ¿hemos entrado en un momento aún no mostrado?
+            let idx = -1
+            for (let i = heldIdx + 1; i < overlays.length; i++) {
+              if (t >= overlays[i].time) idx = i; else break
+            }
+            if (idx !== -1) { heldIdx = idx; holding = true; holdEnd = performance.now() + HOLD_MS; video.pause() }
+          }
+          if (holding) {
+            ctx.drawImage(overlays[heldIdx].img, 0, 0, W, H)
+            if (performance.now() >= holdEnd) { holding = false; if (!video.ended) video.play().catch(() => {}) }
+          }
+          setExportProgress(Math.min(1, t / dur))
+          if (video.ended && !holding) { resolve(); return }
+          requestAnimationFrame(draw)
+        }
+        requestAnimationFrame(draw)
+      })
+
+      rec.stop()
+      await stopped
+
+      if (!exportCancelRef.current) {
+        const blob = new Blob(chunks, { type: chunks.length ? (chunks[0] as Blob).type || 'video/webm' : 'video/webm' })
+        const a = document.createElement('a')
+        a.download = 'video-anotado.webm'
+        a.href = URL.createObjectURL(blob)
+        a.click()
+        setTimeout(() => URL.revokeObjectURL(a.href), 4000)
+        setExportMsg('¡Listo! Descargado video-anotado.webm')
+      } else {
+        setExportMsg('Exportación cancelada')
+      }
+    } catch {
+      setExportMsg('Exportación cancelada')
+    } finally {
+      try { video.pause() } catch { /* noop */ }
+      setElements(savedEls)
+      setExporting(false); exportingRef.current = false
+      setExportProgress(0)
+      setTimeout(() => setExportMsg(''), 4000)
+    }
+  }
+
   const deleteMoment = (id: string) => {
     setMoments(prev => prev.filter(m => m.id !== id))
     if (activeMomentId === id) setActiveMomentId(null)
@@ -1202,11 +1334,19 @@ export default function PintadoAcciones() {
             </button>
             <button
               onClick={exportPNG}
-              disabled={!!videoError}
+              disabled={!!videoError || exporting}
               title="Descargar el frame actual + los dibujos como imagen PNG"
               className="px-3 py-1.5 rounded-lg bg-white/15 hover:bg-white/25 disabled:opacity-40 text-white font-bold text-sm transition-colors whitespace-nowrap"
             >
               ⬇ PNG
+            </button>
+            <button
+              onClick={exportVideo}
+              disabled={!!videoError || exporting || moments.filter(m => m.source === 'video').length === 0}
+              title="Generar un vídeo con los dibujos incrustados en cada momento"
+              className="px-3 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-700 disabled:opacity-40 text-white font-bold text-sm transition-colors whitespace-nowrap"
+            >
+              🎬 Exportar vídeo
             </button>
             <button
               onClick={() => {
@@ -1226,6 +1366,11 @@ export default function PintadoAcciones() {
           {videoError && (
             <div className="bg-red-50 border border-red-300 text-red-700 text-xs rounded-lg px-4 py-2 font-semibold">
               ⚠️ {videoError}
+            </div>
+          )}
+          {!exporting && exportMsg && (
+            <div className="bg-purple-50 border border-purple-300 text-purple-700 text-xs rounded-lg px-4 py-2 font-semibold">
+              {exportMsg}
             </div>
           )}
         </div>
@@ -1564,6 +1709,27 @@ export default function PintadoAcciones() {
               </>
             )}
           </svg>
+
+          {/* Overlay de exportación de vídeo */}
+          {exporting && (
+            <div className="absolute inset-0 z-40 flex flex-col items-center justify-center bg-black/80 backdrop-blur-sm">
+              <div className="text-white text-base font-bold mb-1">🎬 Exportando vídeo anotado…</div>
+              <div className="text-white/70 text-xs mb-4">{exportMsg || 'Procesando'}</div>
+              <div className="w-2/3 max-w-sm h-3 rounded-full bg-white/20 overflow-hidden">
+                <div className="h-full bg-purple-500 transition-all" style={{ width: `${Math.round(exportProgress * 100)}%` }} />
+              </div>
+              <div className="text-white/80 text-xs mt-2 tabular-nums">{Math.round(exportProgress * 100)}%</div>
+              <button
+                onClick={() => { exportCancelRef.current = true; exportingRef.current = false }}
+                className="mt-4 px-4 py-1.5 rounded-lg bg-white/15 hover:bg-white/25 text-white text-xs font-bold transition-colors"
+              >
+                Cancelar
+              </button>
+              <p className="text-white/50 text-[10px] mt-3 max-w-xs text-center leading-snug">
+                No cierres la pestaña. La grabación dura aprox. lo que dura el vídeo más unos segundos por cada momento.
+              </p>
+            </div>
+          )}
 
           {/* Animation overlay controls */}
           {animMode && (
