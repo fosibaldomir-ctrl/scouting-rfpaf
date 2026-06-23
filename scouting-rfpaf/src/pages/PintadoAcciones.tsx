@@ -130,8 +130,8 @@ function curvedTip(s: Pt, e: Pt, size = 14): string {
 }
 
 /* Inclinación fija (vista de cámara) de las elipses del conector sobre el césped */
-const CONNECTOR_TILT = 0          // grados de giro (0 = horizontal). Sube p.ej. a 8-12 para ladear.
-const CONNECTOR_FLATTEN = 0.45    // achatamiento vertical (menor = más tumbada en perspectiva)
+const CONNECTOR_TILT = 12         // grados de giro (0 = horizontal). Sube para ladear más.
+const CONNECTOR_FLATTEN = 0.4     // achatamiento vertical (menor = más tumbada en perspectiva)
 
 /* Ease-in-out (aprox. cubic-bezier 0.42 0 0.58 1) para la animación JS */
 function easeInOut(t: number): number {
@@ -627,17 +627,17 @@ export default function PintadoAcciones() {
       if (ce.points.length < 2) return null
       const d = ce.points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ')
       const nr = Math.max(16 * (sizeScale / 100), sw * 1.5)
-      // Transparencia editable en vivo desde el control Transparencia
-      const nodeAlpha = opacity / 100
+      // La transparencia afecta SOLO a la línea; los nodos mantienen su color sólido
+      const lineAlpha = opacity / 100
       return (
         <g key={key} style={selStyle} onPointerDown={onElMouseDown} cursor="move">
           <path d={d} stroke={ce.stroke} strokeWidth={sw} fill="none"
-            strokeLinecap="round" strokeLinejoin="round" opacity={nodeAlpha} />
+            strokeLinecap="round" strokeLinejoin="round" opacity={lineAlpha} />
           {ce.points.map((p, i) => (
             <ellipse key={i} cx={p.x} cy={p.y} rx={nr} ry={nr * CONNECTOR_FLATTEN}
               transform={`rotate(${CONNECTOR_TILT} ${p.x} ${p.y})`}
-              fill={ce.fill} fillOpacity={nodeAlpha}
-              stroke="white" strokeWidth={Math.max(sw * 0.4, 1)} strokeOpacity={nodeAlpha} />
+              fill={ce.fill} fillOpacity={1}
+              stroke="white" strokeWidth={Math.max(sw * 0.4, 1)} strokeOpacity={1} />
           ))}
         </g>
       )
@@ -918,8 +918,8 @@ export default function PintadoAcciones() {
                   return (
                     <ellipse key={i} cx={p.x} cy={p.y} rx={r} ry={r * CONNECTOR_FLATTEN}
                       transform={`rotate(${CONNECTOR_TILT} ${p.x} ${p.y})`}
-                      fill={strokeColor} fillOpacity={opacity / 100}
-                      stroke="white" strokeWidth={1} strokeOpacity={opacity / 100} />
+                      fill={strokeColor} fillOpacity={1}
+                      stroke="white" strokeWidth={1} strokeOpacity={1} />
                   )
                 })}
               </>
