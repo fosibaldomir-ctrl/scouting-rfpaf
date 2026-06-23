@@ -532,11 +532,16 @@ export default function PintadoAcciones() {
           {tip && <path d={tip} fill={ae.stroke} stroke="none" onPointerDown={onElMouseDown} cursor="move" />}
           {showHandle && (
             <>
-              <line x1={ae.start.x} y1={ae.start.y} x2={cpt.x} y2={cpt.y} stroke="#3b82f6" strokeWidth={1} strokeDasharray="3 2" opacity={0.6} />
-              <line x1={ae.end.x} y1={ae.end.y} x2={cpt.x} y2={cpt.y} stroke="#3b82f6" strokeWidth={1} strokeDasharray="3 2" opacity={0.6} />
-              <circle cx={cpt.x} cy={cpt.y} r={8} fill="#3b82f6" stroke="white" strokeWidth={2}
+              <line x1={ae.start.x} y1={ae.start.y} x2={cpt.x} y2={cpt.y} stroke="#3b82f6" strokeWidth={1.5} strokeDasharray="3 2" opacity={0.6} />
+              <line x1={ae.end.x} y1={ae.end.y} x2={cpt.x} y2={cpt.y} stroke="#3b82f6" strokeWidth={1.5} strokeDasharray="3 2" opacity={0.6} />
+              {/* Área de toque amplia (invisible) para el dedo en tablet/móvil */}
+              <circle cx={cpt.x} cy={cpt.y} r={26} fill="transparent" style={{ touchAction: 'none' }}
                 cursor="grab"
                 onPointerDown={(e: RME) => { e.stopPropagation(); setSelectedId(el.id); setCtrlDrag(el.id) }} />
+              {/* Tirador visible */}
+              <circle cx={cpt.x} cy={cpt.y} r={12} fill="#3b82f6" stroke="white" strokeWidth={2.5}
+                pointerEvents="none" />
+              <circle cx={cpt.x} cy={cpt.y} r={4} fill="white" pointerEvents="none" />
             </>
           )}
         </g>
@@ -855,7 +860,7 @@ export default function PintadoAcciones() {
                 const v = +e.target.value
                 if (selectedId) updateSelected({ strokeWidth: v }); else setStrokeWidth(v)
               }}
-              className="w-full accent-rfpaf-red cursor-pointer" />
+              className="w-full lab-range text-rfpaf-red cursor-pointer" />
           </div>
 
           {/* Size — individual del seleccionado o por defecto */}
@@ -869,7 +874,7 @@ export default function PintadoAcciones() {
                 const v = +e.target.value
                 if (selectedId) updateSelected({ sizeScale: v }); else setSizeScale(v)
               }}
-              className="w-full accent-rfpaf-red cursor-pointer" />
+              className="w-full lab-range text-rfpaf-red cursor-pointer" />
           </div>
 
           {/* Opacity — individual del elemento seleccionado, o por defecto para nuevos */}
@@ -883,34 +888,38 @@ export default function PintadoAcciones() {
                 const v = +e.target.value
                 if (selectedId) updateSelected({ opacity: v }); else setOpacity(v)
               }}
-              className="w-full accent-rfpaf-red cursor-pointer" />
+              className="w-full lab-range text-rfpaf-red cursor-pointer" />
           </div>
 
-          {/* Connector ellipse: giro y achatado (perspectiva) — individual si hay conector seleccionado */}
-          <div className="mb-4">
-            <label className="text-xs font-semibold text-gray-600 mb-2 block uppercase tracking-wide">
-              Giro elipse: {selIsConnector ? (selectedEl!.tilt ?? connectorTilt) : connectorTilt}°
-              {selIsConnector && <span className="ml-1 text-rfpaf-blue normal-case">(elem.)</span>}
-            </label>
-            <input type="range" min={-60} max={60} value={selIsConnector ? (selectedEl!.tilt ?? connectorTilt) : connectorTilt}
-              onChange={(e: ChangeEvent<HTMLInputElement>) => {
-                const v = +e.target.value
-                if (selIsConnector) updateSelected({ tilt: v }); else setConnectorTilt(v)
-              }}
-              className="w-full accent-rfpaf-blue cursor-pointer" />
-          </div>
-          <div className="mb-6">
-            <label className="text-xs font-semibold text-gray-600 mb-2 block uppercase tracking-wide">
-              Perspectiva elipse: {selIsConnector ? (selectedEl!.flatten ?? connectorFlatten) : connectorFlatten}%
-              {selIsConnector && <span className="ml-1 text-rfpaf-blue normal-case">(elem.)</span>}
-            </label>
-            <input type="range" min={15} max={100} value={selIsConnector ? (selectedEl!.flatten ?? connectorFlatten) : connectorFlatten}
-              onChange={(e: ChangeEvent<HTMLInputElement>) => {
-                const v = +e.target.value
-                if (selIsConnector) updateSelected({ flatten: v }); else setConnectorFlatten(v)
-              }}
-              className="w-full accent-rfpaf-blue cursor-pointer" />
-          </div>
+          {/* Connector ellipse: giro y achatado (perspectiva) — solo visibles al usar/seleccionar conector */}
+          {(tool === 'connector' || selIsConnector) && (
+            <>
+              <div className="mb-4">
+                <label className="text-xs font-semibold text-gray-600 mb-2 block uppercase tracking-wide">
+                  Giro elipse: {selIsConnector ? (selectedEl!.tilt ?? connectorTilt) : connectorTilt}°
+                  {selIsConnector && <span className="ml-1 text-rfpaf-blue normal-case">(elem.)</span>}
+                </label>
+                <input type="range" min={-60} max={60} value={selIsConnector ? (selectedEl!.tilt ?? connectorTilt) : connectorTilt}
+                  onChange={(e: ChangeEvent<HTMLInputElement>) => {
+                    const v = +e.target.value
+                    if (selIsConnector) updateSelected({ tilt: v }); else setConnectorTilt(v)
+                  }}
+                  className="w-full lab-range text-rfpaf-blue cursor-pointer" />
+              </div>
+              <div className="mb-6">
+                <label className="text-xs font-semibold text-gray-600 mb-2 block uppercase tracking-wide">
+                  Perspectiva elipse: {selIsConnector ? (selectedEl!.flatten ?? connectorFlatten) : connectorFlatten}%
+                  {selIsConnector && <span className="ml-1 text-rfpaf-blue normal-case">(elem.)</span>}
+                </label>
+                <input type="range" min={15} max={100} value={selIsConnector ? (selectedEl!.flatten ?? connectorFlatten) : connectorFlatten}
+                  onChange={(e: ChangeEvent<HTMLInputElement>) => {
+                    const v = +e.target.value
+                    if (selIsConnector) updateSelected({ flatten: v }); else setConnectorFlatten(v)
+                  }}
+                  className="w-full lab-range text-rfpaf-blue cursor-pointer" />
+              </div>
+            </>
+          )}
 
           <hr className="my-4" />
 
@@ -1029,7 +1038,7 @@ export default function PintadoAcciones() {
                   type="range" min="0.5" max="5" step="0.5"
                   value={animDuration}
                   onChange={e => setAnimDuration(+e.target.value)}
-                  className="w-20 accent-green-400 cursor-pointer"
+                  className="w-24 lab-range text-green-400 cursor-pointer"
                 />
                 <span className="opacity-80 w-8">{animDuration}s</span>
               </div>
@@ -1149,18 +1158,23 @@ export default function PintadoAcciones() {
               >
                 {(selIsArrow ? (selectedEl as ArrowEl).dashed : arrowDashed) ? '┄ Discontinua: SÍ' : '── Discontinua: NO'}
               </button>
-              {/* Curvatura: solo relevante para la flecha curva */}
-              <div className="mt-2">
-                <label className="text-[10px] font-semibold text-gray-500 mb-1 block uppercase tracking-wide">
-                  Curvatura: {selIsCurvedArrow ? ((selectedEl as ArrowEl).curve ?? curveAmount) : curveAmount}
-                </label>
-                <input type="range" min={-100} max={100} value={selIsCurvedArrow ? ((selectedEl as ArrowEl).curve ?? curveAmount) : curveAmount}
-                  onChange={(e: ChangeEvent<HTMLInputElement>) => {
-                    const v = +e.target.value
-                    if (selIsCurvedArrow) updateSelected({ curve: v, ctrl: undefined }); else setCurveAmount(v)
-                  }}
-                  className="w-full accent-rfpaf-blue cursor-pointer" />
-              </div>
+              {/* Curvatura: solo visible al usar/seleccionar la flecha curva */}
+              {(tool === 'arrow-curved' || selIsCurvedArrow) && (
+                <div className="mt-2">
+                  <label className="text-[10px] font-semibold text-gray-500 mb-1 block uppercase tracking-wide">
+                    Curvatura: {selIsCurvedArrow ? ((selectedEl as ArrowEl).curve ?? curveAmount) : curveAmount}
+                  </label>
+                  <input type="range" min={-100} max={100} value={selIsCurvedArrow ? ((selectedEl as ArrowEl).curve ?? curveAmount) : curveAmount}
+                    onChange={(e: ChangeEvent<HTMLInputElement>) => {
+                      const v = +e.target.value
+                      if (selIsCurvedArrow) updateSelected({ curve: v, ctrl: undefined }); else setCurveAmount(v)
+                    }}
+                    className="w-full lab-range text-rfpaf-blue cursor-pointer" />
+                  {selIsCurvedArrow && (
+                    <p className="text-[9px] text-gray-400 mt-1 leading-tight">Arrastra el punto azul en el lienzo para curvar en cualquier dirección</p>
+                  )}
+                </div>
+              )}
             </div>
 
             <div>
