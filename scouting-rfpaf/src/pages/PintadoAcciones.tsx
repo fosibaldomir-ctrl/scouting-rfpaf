@@ -625,17 +625,17 @@ export default function PintadoAcciones() {
       if (ce.points.length < 2) return null
       const d = ce.points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ')
       const nr = Math.max(16 * (sizeScale / 100), sw * 1.5)
-      // La transparencia afecta SOLO a la línea; los nodos mantienen su color sólido
-      const lineAlpha = opacity / 100
+      // La transparencia afecta SOLO a las elipses; la línea queda sólida
+      const ellipseAlpha = opacity / 100
       return (
         <g key={key} style={selStyle} onPointerDown={onElMouseDown} cursor="move">
           <path d={d} stroke={ce.stroke} strokeWidth={sw} fill="none"
-            strokeLinecap="round" strokeLinejoin="round" opacity={lineAlpha} />
+            strokeLinecap="round" strokeLinejoin="round" opacity={1} />
           {ce.points.map((p, i) => (
             <ellipse key={i} cx={p.x} cy={p.y} rx={nr} ry={nr * (connectorFlatten / 100)}
               transform={`rotate(${connectorTilt} ${p.x} ${p.y})`}
-              fill={ce.fill} fillOpacity={1}
-              stroke="white" strokeWidth={Math.max(sw * 0.4, 1)} strokeOpacity={1} />
+              fill={ce.fill} fillOpacity={ellipseAlpha}
+              stroke="white" strokeWidth={Math.max(sw * 0.4, 1)} strokeOpacity={ellipseAlpha} />
           ))}
         </g>
       )
@@ -930,8 +930,8 @@ export default function PintadoAcciones() {
                   return (
                     <ellipse key={i} cx={p.x} cy={p.y} rx={r} ry={r * (connectorFlatten / 100)}
                       transform={`rotate(${connectorTilt} ${p.x} ${p.y})`}
-                      fill={strokeColor} fillOpacity={1}
-                      stroke="white" strokeWidth={1} strokeOpacity={1} />
+                      fill={strokeColor} fillOpacity={opacity / 100}
+                      stroke="white" strokeWidth={1} strokeOpacity={opacity / 100} />
                   )
                 })}
               </>
