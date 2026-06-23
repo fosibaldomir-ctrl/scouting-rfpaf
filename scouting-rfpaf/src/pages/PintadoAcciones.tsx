@@ -30,7 +30,7 @@ type ToolType =
   | 'arrow-straight' | 'arrow-curved' | 'arrow-wave'
   | 'text' | 'label'
   | 'rect' | 'circle' | 'zone'
-  | 'connector' | 'focus' | 'triangle' | 'cylinder'
+  | 'connector' | 'focus' | 'triangle' | 'cylinder' | 'cone'
   | 'dorsal'
 
 interface Pt { x: number; y: number }
@@ -55,7 +55,7 @@ interface TextEl extends BaseEl {
 }
 
 interface ShapeEl extends BaseEl {
-  tool: 'rect' | 'circle' | 'focus' | 'triangle' | 'cylinder'
+  tool: 'rect' | 'circle' | 'focus' | 'triangle' | 'cylinder' | 'cone'
   x: number; y: number; w: number; h: number
 }
 
@@ -241,7 +241,7 @@ export default function PintadoAcciones() {
           const te = orig as TextEl
           return { ...te, pos: { x: te.pos.x + dx, y: te.pos.y + dy } }
         }
-        if (orig.tool === 'rect' || orig.tool === 'circle' || orig.tool === 'focus' || orig.tool === 'triangle' || orig.tool === 'cylinder') {
+        if (orig.tool === 'rect' || orig.tool === 'circle' || orig.tool === 'focus' || orig.tool === 'triangle' || orig.tool === 'cylinder' || orig.tool === 'cone') {
           const se = orig as ShapeEl
           return { ...se, x: se.x + dx, y: se.y + dy }
         }
@@ -276,7 +276,7 @@ export default function PintadoAcciones() {
         fill: tool === 'focus' ? 'rgba(0,0,0,0.55)' : fillColor,
         strokeWidth, opacity,
       })
-    } else if (tool === 'circle' || tool === 'triangle' || tool === 'cylinder') {
+    } else if (tool === 'circle' || tool === 'triangle' || tool === 'cylinder' || tool === 'cone') {
       setCurrentEl({
         id: 'preview', tool,
         x: Math.min(drawStart.x, pt.x), y: Math.min(drawStart.y, pt.y),
@@ -320,7 +320,7 @@ export default function PintadoAcciones() {
     } else if (el.tool === 'text' || el.tool === 'label') {
       const te = el as TextEl
       newEl = { ...te, id: uuidv4(), pos: { x: te.pos.x + offset, y: te.pos.y + offset } }
-    } else if (el.tool === 'rect' || el.tool === 'circle' || el.tool === 'focus' || el.tool === 'triangle' || el.tool === 'cylinder') {
+    } else if (el.tool === 'rect' || el.tool === 'circle' || el.tool === 'focus' || el.tool === 'triangle' || el.tool === 'cylinder' || el.tool === 'cone') {
       const se = el as ShapeEl
       newEl = { ...se, id: uuidv4(), x: se.x + offset, y: se.y + offset }
     } else if (el.tool === 'zone') {
@@ -494,6 +494,22 @@ export default function PintadoAcciones() {
       const topCy = se.y + ryE
       const botCy = se.y + se.h - ryE
       const bodyPath = `M ${se.x},${topCy} L ${se.x},${botCy} A ${rx},${ryE} 0 0 0 ${se.x + se.w},${botCy} L ${se.x + se.w},${topCy}`
+      return (
+        <g key={key} opacity={alpha} style={selStyle} onPointerDown={onElMouseDown} cursor="move">
+          <path d={bodyPath} stroke={se.stroke} strokeWidth={sw} fill={se.fill} fillOpacity={0.35} />
+          <ellipse cx={cx} cy={botCy} rx={rx} ry={ryE}
+            stroke={se.stroke} strokeWidth={sw} fill={se.fill} fillOpacity={0.55} />
+        </g>
+      )
+    }
+
+    if (el.tool === 'cone') {
+      const se = el as ShapeEl
+      const cx = se.x + se.w / 2
+      const rx = Math.max(Math.abs(se.w / 2), 1)
+      const ryE = Math.max(Math.abs(se.w) * 0.22, 4)
+      const botCy = se.y + se.h - ryE
+      const bodyPath = `M ${cx},${se.y} L ${se.x},${botCy} A ${rx},${ryE} 0 0 0 ${se.x + se.w},${botCy} L ${cx},${se.y}`
       return (
         <g key={key} opacity={alpha} style={selStyle} onPointerDown={onElMouseDown} cursor="move">
           <path d={bodyPath} stroke={se.stroke} strokeWidth={sw} fill={se.fill} fillOpacity={0.35} />
@@ -953,6 +969,9 @@ export default function PintadoAcciones() {
                 <ToolBtn title="Cilindro" active={tool === 'cylinder'} onClick={() => chooseTool('cylinder')}>
                   <IcoCylinder />
                 </ToolBtn>
+                <ToolBtn title="Cono" active={tool === 'cone'} onClick={() => chooseTool('cone')}>
+                  <IcoCone />
+                </ToolBtn>
               </div>
             </div>
           </div>
@@ -1072,6 +1091,15 @@ function IcoCylinder() {
       <path d="M2,5 L2,13 A7,3 0 0 0 16,13 L16,5" fill="currentColor" fillOpacity="0.15" />
       <ellipse cx="9" cy="13" rx="7" ry="3" fill="currentColor" fillOpacity="0.25" />
       <ellipse cx="9" cy="5" rx="7" ry="3" fill="currentColor" fillOpacity="0.5" />
+    </svg>
+  )
+}
+
+function IcoCone() {
+  return (
+    <svg viewBox="0 0 18 18" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.4">
+      <path d="M9,2 L2,13 A7,3 0 0 0 16,13 L9,2" fill="currentColor" fillOpacity="0.2" />
+      <ellipse cx="9" cy="13" rx="7" ry="3" fill="currentColor" fillOpacity="0.45" />
     </svg>
   )
 }
