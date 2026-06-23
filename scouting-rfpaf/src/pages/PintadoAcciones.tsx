@@ -176,13 +176,18 @@ export default function PintadoAcciones() {
   const [bgImage, setBgImage] = useState<string | null>(null)
   const [ytUrl, setYtUrl] = useState('')
   const [ytEmbedUrl, setYtEmbedUrl] = useState<string | null>(null)
+  const [videoUrl, setVideoUrl] = useState<string | null>(null)
+  const [videoFrameCanvas, setVideoFrameCanvas] = useState<string | null>(null)
+  const [isVideoPlaying, setIsVideoPlaying] = useState(false)
 
   const [mobilePanel, setMobilePanel] = useState<'estilos' | 'lienzo' | 'herramientas'>('lienzo')
 
   const svgRef = useRef<SVGSVGElement>(null)
+  const videoRef = useRef<HTMLVideoElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const fillInputRef = useRef<HTMLInputElement>(null)
   const strokeInputRef = useRef<HTMLInputElement>(null)
+  const videoInputRef = useRef<HTMLInputElement>(null)
 
   const getSvgPt = useCallback((e: RME): Pt => {
     const svg = svgRef.current
@@ -463,6 +468,50 @@ export default function PintadoAcciones() {
       setBgImage(null)
     }
   }
+
+  const handleVideoUpload = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const url = URL.createObjectURL(file)
+    setVideoUrl(url)
+    setYtEmbedUrl(null)
+    setBgImage(null)
+    e.target.value = ''
+  }
+
+  const captureVideoFrame = () => {
+    if (!videoRef.current) return
+    const canvas = document.createElement('canvas')
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+    canvas.width = videoRef.current.videoWidth
+    canvas.height = videoRef.current.videoHeight
+    ctx.drawImage(videoRef.current, 0, 0)
+    setVideoFrameCanvas(canvas.toDataURL('image/png'))
+  }
+
+  // Capturar fotograma cuando se pausa
+  useEffect(() => {
+    const video = videoRef.current
+    if (!video) return
+    const handlePause = () => captureVideoFrame()
+    video.addEventListener('pause', handlePause)
+    return () => video.removeEventListener('pause', handlePause)
+  }, [])
+
+  // Sincronizar estado de reproducción
+  useEffect(() => {
+    const video = videoRef.current
+    if (!video) return
+    const handlePlay = () => setIsVideoPlaying(true)
+    const handlePause = () => setIsVideoPlaying(false)
+    video.addEventListener('play', handlePlay)
+    video.addEventListener('pause', handlePause)
+    return () => {
+      video.removeEventListener('play', handlePlay)
+      video.removeEventListener('pause', handlePause)
+    }
+  }, [])
 
   function renderEl(el: DrawEl, key: string) {
     const isSelected = el.id === selectedId
@@ -788,6 +837,14 @@ export default function PintadoAcciones() {
         {/* Top bar */}
         <div className="flex items-center gap-3 bg-white rounded-xl shadow-sm p-4 flex-shrink-0 flex-wrap">
           <span className="text-gray-600 text-sm font-semibold whitespace-nowrap">Fondo:</span>
+          <button
+            onClick={() => videoInputRef.current?.click()}
+            className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-bold rounded-lg whitespace-nowrap transition-colors flex items-center gap-2"
+          >
+            <Play className="w-4 h-4" />
+            Cargar vídeo
+          </button>
+          <input ref={videoInputRef} type="file" accept="video/*" onChange={handleVideoUpload} className="sr-only" />
           <input
             type="text"
             placeholder="Pega URL de YouTube"
@@ -801,14 +858,14 @@ export default function PintadoAcciones() {
             className="px-4 py-2 bg-rfpaf-blue hover:bg-blue-700 text-white text-sm font-bold rounded-lg whitespace-nowrap transition-colors flex items-center gap-2"
           >
             <Play className="w-4 h-4" />
-            Cargar video
+            YouTube
           </button>
           <button
             onClick={() => fileInputRef.current?.click()}
             className="px-4 py-2 bg-rfpaf-red hover:bg-red-700 text-white text-sm font-bold rounded-lg whitespace-nowrap transition-colors flex items-center gap-2"
           >
             <Upload className="w-4 h-4" />
-            Subir imagen
+            Imagen
           </button>
           <input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageUpload} className="sr-only" />
         </div>
@@ -959,16 +1016,32 @@ export default function PintadoAcciones() {
         </aside>
 
         {/* Center Canvas */}
-        <div className={`${mobilePanel === 'lienzo' ? 'flex' : 'hidden'} lg:flex flex-1 bg-white rounded-xl shadow-sm overflow-hidden min-w-0 max-h-[calc(100vh-280px)] lg:max-h-none relative`} style={{ cursor }}>
+        <div className={`${mobilePanel === 'lienzo' ? 'flex' : 'hidden'} lg:flex flex-1 bg-white rounded-xl shadow-sm overflow-hidden min-w-0 max-h-[calc(100vh-280px)] lg:max-h-none relative flex-col`} style={{ cursor }}>
+          {/* Fondo: fotograma de vídeo capturado */}
+          {videoFrameCanvas && (
+            <img
+              src={videoFrameCanvas} alt="video-frame"
+              className="absolute inset-0 w-full h-full object-contain pointer-events-none z-0"
+            />
+          )}
+          {/* Fondo: vídeo HTML5 (solo mientras se reproduce) */}
+          {videoUrl && !videoFrameCanvas && (
+            <video
+              ref={videoRef}
+              src={videoUrl}
+              className="absolute inset-0 w-full h-full object-contain pointer-events-none z-0"
+              controls={false}
+            />
+          )}
           {/* Fondo: imagen estática */}
-          {bgImage && (
+          {bgImage && !videoUrl && (
             <img
               src={bgImage} alt="fondo"
               className="absolute inset-0 w-full h-full object-contain pointer-events-none z-0"
             />
           )}
           {/* Fondo: iframe YouTube */}
-          {ytEmbedUrl && (
+          {ytEmbedUrl && !videoUrl && (
             <iframe
               src={ytEmbedUrl}
               className="absolute inset-0 w-full h-full border-0 z-0"
@@ -977,7 +1050,7 @@ export default function PintadoAcciones() {
             />
           )}
           {/* Estado vacío */}
-          {!bgImage && !ytEmbedUrl && (
+          {!bgImage && !ytEmbedUrl && !videoUrl && (
             <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-300 z-0 pointer-events-none">
               <svg viewBox="0 0 64 64" width="80" height="80" fill="none" stroke="currentColor" strokeWidth="1.5">
                 <circle cx="32" cy="32" r="28" />
@@ -985,6 +1058,43 @@ export default function PintadoAcciones() {
                 <path d="M20 20 Q32 14 44 20 Q50 32 44 44 Q32 50 20 44 Q14 32 20 20 Z" />
               </svg>
               <p className="text-sm mt-4">Carga un video o imagen para empezar</p>
+            </div>
+          )}
+
+          {/* Controles del vídeo */}
+          {videoUrl && (
+            <div className="absolute top-0 left-0 right-0 bottom-0 pointer-events-none z-20 flex flex-col justify-end pb-0">
+              <div className="bg-gradient-to-t from-black/60 to-transparent p-4 pointer-events-auto">
+                <div className="flex items-center gap-3 text-white text-xs">
+                  <button
+                    onClick={() => videoRef.current && (isVideoPlaying ? videoRef.current.pause() : videoRef.current.play())}
+                    className="px-3 py-1 rounded bg-rfpaf-blue hover:bg-blue-700 font-bold transition-colors"
+                  >
+                    {isVideoPlaying ? '⏸ Pausar' : '▶ Reproducir'}
+                  </button>
+                  <input
+                    type="range"
+                    min="0"
+                    max={videoRef.current?.duration || 0}
+                    value={videoRef.current?.currentTime || 0}
+                    onChange={e => {
+                      if (videoRef.current) videoRef.current.currentTime = parseFloat(e.target.value)
+                    }}
+                    className="flex-1 lab-range text-rfpaf-blue cursor-pointer"
+                  />
+                  <span>{videoRef.current?.currentTime.toFixed(1) || '0.0'}s</span>
+                  <button
+                    onClick={() => {
+                      if (videoRef.current) videoRef.current.pause()
+                      setVideoFrameCanvas(null)
+                      setVideoUrl(null)
+                    }}
+                    className="px-3 py-1 rounded bg-rfpaf-red hover:bg-red-700 font-bold transition-colors"
+                  >
+                    ✕ Cerrar
+                  </button>
+                </div>
+              </div>
             </div>
           )}
 
