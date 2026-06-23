@@ -52,6 +52,7 @@ interface ArrowEl extends BaseEl {
   start: Pt; end: Pt
   dashed?: boolean   // trazo discontinuo
   curve?: number     // curvatura (curva): + un lado, − el otro
+  ctrl?: Pt          // punto de control libre (curva en cualquier plano)
 }
 
 interface TextEl extends BaseEl {
@@ -85,13 +86,16 @@ function linePath(s: Pt, e: Pt) {
   return `M ${s.x} ${s.y} L ${e.x} ${e.y}`
 }
 
-function curvedPath(s: Pt, e: Pt, k = 0.28) {
+// Punto de control por defecto (perpendicular a la línea) a partir del escalar k
+function curveCtrl(s: Pt, e: Pt, k = 0.28): Pt {
   const mx = (s.x + e.x) / 2, my = (s.y + e.y) / 2
   const dx = e.x - s.x, dy = e.y - s.y
   const len = Math.sqrt(dx * dx + dy * dy) || 1
-  const cx = mx - (dy / len) * len * k
-  const cy = my + (dx / len) * len * k
-  return `M ${s.x} ${s.y} Q ${cx} ${cy} ${e.x} ${e.y}`
+  return { x: mx - (dy / len) * len * k, y: my + (dx / len) * len * k }
+}
+
+function curvedPath(s: Pt, e: Pt, c: Pt) {
+  return `M ${s.x} ${s.y} Q ${c.x} ${c.y} ${e.x} ${e.y}`
 }
 
 function wavePath(s: Pt, e: Pt) {
@@ -122,13 +126,8 @@ function arrowTip(from: Pt, to: Pt, size = 14): string {
   return `M ${to.x} ${to.y} L ${ax1} ${ay1} L ${ax2} ${ay2} Z`
 }
 
-function curvedTip(s: Pt, e: Pt, size = 14, k = 0.28): string {
-  const mx = (s.x + e.x) / 2, my = (s.y + e.y) / 2
-  const dx = e.x - s.x, dy = e.y - s.y
-  const len = Math.sqrt(dx * dx + dy * dy) || 1
-  const cx = mx - (dy / len) * len * k
-  const cy = my + (dx / len) * len * k
-  const tdx = e.x - cx, tdy = e.y - cy
+function curvedTip(e: Pt, c: Pt, size = 14): string {
+  const tdx = e.x - c.x, tdy = e.y - c.y
   const tlen = Math.sqrt(tdx * tdx + tdy * tdy) || 1
   const pseudo = { x: e.x - (tdx / tlen), y: e.y - (tdy / tlen) }
   return arrowTip(pseudo, e, size)
@@ -161,6 +160,7 @@ export default function PintadoAcciones() {
   const [drawStart, setDrawStart] = useState<Pt | null>(null)
   const [currentEl, setCurrentEl] = useState<DrawEl | null>(null)
   const [zonePoints, setZonePoints] = useState<Pt[]>([])
+  const [ctrlDrag, setCtrlDrag] = useState<string | null>(null)  // id de flecha cuyo tirador se arrastra
 
   const [animMode, setAnimMode] = useState(false)
   const [animKey, setAnimKey] = useState(0)
@@ -240,6 +240,11 @@ export default function PintadoAcciones() {
   }, [tool, pendingDorsal, isDrawing, getSvgPt, strokeColor, fillColor, strokeWidth, opacity])
 
   const handleMouseMove = useCallback((e: RME) => {
+    if (ctrlDrag) {
+      const pt = getSvgPt(e)
+      setElements(prev => prev.map(el => el.id === ctrlDrag ? { ...el, ctrl: pt } as DrawEl : el))
+      return
+    }
     if (dragState && tool === 'select') {
       const pt = getSvgPt(e)
       const dx = pt.x - dragState.startPt.x
@@ -249,7 +254,12 @@ export default function PintadoAcciones() {
         if (el.id !== dragState.elId) return el
         if (orig.tool === 'arrow-straight' || orig.tool === 'arrow-curved' || orig.tool === 'arrow-wave') {
           const ae = orig as ArrowEl
-          return { ...ae, start: { x: ae.start.x + dx, y: ae.start.y + dy }, end: { x: ae.end.x + dx, y: ae.end.y + dy } }
+          return {
+            ...ae,
+            start: { x: ae.start.x + dx, y: ae.start.y + dy },
+            end: { x: ae.end.x + dx, y: ae.end.y + dy },
+            ctrl: ae.ctrl ? { x: ae.ctrl.x + dx, y: ae.ctrl.y + dy } : undefined,
+          }
         }
         if (orig.tool === 'connector') {
           const ce = orig as ConnectorEl
@@ -302,9 +312,10 @@ export default function PintadoAcciones() {
         stroke: strokeColor, fill: fillColor, strokeWidth, opacity,
       })
     }
-  }, [isDrawing, drawStart, tool, dragState, getSvgPt, strokeColor, fillColor, strokeWidth, opacity])
+  }, [isDrawing, drawStart, tool, dragState, ctrlDrag, getSvgPt, strokeColor, fillColor, strokeWidth, opacity])
 
   const handleMouseUp = useCallback(() => {
+    if (ctrlDrag) { setCtrlDrag(null); return }
     if (dragState) { setDragState(null); return }
     // Zona y conector son multiclick: NO reiniciar isDrawing al soltar,
     // o cada nuevo click empezaría de cero en vez de añadir un nodo más.
@@ -316,7 +327,7 @@ export default function PintadoAcciones() {
     }
     setIsDrawing(false)
     setDrawStart(null)
-  }, [isDrawing, currentEl, dragState, tool])
+  }, [isDrawing, currentEl, dragState, ctrlDrag, tool, sizeScale])
 
   const handleDblClick = useCallback(() => {
     if (tool === 'zone' && zonePoints.length >= 3) {
@@ -471,10 +482,11 @@ export default function PintadoAcciones() {
     if (el.tool === 'arrow-straight' || el.tool === 'arrow-curved' || el.tool === 'arrow-wave') {
       const ae = el as ArrowEl
       const k = (ae.curve ?? 28) / 100
-      const path = el.tool === 'arrow-curved' ? curvedPath(ae.start, ae.end, k)
+      const cpt = ae.ctrl ?? curveCtrl(ae.start, ae.end, k)   // punto de control (libre o calculado)
+      const path = el.tool === 'arrow-curved' ? curvedPath(ae.start, ae.end, cpt)
         : el.tool === 'arrow-wave' ? wavePath(ae.start, ae.end)
         : linePath(ae.start, ae.end)
-      const tip = el.tool === 'arrow-curved' ? curvedTip(ae.start, ae.end, 14, k)
+      const tip = el.tool === 'arrow-curved' ? curvedTip(ae.end, cpt)
         : arrowTip(ae.start, ae.end)
 
       if (animMode) {
@@ -510,12 +522,23 @@ export default function PintadoAcciones() {
       }
 
       const dashArray = ae.dashed ? `${sw * 4} ${sw * 2.5}` : undefined
+      const showHandle = isSelected && el.tool === 'arrow-curved' && tool === 'select'
       return (
-        <g key={key} opacity={alpha} style={selStyle} onPointerDown={onElMouseDown} cursor="move">
-          <path d={path} stroke={ae.stroke} strokeWidth={sw * 3} fill="none" opacity={0} />
+        <g key={key} opacity={alpha} style={selStyle}>
+          <path d={path} stroke={ae.stroke} strokeWidth={sw * 3} fill="none" opacity={0}
+            onPointerDown={onElMouseDown} cursor="move" />
           <path d={path} stroke={ae.stroke} strokeWidth={sw} fill="none" strokeLinecap="round"
-            strokeDasharray={dashArray} />
-          {tip && <path d={tip} fill={ae.stroke} stroke="none" />}
+            strokeDasharray={dashArray} onPointerDown={onElMouseDown} cursor="move" />
+          {tip && <path d={tip} fill={ae.stroke} stroke="none" onPointerDown={onElMouseDown} cursor="move" />}
+          {showHandle && (
+            <>
+              <line x1={ae.start.x} y1={ae.start.y} x2={cpt.x} y2={cpt.y} stroke="#3b82f6" strokeWidth={1} strokeDasharray="3 2" opacity={0.6} />
+              <line x1={ae.end.x} y1={ae.end.y} x2={cpt.x} y2={cpt.y} stroke="#3b82f6" strokeWidth={1} strokeDasharray="3 2" opacity={0.6} />
+              <circle cx={cpt.x} cy={cpt.y} r={8} fill="#3b82f6" stroke="white" strokeWidth={2}
+                cursor="grab"
+                onPointerDown={(e: RME) => { e.stopPropagation(); setSelectedId(el.id); setCtrlDrag(el.id) }} />
+            </>
+          )}
         </g>
       )
     }
@@ -1134,7 +1157,7 @@ export default function PintadoAcciones() {
                 <input type="range" min={-100} max={100} value={selIsCurvedArrow ? ((selectedEl as ArrowEl).curve ?? curveAmount) : curveAmount}
                   onChange={(e: ChangeEvent<HTMLInputElement>) => {
                     const v = +e.target.value
-                    if (selIsCurvedArrow) updateSelected({ curve: v }); else setCurveAmount(v)
+                    if (selIsCurvedArrow) updateSelected({ curve: v, ctrl: undefined }); else setCurveAmount(v)
                   }}
                   className="w-full accent-rfpaf-blue cursor-pointer" />
               </div>
