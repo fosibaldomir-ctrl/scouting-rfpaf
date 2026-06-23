@@ -29,7 +29,7 @@ type ToolType =
   | 'select'
   | 'arrow-straight' | 'arrow-curved' | 'arrow-wave'
   | 'text' | 'label'
-  | 'rect' | 'circle' | 'zone'
+  | 'rect' | 'circle' | 'circle-dashed' | 'circle-dotdash' | 'zone'
   | 'connector' | 'focus' | 'triangle' | 'cylinder' | 'cone'
   | 'dorsal'
 
@@ -55,7 +55,7 @@ interface TextEl extends BaseEl {
 }
 
 interface ShapeEl extends BaseEl {
-  tool: 'rect' | 'circle' | 'focus' | 'triangle' | 'cylinder' | 'cone'
+  tool: 'rect' | 'circle' | 'circle-dashed' | 'circle-dotdash' | 'focus' | 'triangle' | 'cylinder' | 'cone'
   x: number; y: number; w: number; h: number
 }
 
@@ -241,7 +241,7 @@ export default function PintadoAcciones() {
           const te = orig as TextEl
           return { ...te, pos: { x: te.pos.x + dx, y: te.pos.y + dy } }
         }
-        if (orig.tool === 'rect' || orig.tool === 'circle' || orig.tool === 'focus' || orig.tool === 'triangle' || orig.tool === 'cylinder' || orig.tool === 'cone') {
+        if (orig.tool === 'rect' || orig.tool === 'circle' || orig.tool === 'circle-dashed' || orig.tool === 'circle-dotdash' || orig.tool === 'focus' || orig.tool === 'triangle' || orig.tool === 'cylinder' || orig.tool === 'cone') {
           const se = orig as ShapeEl
           return { ...se, x: se.x + dx, y: se.y + dy }
         }
@@ -275,7 +275,7 @@ export default function PintadoAcciones() {
         stroke: strokeColor, fill: fillColor,
         strokeWidth, opacity,
       })
-    } else if (tool === 'circle' || tool === 'triangle' || tool === 'cylinder' || tool === 'cone') {
+    } else if (tool === 'circle' || tool === 'circle-dashed' || tool === 'circle-dotdash' || tool === 'triangle' || tool === 'cylinder' || tool === 'cone') {
       setCurrentEl({
         id: 'preview', tool,
         x: Math.min(drawStart.x, pt.x), y: Math.min(drawStart.y, pt.y),
@@ -319,7 +319,7 @@ export default function PintadoAcciones() {
     } else if (el.tool === 'text' || el.tool === 'label') {
       const te = el as TextEl
       newEl = { ...te, id: uuidv4(), pos: { x: te.pos.x + offset, y: te.pos.y + offset } }
-    } else if (el.tool === 'rect' || el.tool === 'circle' || el.tool === 'focus' || el.tool === 'triangle' || el.tool === 'cylinder' || el.tool === 'cone') {
+    } else if (el.tool === 'rect' || el.tool === 'circle' || el.tool === 'circle-dashed' || el.tool === 'circle-dotdash' || el.tool === 'focus' || el.tool === 'triangle' || el.tool === 'cylinder' || el.tool === 'cone') {
       const se = el as ShapeEl
       newEl = { ...se, id: uuidv4(), x: se.x + offset, y: se.y + offset }
     } else if (el.tool === 'zone') {
@@ -461,6 +461,29 @@ export default function PintadoAcciones() {
         <ellipse key={key} cx={se.x + se.w / 2} cy={se.y + se.h / 2}
           rx={Math.abs(se.w / 2)} ry={Math.abs(se.h / 2)}
           stroke={se.stroke} strokeWidth={sw} fill={se.fill} fillOpacity={0.25}
+          opacity={alpha} style={selStyle} onPointerDown={onElMouseDown} cursor="move" />
+      )
+    }
+
+    if (el.tool === 'circle-dashed') {
+      const se = el as ShapeEl
+      return (
+        <ellipse key={key} cx={se.x + se.w / 2} cy={se.y + se.h / 2}
+          rx={Math.abs(se.w / 2)} ry={Math.abs(se.h / 2)}
+          stroke={se.stroke} strokeWidth={sw} strokeDasharray={`${sw * 3} ${sw * 2}`}
+          fill={se.fill} fillOpacity={0.15}
+          opacity={alpha} style={selStyle} onPointerDown={onElMouseDown} cursor="move" />
+      )
+    }
+
+    if (el.tool === 'circle-dotdash') {
+      const se = el as ShapeEl
+      return (
+        <ellipse key={key} cx={se.x + se.w / 2} cy={se.y + se.h / 2}
+          rx={Math.abs(se.w / 2)} ry={Math.abs(se.h / 2)}
+          stroke={se.stroke} strokeWidth={sw} strokeDasharray={`${sw * 5} ${sw * 2} ${sw * 0.5} ${sw * 2}`}
+          strokeLinecap="round"
+          fill={se.fill} fillOpacity={0.15}
           opacity={alpha} style={selStyle} onPointerDown={onElMouseDown} cursor="move" />
       )
     }
@@ -954,6 +977,12 @@ export default function PintadoAcciones() {
                 <ToolBtn title="Círculo" active={tool === 'circle'} onClick={() => chooseTool('circle')}>
                   <IcoCircle />
                 </ToolBtn>
+                <ToolBtn title="Elipse discontinua" active={tool === 'circle-dashed'} onClick={() => chooseTool('circle-dashed')}>
+                  <IcoCircleDashed />
+                </ToolBtn>
+                <ToolBtn title="Elipse punto-línea" active={tool === 'circle-dotdash'} onClick={() => chooseTool('circle-dotdash')}>
+                  <IcoCircleDotDash />
+                </ToolBtn>
                 <ToolBtn title="Triángulo" active={tool === 'triangle'} onClick={() => chooseTool('triangle')}>
                   <IcoTriangle />
                 </ToolBtn>
@@ -1050,6 +1079,22 @@ function IcoCircle() {
   return (
     <svg viewBox="0 0 18 18" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.4">
       <ellipse cx="9" cy="9" rx="7" ry="5" />
+    </svg>
+  )
+}
+
+function IcoCircleDashed() {
+  return (
+    <svg viewBox="0 0 18 18" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.4">
+      <ellipse cx="9" cy="9" rx="7" ry="5" strokeDasharray="3.5 2.5" />
+    </svg>
+  )
+}
+
+function IcoCircleDotDash() {
+  return (
+    <svg viewBox="0 0 18 18" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.4">
+      <ellipse cx="9" cy="9" rx="7" ry="5" strokeDasharray="5 2 0.5 2" strokeLinecap="round" />
     </svg>
   )
 }
