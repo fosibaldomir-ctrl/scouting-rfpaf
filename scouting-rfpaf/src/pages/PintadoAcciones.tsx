@@ -27,7 +27,7 @@ function JerseyIcon({ fill, number, size = 44 }: { fill: string; number: number;
 
 type ToolType =
   | 'select'
-  | 'arrow-straight' | 'arrow-curved' | 'arrow-wave'
+  | 'arrow-straight' | 'arrow-curved' | 'arrow-wave' | 'arrow-dashed'
   | 'text' | 'label'
   | 'rect' | 'circle' | 'circle-dashed' | 'circle-dotdash' | 'zone'
   | 'connector' | 'focus' | 'triangle' | 'cylinder' | 'cone'
@@ -45,7 +45,7 @@ interface BaseEl {
 }
 
 interface ArrowEl extends BaseEl {
-  tool: 'arrow-straight' | 'arrow-curved' | 'arrow-wave' | 'connector'
+  tool: 'arrow-straight' | 'arrow-curved' | 'arrow-wave' | 'arrow-dashed' | 'connector'
   start: Pt; end: Pt
 }
 
@@ -233,7 +233,7 @@ export default function PintadoAcciones() {
       const orig = dragState.orig
       setElements(prev => prev.map(el => {
         if (el.id !== dragState.elId) return el
-        if (orig.tool === 'arrow-straight' || orig.tool === 'arrow-curved' || orig.tool === 'arrow-wave' || orig.tool === 'connector') {
+        if (orig.tool === 'arrow-straight' || orig.tool === 'arrow-curved' || orig.tool === 'arrow-wave' || orig.tool === 'arrow-dashed' || orig.tool === 'connector') {
           const ae = orig as ArrowEl
           return { ...ae, start: { x: ae.start.x + dx, y: ae.start.y + dy }, end: { x: ae.end.x + dx, y: ae.end.y + dy } }
         }
@@ -261,7 +261,7 @@ export default function PintadoAcciones() {
     if (!isDrawing || !drawStart || tool === 'select' || tool === 'zone') return
     const pt = getSvgPt(e)
 
-    if (tool === 'arrow-straight' || tool === 'arrow-curved' || tool === 'arrow-wave' || tool === 'connector') {
+    if (tool === 'arrow-straight' || tool === 'arrow-curved' || tool === 'arrow-wave' || tool === 'arrow-dashed' || tool === 'connector') {
       setCurrentEl({
         id: 'preview', tool: tool as ArrowEl['tool'],
         start: drawStart, end: pt,
@@ -313,7 +313,7 @@ export default function PintadoAcciones() {
     if (!el) return
     const offset = 22
     let newEl: DrawEl
-    if (el.tool === 'arrow-straight' || el.tool === 'arrow-curved' || el.tool === 'arrow-wave' || el.tool === 'connector') {
+    if (el.tool === 'arrow-straight' || el.tool === 'arrow-curved' || el.tool === 'arrow-wave' || el.tool === 'arrow-dashed' || el.tool === 'connector') {
       const ae = el as ArrowEl
       newEl = { ...ae, id: uuidv4(), start: { x: ae.start.x + offset, y: ae.start.y + offset }, end: { x: ae.end.x + offset, y: ae.end.y + offset } }
     } else if (el.tool === 'text' || el.tool === 'label') {
@@ -396,7 +396,7 @@ export default function PintadoAcciones() {
       }
     }
 
-    if (el.tool === 'arrow-straight' || el.tool === 'arrow-curved' || el.tool === 'arrow-wave' || el.tool === 'connector') {
+    if (el.tool === 'arrow-straight' || el.tool === 'arrow-curved' || el.tool === 'arrow-wave' || el.tool === 'arrow-dashed' || el.tool === 'connector') {
       const ae = el as ArrowEl
       const path = el.tool === 'arrow-curved' ? curvedPath(ae.start, ae.end)
         : el.tool === 'arrow-wave' ? wavePath(ae.start, ae.end)
@@ -437,10 +437,12 @@ export default function PintadoAcciones() {
         )
       }
 
+      const dashArray = el.tool === 'arrow-dashed' ? `${sw * 4} ${sw * 2.5}` : undefined
       return (
         <g key={key} opacity={alpha} style={selStyle} onPointerDown={onElMouseDown} cursor="move">
           <path d={path} stroke={ae.stroke} strokeWidth={sw * 3} fill="none" opacity={0} />
-          <path d={path} stroke={ae.stroke} strokeWidth={sw} fill="none" strokeLinecap="round" />
+          <path d={path} stroke={ae.stroke} strokeWidth={sw} fill="none" strokeLinecap="round"
+            strokeDasharray={dashArray} />
           {tip && <path d={tip} fill={ae.stroke} stroke="none" />}
         </g>
       )
@@ -953,6 +955,9 @@ export default function PintadoAcciones() {
                 <ToolBtn title="Onda" active={tool === 'arrow-wave'} onClick={() => chooseTool('arrow-wave')}>
                   <IcoWaveArrow />
                 </ToolBtn>
+                <ToolBtn title="Discontinua" active={tool === 'arrow-dashed'} onClick={() => chooseTool('arrow-dashed')}>
+                  <IcoDashedArrow />
+                </ToolBtn>
               </div>
             </div>
 
@@ -1028,6 +1033,15 @@ function ToolBtn({ children, active, onClick, title }: {
     >
       {children}
     </button>
+  )
+}
+
+function IcoDashedArrow() {
+  return (
+    <svg viewBox="0 0 18 18" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round">
+      <line x1="3" y1="15" x2="14" y2="4" strokeDasharray="3 2" />
+      <path d="M14 4 L9.5 4.5 L13.5 8.5" strokeLinejoin="round" />
+    </svg>
   )
 }
 
