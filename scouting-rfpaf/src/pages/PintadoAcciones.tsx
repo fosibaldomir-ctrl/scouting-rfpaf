@@ -622,7 +622,7 @@ export default function PintadoAcciones() {
       const ce = el as ConnectorEl
       if (ce.points.length < 2) return null
       const d = ce.points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ')
-      const nr = Math.max(10 * (sizeScale / 100), sw * 1.5)
+      const nr = Math.max(16 * (sizeScale / 100), sw * 1.5)
       return (
         <g key={key} opacity={alpha} style={selStyle} onPointerDown={onElMouseDown} cursor="move">
           <path d={d} stroke={ce.stroke} strokeWidth={sw} fill="none"
@@ -804,7 +804,7 @@ export default function PintadoAcciones() {
           {/* Size */}
           <div className="mb-4">
             <label className="text-xs font-semibold text-gray-600 mb-2 block uppercase tracking-wide">Tamaño: {sizeScale}%</label>
-            <input type="range" min={50} max={200} value={sizeScale}
+            <input type="range" min={50} max={300} value={sizeScale}
               onChange={(e: ChangeEvent<HTMLInputElement>) => setSizeScale(+e.target.value)}
               className="w-full accent-rfpaf-red cursor-pointer" />
           </div>
@@ -908,8 +908,8 @@ export default function PintadoAcciones() {
                 {zonePoints.map((p, i) =>
                   tool === 'connector'
                     ? <ellipse key={i} cx={p.x} cy={p.y}
-                        rx={Math.max(10 * (sizeScale / 100), strokeWidth * 1.5)}
-                        ry={Math.max(10 * (sizeScale / 100), strokeWidth * 1.5) * 0.65}
+                        rx={Math.max(16 * (sizeScale / 100), strokeWidth * 1.5)}
+                        ry={Math.max(16 * (sizeScale / 100), strokeWidth * 1.5) * 0.65}
                         fill={strokeColor} fillOpacity={0.85} stroke="white" strokeWidth={1} />
                     : <circle key={i} cx={p.x} cy={p.y} r={3} fill={strokeColor} />
                 )}
