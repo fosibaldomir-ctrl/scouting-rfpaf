@@ -1061,43 +1061,6 @@ export default function PintadoAcciones() {
             </div>
           )}
 
-          {/* Controles del vídeo */}
-          {videoUrl && (
-            <div className="absolute top-0 left-0 right-0 bottom-0 pointer-events-none z-20 flex flex-col justify-end pb-0">
-              <div className="bg-gradient-to-t from-black/60 to-transparent p-4 pointer-events-auto">
-                <div className="flex items-center gap-3 text-white text-xs">
-                  <button
-                    onClick={() => videoRef.current && (isVideoPlaying ? videoRef.current.pause() : videoRef.current.play())}
-                    className="px-3 py-1 rounded bg-rfpaf-blue hover:bg-blue-700 font-bold transition-colors"
-                  >
-                    {isVideoPlaying ? '⏸ Pausar' : '▶ Reproducir'}
-                  </button>
-                  <input
-                    type="range"
-                    min="0"
-                    max={videoRef.current?.duration || 0}
-                    value={videoRef.current?.currentTime || 0}
-                    onChange={e => {
-                      if (videoRef.current) videoRef.current.currentTime = parseFloat(e.target.value)
-                    }}
-                    className="flex-1 lab-range text-rfpaf-blue cursor-pointer"
-                  />
-                  <span>{videoRef.current?.currentTime.toFixed(1) || '0.0'}s</span>
-                  <button
-                    onClick={() => {
-                      if (videoRef.current) videoRef.current.pause()
-                      setVideoFrameCanvas(null)
-                      setVideoUrl(null)
-                    }}
-                    className="px-3 py-1 rounded bg-rfpaf-red hover:bg-red-700 font-bold transition-colors"
-                  >
-                    ✕ Cerrar
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-
           {/* Lienzo SVG — siempre encima (z-10) capturando eventos (ratón + táctil) */}
           <svg
             ref={svgRef}
@@ -1134,6 +1097,41 @@ export default function PintadoAcciones() {
           </svg>
 
           {/* Animation overlay controls */}
+          {/* Controles del vídeo */}
+          {videoUrl && (
+            <div className="absolute bottom-0 left-0 right-0 z-30 bg-gradient-to-t from-black/80 to-black/40 p-4 pointer-events-auto">
+              <div className="flex items-center gap-3 text-white text-xs">
+                <button
+                  onClick={() => videoRef.current && (isVideoPlaying ? videoRef.current.pause() : videoRef.current.play())}
+                  className="px-3 py-1.5 rounded bg-rfpaf-blue hover:bg-blue-700 font-bold transition-colors whitespace-nowrap"
+                >
+                  {isVideoPlaying ? '⏸ Pausar' : '▶ Reproducir'}
+                </button>
+                <input
+                  type="range"
+                  min="0"
+                  max={videoRef.current?.duration || 100}
+                  value={videoRef.current?.currentTime || 0}
+                  onChange={e => {
+                    if (videoRef.current) videoRef.current.currentTime = parseFloat(e.target.value)
+                  }}
+                  className="flex-1 lab-range text-rfpaf-blue cursor-pointer"
+                />
+                <span className="opacity-80 whitespace-nowrap text-xs">{videoRef.current?.currentTime.toFixed(1) || '0.0'}s</span>
+                <button
+                  onClick={() => {
+                    if (videoRef.current) videoRef.current.pause()
+                    setVideoFrameCanvas(null)
+                    setVideoUrl(null)
+                  }}
+                  className="px-3 py-1.5 rounded bg-rfpaf-red hover:bg-red-700 font-bold transition-colors whitespace-nowrap"
+                >
+                  ✕ Cerrar
+                </button>
+              </div>
+            </div>
+          )}
+
           {animMode && (
             <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 flex items-center gap-3 bg-gray-900/90 backdrop-blur-sm rounded-2xl px-4 py-2.5 shadow-xl">
               <button
