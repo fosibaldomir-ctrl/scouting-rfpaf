@@ -1260,6 +1260,14 @@ export default function PintadoAcciones() {
               ⬇ PNG
             </button>
             <button
+              onClick={exportVideo}
+              disabled={!!videoError || exporting}
+              title="Generar un vídeo con los dibujos incrustados en cada momento (necesita al menos un momento guardado)"
+              className="px-3 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-700 disabled:opacity-40 text-white font-bold text-sm transition-colors whitespace-nowrap"
+            >
+              🎬 Exportar vídeo
+            </button>
+            <button
               onClick={() => {
                 if (videoRef.current) videoRef.current.pause()
                 setVideoFrameCanvas(null)
