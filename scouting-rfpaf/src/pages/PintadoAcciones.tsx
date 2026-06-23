@@ -625,8 +625,8 @@ export default function PintadoAcciones() {
       if (ce.points.length < 2) return null
       const d = ce.points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ')
       const nr = Math.max(16 * (sizeScale / 100), sw * 1.5)
-      // La transparencia afecta SOLO a las elipses; la línea queda sólida
-      const ellipseAlpha = opacity / 100
+      // La transparencia (propia del elemento) afecta SOLO a las elipses; la línea queda sólida
+      const ellipseAlpha = ce.opacity / 100
       return (
         <g key={key} style={selStyle} onPointerDown={onElMouseDown} cursor="move">
           <path d={d} stroke={ce.stroke} strokeWidth={sw} fill="none"
@@ -706,6 +706,7 @@ export default function PintadoAcciones() {
   }
 
   const cursor = animMode ? 'default' : tool === 'select' ? (dragState ? 'grabbing' : 'default') : 'crosshair'
+  const selectedEl = selectedId ? elements.find(e => e.id === selectedId) ?? null : null
 
   return (
     <div className="h-screen flex flex-col overflow-hidden">
@@ -814,11 +815,21 @@ export default function PintadoAcciones() {
               className="w-full accent-rfpaf-red cursor-pointer" />
           </div>
 
-          {/* Opacity */}
+          {/* Opacity — individual del elemento seleccionado, o por defecto para nuevos */}
           <div className="mb-4">
-            <label className="text-xs font-semibold text-gray-600 mb-2 block uppercase tracking-wide">Transparencia: {opacity}%</label>
-            <input type="range" min={10} max={100} value={opacity}
-              onChange={(e: ChangeEvent<HTMLInputElement>) => setOpacity(+e.target.value)}
+            <label className="text-xs font-semibold text-gray-600 mb-2 block uppercase tracking-wide">
+              Transparencia: {selectedEl ? selectedEl.opacity : opacity}%
+              {selectedEl && <span className="ml-1 text-rfpaf-blue normal-case">(elem.)</span>}
+            </label>
+            <input type="range" min={10} max={100} value={selectedEl ? selectedEl.opacity : opacity}
+              onChange={(e: ChangeEvent<HTMLInputElement>) => {
+                const v = +e.target.value
+                if (selectedId) {
+                  setElements(prev => prev.map(el => el.id === selectedId ? { ...el, opacity: v } : el))
+                } else {
+                  setOpacity(v)
+                }
+              }}
               className="w-full accent-rfpaf-red cursor-pointer" />
           </div>
 
