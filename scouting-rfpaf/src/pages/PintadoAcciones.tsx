@@ -1096,8 +1096,7 @@ function IcoCylinder() {
 function IcoCone() {
   return (
     <svg viewBox="0 0 18 18" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.4">
-      <path d="M9,2 L2,13 A7,3 0 0 0 16,13 L9,2" fill="currentColor" fillOpacity="0.2" />
-      <ellipse cx="9" cy="13" rx="7" ry="3" fill="currentColor" fillOpacity="0.45" />
+      <ellipse cx="9" cy="13" rx="7" ry="3" fill="currentColor" fillOpacity="0.55" />
     </svg>
   )
 }
