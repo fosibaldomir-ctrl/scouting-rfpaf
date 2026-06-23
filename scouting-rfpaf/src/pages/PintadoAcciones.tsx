@@ -583,6 +583,7 @@ export default function PintadoAcciones() {
 
   const saveMoment = () => {
     if (!videoUrl && !ytEmbedUrl) return
+    if (elements.length === 0) return  // nada que guardar
     const time = currentVideoTime()
     const m: Moment = {
       id: uuidv4(),
@@ -592,7 +593,10 @@ export default function PintadoAcciones() {
       source: videoUrl ? 'video' : 'yt',
     }
     setMoments(prev => [...prev, m].sort((a, b) => a.time - b.time))
-    setActiveMomentId(m.id)
+    // Limpiar el lienzo para la siguiente jugada (los dibujos quedan guardados en el momento)
+    setElements([])
+    setSelectedId(null)
+    setActiveMomentId(null)
   }
 
   const loadMoment = (m: Moment) => {
@@ -990,6 +994,8 @@ export default function PintadoAcciones() {
 
   const cursor = animMode ? 'default' : tool === 'select' ? (dragState ? 'grabbing' : 'default') : 'crosshair'
   const selectedEl = selectedId ? elements.find(e => e.id === selectedId) ?? null : null
+  // Mientras el vídeo se reproduce ocultamos los dibujos (solo se ven al pausar en su momento)
+  const mediaPlaying = isVideoPlaying || ytPlaying
   const selIsConnector = selectedEl?.tool === 'connector'
   const selIsArrow = selectedEl?.tool === 'arrow-straight' || selectedEl?.tool === 'arrow-curved' || selectedEl?.tool === 'arrow-wave'
   const selIsCurvedArrow = selectedEl?.tool === 'arrow-curved'
@@ -1425,18 +1431,19 @@ export default function PintadoAcciones() {
             </div>
           )}
 
-          {/* Lienzo SVG — siempre encima (z-10) capturando eventos (ratón + táctil) */}
+          {/* Lienzo SVG — siempre encima (z-10) capturando eventos (ratón + táctil).
+              Mientras el vídeo se reproduce, ocultamos los dibujos para no taparlo. */}
           <svg
             ref={svgRef}
             className="absolute inset-0 w-full h-full z-10"
-            style={{ touchAction: 'none' }}
+            style={{ touchAction: 'none', pointerEvents: mediaPlaying ? 'none' : 'auto' }}
             onPointerDown={handleMouseDown}
             onPointerMove={handleMouseMove}
             onPointerUp={handleMouseUp}
             onDoubleClick={handleDblClick}
           >
-            {elements.map(el => renderEl(el, el.id))}
-            {currentEl && renderEl(currentEl, 'preview')}
+            {!mediaPlaying && elements.map(el => renderEl(el, el.id))}
+            {!mediaPlaying && currentEl && renderEl(currentEl, 'preview')}
 
             {zonePoints.length >= 1 && (
               <>
