@@ -168,7 +168,7 @@ export default function PintadoAcciones() {
 
 
   const [dragState, setDragState] = useState<{ elId: string; startPt: Pt; orig: DrawEl } | null>(null)
-  const [editText, setEditText] = useState<{ id: string; x: number; y: number } | null>(null)
+  const editInputRef = useRef<HTMLInputElement>(null)
 
   const [bgImage, setBgImage] = useState<string | null>(null)
   const [ytUrl, setYtUrl] = useState('')
@@ -209,12 +209,27 @@ export default function PintadoAcciones() {
   const strokeInputRef = useRef<HTMLInputElement>(null)
   const videoInputRef = useRef<HTMLInputElement>(null)
 
+
   const getSvgPt = useCallback((e: RME): Pt => {
     const svg = svgRef.current
     if (!svg) return { x: 0, y: 0 }
     const rect = svg.getBoundingClientRect()
     return { x: e.clientX - rect.left, y: e.clientY - rect.top }
   }, [])
+
+  // Al seleccionar (o crear) un texto/etiqueta, enfocar el campo de edición del panel
+  useEffect(() => {
+    if (!selectedId) return
+    const el = elements.find(e => e.id === selectedId)
+    if (el && (el.tool === 'text' || el.tool === 'label')) {
+      const t = setTimeout(() => {
+        const inp = editInputRef.current
+        if (inp) { inp.focus(); inp.select() }
+      }, 30)
+      return () => clearTimeout(t)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedId])
 
   const handleMouseDown = useCallback((e: RME) => {
     const pt = getSvgPt(e)
@@ -251,11 +266,8 @@ export default function PintadoAcciones() {
         stroke: strokeColor, fill: fillColor, strokeWidth, opacity, sizeScale,
       }
       setElements(prev => [...prev, newEl])
-      const svg = svgRef.current
-      if (svg) {
-        const rect = svg.getBoundingClientRect()
-        setEditText({ id: newEl.id, x: rect.left + pt.x, y: rect.top + pt.y })
-      }
+      setSelectedId(newEl.id)        // se edita en el panel "Texto del elemento"
+      setMobilePanel('estilos')      // en móvil, salta al panel para escribir
       return
     }
 
@@ -1372,6 +1384,24 @@ export default function PintadoAcciones() {
         <aside className={`${mobilePanel === 'estilos' ? 'flex' : 'hidden'} lg:flex w-full lg:w-56 bg-white rounded-xl shadow-sm p-4 flex-col overflow-y-auto flex-shrink-0 max-h-[calc(100vh-280px)] lg:max-h-none`}>
           <h2 className="text-sm font-bold text-rfpaf-blue mb-4 uppercase tracking-wide">Estilos & Controles</h2>
 
+          {/* Edición de texto del elemento seleccionado (texto/etiqueta) */}
+          {(selectedEl?.tool === 'text' || selectedEl?.tool === 'label') && (
+            <div className="mb-4 p-3 rounded-lg bg-blue-50 border border-rfpaf-blue/30">
+              <label className="text-xs font-bold text-rfpaf-blue mb-1.5 block uppercase tracking-wide">
+                ✎ {selectedEl.tool === 'label' ? 'Etiqueta' : 'Texto'}
+              </label>
+              <input
+                ref={editInputRef}
+                type="text"
+                value={(selectedEl as TextEl).text}
+                onChange={(e: ChangeEvent<HTMLInputElement>) => updateSelected({ text: e.target.value })}
+                placeholder="Escribe aquí…"
+                className="w-full border-2 border-rfpaf-blue rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-rfpaf-blue/40"
+              />
+              <p className="text-[10px] text-gray-500 mt-1">Se actualiza en el lienzo al escribir.</p>
+            </div>
+          )}
+
           {/* Fill */}
           <div className="mb-4">
             <label className="text-xs font-semibold text-gray-600 mb-2 block uppercase tracking-wide">Relleno</label>
@@ -1729,38 +1759,6 @@ export default function PintadoAcciones() {
           )}
 
 
-          {editText && (() => {
-            const el = elements.find(e => e.id === editText.id) as TextEl | undefined
-            if (!el) return null
-            return (
-              <input
-                autoFocus
-                defaultValue={el.text}
-                onChange={(ev: ChangeEvent<HTMLInputElement>) => {
-                  setElements(prev => prev.map(e =>
-                    e.id === editText.id ? { ...e, text: ev.target.value } as DrawEl : e
-                  ))
-                }}
-                onBlur={() => setEditText(null)}
-                onKeyDown={ev => { if (ev.key === 'Enter') setEditText(null) }}
-                style={{
-                  position: 'absolute',
-                  left: editText.x - (svgRef.current?.getBoundingClientRect().left ?? 0),
-                  top: editText.y - (svgRef.current?.getBoundingClientRect().top ?? 0) - 26,
-                  background: 'white',
-                  color: '#1f2937',
-                  border: '2px solid #dc2626',
-                  borderRadius: '6px',
-                  padding: '4px 8px',
-                  fontSize: '13px',
-                  minWidth: '100px',
-                  outline: 'none',
-                  zIndex: 20,
-                  boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-                }}
-              />
-            )
-          })()}
         </div>
 
         {/* Right Panel - Tools */}
