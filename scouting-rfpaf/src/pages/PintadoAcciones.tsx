@@ -568,6 +568,13 @@ export default function PintadoAcciones() {
     }
   }, [ytEmbedUrl])
 
+  // YouTube: al pausar, intentar cargar el momento cercano (closure fresco vía deps)
+  useEffect(() => {
+    if (!ytEmbedUrl || ytPlaying) return
+    maybeAutoLoadMoment(ytCurrent, 'yt')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ytPlaying])
+
   const ytTogglePlay = () => {
     const p = ytPlayerRef.current
     if (!p) return
@@ -628,6 +635,16 @@ export default function PintadoAcciones() {
     setElements(JSON.parse(JSON.stringify(m.elements)))
     setSelectedId(null)
     setActiveMomentId(m.id)
+  }
+
+  // Al pausar/saltar cerca de un momento, si el lienzo está vacío, cargar sus dibujos
+  const maybeAutoLoadMoment = (time: number, source: 'yt' | 'video') => {
+    if (elements.length > 0 || zonePoints.length > 0) return
+    const m = moments.find(x => x.source === source && Math.abs(x.time - time) < 0.6)
+    if (m) {
+      setElements(JSON.parse(JSON.stringify(m.elements)))
+      setActiveMomentId(m.id)
+    }
   }
 
   const updateMoment = (id: string) => {
@@ -1107,15 +1124,14 @@ export default function PintadoAcciones() {
             >
               {isVideoPlaying ? '⏸ Pausar' : '▶ Reproducir'}
             </button>
-            <input
-              type="range"
-              min="0"
-              max={videoDuration > 0 ? videoDuration : 100}
-              step="0.1"
+            <TimelineBar
               value={videoCurrentTime}
+              max={videoDuration}
               disabled={!!videoError || videoDuration <= 0}
-              onChange={e => seekVideo(parseFloat(e.target.value))}
-              className="flex-1 min-w-[120px] lab-range text-rfpaf-blue cursor-pointer disabled:opacity-40"
+              onSeek={seekVideo}
+              markers={moments.filter(m => m.source === 'video')}
+              onMarker={id => { const m = moments.find(x => x.id === id); if (m) loadMoment(m) }}
+              fmt={fmtTime}
             />
             <span className="text-white text-xs tabular-nums whitespace-nowrap">
               {videoCurrentTime.toFixed(1)}s{videoDuration > 0 ? ` / ${videoDuration.toFixed(1)}s` : ''}
@@ -1162,15 +1178,14 @@ export default function PintadoAcciones() {
           >
             {ytPlaying ? '⏸ Pausar' : '▶ Reproducir'}
           </button>
-          <input
-            type="range"
-            min="0"
-            max={ytDuration > 0 ? ytDuration : 100}
-            step="0.1"
+          <TimelineBar
             value={ytCurrent}
+            max={ytDuration}
             disabled={ytDuration <= 0}
-            onChange={e => ytSeek(parseFloat(e.target.value))}
-            className="flex-1 min-w-[120px] lab-range text-rfpaf-blue cursor-pointer disabled:opacity-40"
+            onSeek={ytSeek}
+            markers={moments.filter(m => m.source === 'yt')}
+            onMarker={id => { const m = moments.find(x => x.id === id); if (m) loadMoment(m) }}
+            fmt={fmtTime}
           />
           <span className="text-white text-xs tabular-nums whitespace-nowrap">
             {ytCurrent.toFixed(0)}s{ytDuration > 0 ? ` / ${ytDuration.toFixed(0)}s` : ''}
@@ -1401,8 +1416,8 @@ export default function PintadoAcciones() {
               preload="auto"
               playsInline
               onPlay={() => setIsVideoPlaying(true)}
-              onPause={() => { setIsVideoPlaying(false); captureFrame() }}
-              onSeeked={() => { if (videoRef.current?.paused) captureFrame() }}
+              onPause={() => { setIsVideoPlaying(false); captureFrame(); maybeAutoLoadMoment(videoRef.current?.currentTime ?? 0, 'video') }}
+              onSeeked={() => { if (videoRef.current?.paused) { captureFrame(); maybeAutoLoadMoment(videoRef.current?.currentTime ?? 0, 'video') } }}
               onTimeUpdate={handleTimeUpdate}
               onLoadedMetadata={handleLoadedMetadata}
               onError={() => setVideoError('Este formato de vídeo no se puede reproducir en el navegador. Conviértelo a MP4 (H.264) — por ejemplo con HandBrake o exportando desde el móvil como "más compatible".')}
@@ -1689,6 +1704,34 @@ export default function PintadoAcciones() {
         </aside>
       </div>
       </div>
+    </div>
+  )
+}
+
+// Barra de tiempo con marcadores de momentos (Opción B)
+function TimelineBar({ value, max, disabled, onSeek, markers, onMarker, fmt }: {
+  value: number; max: number; disabled?: boolean
+  onSeek: (t: number) => void
+  markers: { id: string; time: number; label: string }[]
+  onMarker: (id: string) => void
+  fmt: (s: number) => string
+}) {
+  return (
+    <div className="relative flex-1 min-w-[120px] flex items-center py-2">
+      <input
+        type="range" min={0} max={max > 0 ? max : 100} step={0.1} value={value} disabled={disabled}
+        onChange={e => onSeek(parseFloat(e.target.value))}
+        className="w-full lab-range text-rfpaf-blue cursor-pointer disabled:opacity-40"
+      />
+      {max > 0 && markers.map(m => (
+        <button
+          key={m.id}
+          onClick={() => onMarker(m.id)}
+          title={`${fmt(m.time)} · ${m.label}`}
+          style={{ left: `${Math.min(100, Math.max(0, (m.time / max) * 100))}%` }}
+          className="absolute top-0 -translate-x-1/2 w-3.5 h-3.5 rounded-full bg-green-400 border-2 border-white shadow-md hover:scale-125 active:scale-110 transition-transform"
+        />
+      ))}
     </div>
   )
 }
