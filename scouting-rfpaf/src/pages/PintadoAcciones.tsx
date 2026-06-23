@@ -493,13 +493,11 @@ export default function PintadoAcciones() {
       const ryE = Math.max(Math.abs(se.w) * 0.22, 4)
       const topCy = se.y + ryE
       const botCy = se.y + se.h - ryE
-      const bodyPath = `M ${se.x},${topCy} L ${se.x},${botCy} A ${rx},${ryE} 0 0 0 ${se.x + se.w},${botCy} L ${se.x + se.w},${topCy}`
+      const bodyPath = `M ${se.x},${topCy} L ${se.x},${botCy} A ${rx},${ryE} 0 0 0 ${se.x + se.w},${botCy} L ${se.x + se.w},${topCy} Z`
       return (
         <g key={key} opacity={alpha} style={selStyle} onPointerDown={onElMouseDown} cursor="move">
-          <path d={bodyPath} stroke={se.stroke} strokeWidth={sw} fill={se.fill} fillOpacity={0.25} />
+          <path d={bodyPath} stroke={se.stroke} strokeWidth={sw} fill={se.fill} fillOpacity={0.35} />
           <ellipse cx={cx} cy={botCy} rx={rx} ry={ryE}
-            stroke={se.stroke} strokeWidth={sw} fill={se.fill} fillOpacity={0.35} />
-          <ellipse cx={cx} cy={topCy} rx={rx} ry={ryE}
             stroke={se.stroke} strokeWidth={sw} fill={se.fill} fillOpacity={0.55} />
         </g>
       )
