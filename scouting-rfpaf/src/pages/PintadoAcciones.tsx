@@ -744,45 +744,68 @@ export default function PintadoAcciones() {
       const chunks: BlobPart[] = []
       rec.ondataavailable = e => { if (e.data && e.data.size) chunks.push(e.data) }
       const stopped = new Promise<void>(res => { rec.onstop = () => res() })
-      rec.start(100)
 
-      // 3) Reproducir y dibujar frame a frame
-      setExportMsg('Grabando…')
-      video.muted = true
-      video.currentTime = 0
-      await new Promise(r => { const h = () => { video.removeEventListener('seeked', h); r(null) }; video.addEventListener('seeked', h) })
-      await video.play().catch(() => {})
-
-      let heldIdx = -1, holding = false, holdEnd = 0
-      await new Promise<void>(resolve => {
-        const draw = () => {
-          if (!exportingRef.current) { resolve(); return }
-          const dur = video.duration || 1
-          ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H)
-          if (video.videoWidth) {
-            const sc = Math.min(W / video.videoWidth, H / video.videoHeight)
-            const dw = video.videoWidth * sc, dh = video.videoHeight * sc
-            ctx.drawImage(video, (W - dw) / 2, (H - dh) / 2, dw, dh)
-          }
-          const t = video.currentTime
-          if (!holding) {
-            // ¿hemos entrado en un momento aún no mostrado?
-            let idx = -1
-            for (let i = heldIdx + 1; i < overlays.length; i++) {
-              if (t >= overlays[i].time) idx = i; else break
-            }
-            if (idx !== -1) { heldIdx = idx; holding = true; holdEnd = performance.now() + HOLD_MS; video.pause() }
-          }
-          if (holding) {
-            ctx.drawImage(overlays[heldIdx].img, 0, 0, W, H)
-            if (performance.now() >= holdEnd) { holding = false; if (!video.ended) video.play().catch(() => {}) }
-          }
-          setExportProgress(Math.min(1, t / dur))
-          if (video.ended && !holding) { resolve(); return }
-          requestAnimationFrame(draw)
+      // Helpers de pintado/seek/reproducción por clips
+      const dur = video.duration || 0
+      const paint = (overlay: HTMLImageElement | null) => {
+        ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H)
+        if (video.videoWidth) {
+          const sc = Math.min(W / video.videoWidth, H / video.videoHeight)
+          const dw = video.videoWidth * sc, dh = video.videoHeight * sc
+          ctx.drawImage(video, (W - dw) / 2, (H - dh) / 2, dw, dh)
         }
-        requestAnimationFrame(draw)
+        if (overlay) ctx.drawImage(overlay, 0, 0, W, H)
+      }
+      const seekTo = (t: number) => new Promise<void>(res => {
+        const h = () => { video.removeEventListener('seeked', h); res() }
+        video.addEventListener('seeked', h)
+        video.currentTime = t
       })
+      const playUntil = (cond: () => boolean, overlay: HTMLImageElement | null) => new Promise<void>(async resolve => {
+        await video.play().catch(() => {})
+        const loop = () => {
+          if (!exportingRef.current) { resolve(); return }
+          paint(overlay)
+          if (cond()) { resolve(); return }
+          requestAnimationFrame(loop)
+        }
+        requestAnimationFrame(loop)
+      })
+      const freeze = (overlay: HTMLImageElement, ms: number) => new Promise<void>(resolve => {
+        const end = performance.now() + ms
+        const loop = () => {
+          if (!exportingRef.current) { resolve(); return }
+          paint(overlay)
+          if (performance.now() >= end) { resolve(); return }
+          requestAnimationFrame(loop)
+        }
+        requestAnimationFrame(loop)
+      })
+
+      // 3) Grabar un clip por momento: PRE s antes + congelado + POST s después
+      const PRE = 5, POST = 5
+      video.muted = true
+      rec.start(100)
+      for (let mi = 0; mi < overlays.length; mi++) {
+        if (!exportingRef.current || exportCancelRef.current) break
+        const m = overlays[mi]
+        const startT = Math.max(0, m.time - PRE)
+        const endT = dur > 0 ? Math.min(dur, m.time + POST) : m.time + POST
+        setExportMsg(`Clip ${mi + 1}/${overlays.length}…`)
+        video.pause()
+        await seekTo(startT)
+        // Fase A: reproducir hasta el instante del momento
+        await playUntil(() => video.currentTime >= m.time || video.ended, null)
+        video.pause()
+        // Fase B: congelar el frame y mostrar los dibujos
+        await freeze(m.img, HOLD_MS)
+        // Fase C: reproducir hasta POST s después
+        if (!video.ended && video.currentTime < endT) {
+          await playUntil(() => video.currentTime >= endT || video.ended, null)
+        }
+        video.pause()
+        setExportProgress((mi + 1) / overlays.length)
+      }
 
       rec.stop()
       await stopped
@@ -1672,7 +1695,7 @@ export default function PintadoAcciones() {
                 Cancelar
               </button>
               <p className="text-white/50 text-[10px] mt-3 max-w-xs text-center leading-snug">
-                No cierres la pestaña. La grabación dura aprox. lo que dura el vídeo más unos segundos por cada momento.
+                No cierres la pestaña. Se graba un clip por momento (5 s antes + dibujos + 5 s después), en tiempo real.
               </p>
             </div>
           )}
