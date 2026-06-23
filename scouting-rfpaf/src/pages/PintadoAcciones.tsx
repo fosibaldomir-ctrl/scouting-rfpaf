@@ -42,6 +42,9 @@ interface BaseEl {
   fill: string
   strokeWidth: number
   opacity: number
+  sizeScale?: number   // tamaño individual del elemento (%, def. global)
+  tilt?: number        // giro individual (conector)
+  flatten?: number     // perspectiva individual (conector)
 }
 
 interface ArrowEl extends BaseEl {
@@ -191,7 +194,7 @@ export default function PintadoAcciones() {
     if (pendingDorsal !== null) {
       const el: DorsalEl = {
         id: uuidv4(), tool: 'dorsal', pos: pt, number: pendingDorsal,
-        stroke: '#ffffff', fill: '#dc2626', strokeWidth: 2, opacity: 100,
+        stroke: '#ffffff', fill: '#dc2626', strokeWidth: 2, opacity: 100, sizeScale,
       }
       setElements(prev => [...prev, el])
       setPendingDorsal(null)
@@ -217,7 +220,7 @@ export default function PintadoAcciones() {
     if (tool === 'text' || tool === 'label') {
       const newEl: TextEl = {
         id: uuidv4(), tool, pos: pt, text: tool === 'label' ? 'Etiqueta' : 'Texto',
-        stroke: strokeColor, fill: fillColor, strokeWidth, opacity,
+        stroke: strokeColor, fill: fillColor, strokeWidth, opacity, sizeScale,
       }
       setElements(prev => [...prev, newEl])
       const svg = svgRef.current
@@ -303,7 +306,7 @@ export default function PintadoAcciones() {
     if (tool === 'zone' || tool === 'connector') return
     if (!isDrawing) return
     if (currentEl) {
-      setElements(prev => [...prev, { ...currentEl, id: uuidv4() }])
+      setElements(prev => [...prev, { ...currentEl, id: uuidv4(), sizeScale }])
       setCurrentEl(null)
     }
     setIsDrawing(false)
@@ -314,7 +317,7 @@ export default function PintadoAcciones() {
     if (tool === 'zone' && zonePoints.length >= 3) {
       setElements(prev => [...prev, {
         id: uuidv4(), tool: 'zone', points: zonePoints,
-        stroke: strokeColor, fill: fillColor + '40', strokeWidth, opacity,
+        stroke: strokeColor, fill: fillColor + '40', strokeWidth, opacity, sizeScale,
       }])
       setZonePoints([])
       setIsDrawing(false)
@@ -331,12 +334,13 @@ export default function PintadoAcciones() {
         setElements(prev => [...prev, {
           id: uuidv4(), tool: 'connector', points: pts,
           stroke: strokeColor, fill: strokeColor, strokeWidth, opacity,
+          sizeScale, tilt: connectorTilt, flatten: connectorFlatten,
         }])
       }
       setZonePoints([])
       setIsDrawing(false)
     }
-  }, [tool, zonePoints, strokeColor, fillColor, strokeWidth, opacity])
+  }, [tool, zonePoints, strokeColor, fillColor, strokeWidth, opacity, sizeScale, connectorTilt, connectorFlatten])
 
   const duplicateSelected = () => {
     if (!selectedId) return
@@ -387,12 +391,13 @@ export default function PintadoAcciones() {
         setElements(prev => [...prev, {
           id: uuidv4(), tool: 'connector', points: pts,
           stroke: strokeColor, fill: strokeColor, strokeWidth, opacity,
+          sizeScale, tilt: connectorTilt, flatten: connectorFlatten,
         }])
       }
     } else if (tool === 'zone' && zonePoints.length >= 3) {
       setElements(prev => [...prev, {
         id: uuidv4(), tool: 'zone', points: zonePoints,
-        stroke: strokeColor, fill: fillColor + '40', strokeWidth, opacity,
+        stroke: strokeColor, fill: fillColor + '40', strokeWidth, opacity, sizeScale,
       }])
     }
     setZonePoints([])
@@ -446,7 +451,8 @@ export default function PintadoAcciones() {
   function renderEl(el: DrawEl, key: string) {
     const isSelected = el.id === selectedId
     const alpha = el.opacity / 100
-    const sw = el.strokeWidth * (sizeScale / 100)
+    const elSize = el.sizeScale ?? sizeScale          // tamaño individual del elemento
+    const sw = el.strokeWidth * (elSize / 100)
     const selStyle = isSelected ? { filter: 'drop-shadow(0 0 5px rgba(59,130,246,0.8))' } : undefined
 
     const onElMouseDown = (e: RME) => {
@@ -624,7 +630,9 @@ export default function PintadoAcciones() {
       const ce = el as ConnectorEl
       if (ce.points.length < 2) return null
       const d = ce.points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ')
-      const nr = Math.max(16 * (sizeScale / 100), sw * 1.5)
+      const nr = Math.max(16 * (elSize / 100), sw * 1.5)
+      const tilt = ce.tilt ?? connectorTilt
+      const flatten = ce.flatten ?? connectorFlatten
       // La transparencia (propia del elemento) afecta SOLO a las elipses; la línea queda sólida
       const ellipseAlpha = ce.opacity / 100
       return (
@@ -632,8 +640,8 @@ export default function PintadoAcciones() {
           <path d={d} stroke={ce.stroke} strokeWidth={sw} fill="none"
             strokeLinecap="round" strokeLinejoin="round" opacity={1} />
           {ce.points.map((p, i) => (
-            <ellipse key={i} cx={p.x} cy={p.y} rx={nr} ry={nr * (connectorFlatten / 100)}
-              transform={`rotate(${connectorTilt} ${p.x} ${p.y})`}
+            <ellipse key={i} cx={p.x} cy={p.y} rx={nr} ry={nr * (flatten / 100)}
+              transform={`rotate(${tilt} ${p.x} ${p.y})`}
               fill={ce.fill} fillOpacity={ellipseAlpha}
               stroke="white" strokeWidth={Math.max(sw * 0.4, 1)} strokeOpacity={ellipseAlpha} />
           ))}
@@ -643,7 +651,7 @@ export default function PintadoAcciones() {
 
     if (el.tool === 'text') {
       const te = el as TextEl
-      const fs = 16 * (sizeScale / 100)
+      const fs = 16 * (elSize / 100)
       return (
         <text key={key} x={te.pos.x} y={te.pos.y}
           fill={te.stroke} fontSize={fs} fontWeight="bold"
@@ -654,7 +662,7 @@ export default function PintadoAcciones() {
 
     if (el.tool === 'label') {
       const te = el as TextEl
-      const fs = 14 * (sizeScale / 100)
+      const fs = 14 * (elSize / 100)
       const pw = te.text.length * fs * 0.65 + 16
       const ph = fs + 12
       return (
@@ -668,7 +676,7 @@ export default function PintadoAcciones() {
 
     if (el.tool === 'dorsal') {
       const de = el as DorsalEl
-      const sz = 32 * (sizeScale / 100)
+      const sz = 32 * (elSize / 100)
       const sc = sz / 40
       const tx = de.pos.x - sz / 2
       const ty = de.pos.y - sz / 2
@@ -707,6 +715,12 @@ export default function PintadoAcciones() {
 
   const cursor = animMode ? 'default' : tool === 'select' ? (dragState ? 'grabbing' : 'default') : 'crosshair'
   const selectedEl = selectedId ? elements.find(e => e.id === selectedId) ?? null : null
+  const selIsConnector = selectedEl?.tool === 'connector'
+  // Aplica un cambio de estilo al elemento seleccionado, o al valor por defecto si no hay selección
+  const updateSelected = (patch: Partial<DrawEl>) => {
+    if (!selectedId) return
+    setElements(prev => prev.map(el => el.id === selectedId ? { ...el, ...patch } as DrawEl : el))
+  }
 
   return (
     <div className="h-screen flex flex-col overflow-hidden">
@@ -799,19 +813,31 @@ export default function PintadoAcciones() {
               className="w-full h-10 rounded-lg border-2 border-gray-300 cursor-pointer" />
           </div>
 
-          {/* Thickness */}
+          {/* Thickness — individual del seleccionado o por defecto */}
           <div className="mb-4">
-            <label className="text-xs font-semibold text-gray-600 mb-2 block uppercase tracking-wide">Grosor: {strokeWidth}</label>
-            <input type="range" min={1} max={14} value={strokeWidth}
-              onChange={(e: ChangeEvent<HTMLInputElement>) => setStrokeWidth(+e.target.value)}
+            <label className="text-xs font-semibold text-gray-600 mb-2 block uppercase tracking-wide">
+              Grosor: {selectedEl ? selectedEl.strokeWidth : strokeWidth}
+              {selectedEl && <span className="ml-1 text-rfpaf-blue normal-case">(elem.)</span>}
+            </label>
+            <input type="range" min={1} max={14} value={selectedEl ? selectedEl.strokeWidth : strokeWidth}
+              onChange={(e: ChangeEvent<HTMLInputElement>) => {
+                const v = +e.target.value
+                if (selectedId) updateSelected({ strokeWidth: v }); else setStrokeWidth(v)
+              }}
               className="w-full accent-rfpaf-red cursor-pointer" />
           </div>
 
-          {/* Size */}
+          {/* Size — individual del seleccionado o por defecto */}
           <div className="mb-4">
-            <label className="text-xs font-semibold text-gray-600 mb-2 block uppercase tracking-wide">Tamaño: {sizeScale}%</label>
-            <input type="range" min={50} max={300} value={sizeScale}
-              onChange={(e: ChangeEvent<HTMLInputElement>) => setSizeScale(+e.target.value)}
+            <label className="text-xs font-semibold text-gray-600 mb-2 block uppercase tracking-wide">
+              Tamaño: {selectedEl ? (selectedEl.sizeScale ?? sizeScale) : sizeScale}%
+              {selectedEl && <span className="ml-1 text-rfpaf-blue normal-case">(elem.)</span>}
+            </label>
+            <input type="range" min={50} max={300} value={selectedEl ? (selectedEl.sizeScale ?? sizeScale) : sizeScale}
+              onChange={(e: ChangeEvent<HTMLInputElement>) => {
+                const v = +e.target.value
+                if (selectedId) updateSelected({ sizeScale: v }); else setSizeScale(v)
+              }}
               className="w-full accent-rfpaf-red cursor-pointer" />
           </div>
 
@@ -824,26 +850,34 @@ export default function PintadoAcciones() {
             <input type="range" min={10} max={100} value={selectedEl ? selectedEl.opacity : opacity}
               onChange={(e: ChangeEvent<HTMLInputElement>) => {
                 const v = +e.target.value
-                if (selectedId) {
-                  setElements(prev => prev.map(el => el.id === selectedId ? { ...el, opacity: v } : el))
-                } else {
-                  setOpacity(v)
-                }
+                if (selectedId) updateSelected({ opacity: v }); else setOpacity(v)
               }}
               className="w-full accent-rfpaf-red cursor-pointer" />
           </div>
 
-          {/* Connector ellipse: giro y achatado (perspectiva) */}
+          {/* Connector ellipse: giro y achatado (perspectiva) — individual si hay conector seleccionado */}
           <div className="mb-4">
-            <label className="text-xs font-semibold text-gray-600 mb-2 block uppercase tracking-wide">Giro elipse: {connectorTilt}°</label>
-            <input type="range" min={-60} max={60} value={connectorTilt}
-              onChange={(e: ChangeEvent<HTMLInputElement>) => setConnectorTilt(+e.target.value)}
+            <label className="text-xs font-semibold text-gray-600 mb-2 block uppercase tracking-wide">
+              Giro elipse: {selIsConnector ? (selectedEl!.tilt ?? connectorTilt) : connectorTilt}°
+              {selIsConnector && <span className="ml-1 text-rfpaf-blue normal-case">(elem.)</span>}
+            </label>
+            <input type="range" min={-60} max={60} value={selIsConnector ? (selectedEl!.tilt ?? connectorTilt) : connectorTilt}
+              onChange={(e: ChangeEvent<HTMLInputElement>) => {
+                const v = +e.target.value
+                if (selIsConnector) updateSelected({ tilt: v }); else setConnectorTilt(v)
+              }}
               className="w-full accent-rfpaf-blue cursor-pointer" />
           </div>
           <div className="mb-6">
-            <label className="text-xs font-semibold text-gray-600 mb-2 block uppercase tracking-wide">Perspectiva elipse: {connectorFlatten}%</label>
-            <input type="range" min={15} max={100} value={connectorFlatten}
-              onChange={(e: ChangeEvent<HTMLInputElement>) => setConnectorFlatten(+e.target.value)}
+            <label className="text-xs font-semibold text-gray-600 mb-2 block uppercase tracking-wide">
+              Perspectiva elipse: {selIsConnector ? (selectedEl!.flatten ?? connectorFlatten) : connectorFlatten}%
+              {selIsConnector && <span className="ml-1 text-rfpaf-blue normal-case">(elem.)</span>}
+            </label>
+            <input type="range" min={15} max={100} value={selIsConnector ? (selectedEl!.flatten ?? connectorFlatten) : connectorFlatten}
+              onChange={(e: ChangeEvent<HTMLInputElement>) => {
+                const v = +e.target.value
+                if (selIsConnector) updateSelected({ flatten: v }); else setConnectorFlatten(v)
+              }}
               className="w-full accent-rfpaf-blue cursor-pointer" />
           </div>
 
