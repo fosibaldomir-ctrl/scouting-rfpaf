@@ -955,6 +955,9 @@ export default function PintadoAcciones() {
                 <ToolBtn title="Círculo" active={tool === 'circle'} onClick={() => chooseTool('circle')}>
                   <IcoCircle />
                 </ToolBtn>
+                <ToolBtn title="Triángulo" active={tool === 'triangle'} onClick={() => chooseTool('triangle')}>
+                  <IcoTriangle />
+                </ToolBtn>
               </div>
             </div>
 
@@ -966,9 +969,6 @@ export default function PintadoAcciones() {
                 </ToolBtn>
                 <ToolBtn title="Foco" active={tool === 'focus'} onClick={() => chooseTool('focus')}>
                   <IcoFocus />
-                </ToolBtn>
-                <ToolBtn title="Triángulo" active={tool === 'triangle'} onClick={() => chooseTool('triangle')}>
-                  <IcoTriangle />
                 </ToolBtn>
                 <ToolBtn title="Cilindro" active={tool === 'cylinder'} onClick={() => chooseTool('cylinder')}>
                   <IcoCylinder />
