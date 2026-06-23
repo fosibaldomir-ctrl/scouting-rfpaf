@@ -181,6 +181,8 @@ export default function PintadoAcciones() {
   const [isVideoPlaying, setIsVideoPlaying] = useState(false)
   const [videoDuration, setVideoDuration] = useState(0)
   const [videoCurrentTime, setVideoCurrentTime] = useState(0)
+  const [videoError, setVideoError] = useState<string | null>(null)
+  const durationProbing = useRef(false)
 
   const [mobilePanel, setMobilePanel] = useState<'estilos' | 'lienzo' | 'herramientas'>('lienzo')
 
@@ -474,15 +476,50 @@ export default function PintadoAcciones() {
   const handleVideoUpload = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
+    // Aviso temprano para formatos que Chrome no decodifica (HEVC .mov de iPhone, etc.)
+    if (file.type && !document.createElement('video').canPlayType(file.type)) {
+      // canPlayType devuelve '' si no puede; no bloqueamos (a veces miente), pero avisamos
+      console.warn('Posible formato no compatible:', file.type)
+    }
     const url = URL.createObjectURL(file)
     setVideoUrl(url)
     setVideoFrameCanvas(null)
     setIsVideoPlaying(false)
     setVideoDuration(0)
     setVideoCurrentTime(0)
+    setVideoError(null)
+    durationProbing.current = false
     setYtEmbedUrl(null)
     setBgImage(null)
     e.target.value = ''
+  }
+
+  // duration === Infinity en muchos vídeos (WebM de grabación, MP4 fragmentado):
+  // forzamos el cálculo haciendo un seek a un tiempo enorme y volviendo a 0.
+  const handleLoadedMetadata = () => {
+    const v = videoRef.current
+    if (!v) return
+    if (v.duration === Infinity || isNaN(v.duration)) {
+      durationProbing.current = true
+      v.currentTime = 1e101
+    } else {
+      setVideoDuration(v.duration)
+      setVideoCurrentTime(0)
+    }
+  }
+
+  const handleTimeUpdate = () => {
+    const v = videoRef.current
+    if (!v) return
+    if (durationProbing.current) {
+      // Estamos sondeando la duración real
+      durationProbing.current = false
+      setVideoDuration(v.duration === Infinity || isNaN(v.duration) ? 0 : v.duration)
+      v.currentTime = 0
+      setVideoCurrentTime(0)
+      return
+    }
+    setVideoCurrentTime(v.currentTime)
   }
 
   const captureFrame = () => {
@@ -886,41 +923,51 @@ export default function PintadoAcciones() {
 
       {/* Barra controles vídeo — fuera del canvas, sin conflicto z-index */}
       {videoUrl && (
-        <div className="flex items-center gap-3 bg-gray-900 rounded-xl px-4 py-2.5 flex-shrink-0 flex-wrap">
-          <button
-            onClick={togglePlayPause}
-            className="px-4 py-1.5 rounded-lg bg-rfpaf-blue hover:bg-blue-700 text-white font-bold text-sm transition-colors whitespace-nowrap"
-          >
-            {isVideoPlaying ? '⏸ Pausar' : '▶ Reproducir'}
-          </button>
-          <input
-            type="range"
-            min="0"
-            max={videoDuration || 100}
-            step="0.1"
-            value={videoCurrentTime}
-            onChange={e => seekVideo(parseFloat(e.target.value))}
-            className="flex-1 min-w-[120px] lab-range text-rfpaf-blue cursor-pointer"
-          />
-          <span className="text-white text-xs tabular-nums whitespace-nowrap">
-            {videoCurrentTime.toFixed(1)}s / {videoDuration.toFixed(1)}s
-          </span>
-          {videoFrameCanvas && (
-            <span className="text-green-400 text-xs font-semibold whitespace-nowrap">⬛ Frame capturado — dibuja encima</span>
+        <div className="flex flex-col gap-2 flex-shrink-0">
+          <div className="flex items-center gap-3 bg-gray-900 rounded-xl px-4 py-2.5 flex-wrap">
+            <button
+              onClick={togglePlayPause}
+              disabled={!!videoError}
+              className="px-4 py-1.5 rounded-lg bg-rfpaf-blue hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold text-sm transition-colors whitespace-nowrap"
+            >
+              {isVideoPlaying ? '⏸ Pausar' : '▶ Reproducir'}
+            </button>
+            <input
+              type="range"
+              min="0"
+              max={videoDuration > 0 ? videoDuration : 100}
+              step="0.1"
+              value={videoCurrentTime}
+              disabled={!!videoError || videoDuration <= 0}
+              onChange={e => seekVideo(parseFloat(e.target.value))}
+              className="flex-1 min-w-[120px] lab-range text-rfpaf-blue cursor-pointer disabled:opacity-40"
+            />
+            <span className="text-white text-xs tabular-nums whitespace-nowrap">
+              {videoCurrentTime.toFixed(1)}s{videoDuration > 0 ? ` / ${videoDuration.toFixed(1)}s` : ''}
+            </span>
+            {videoFrameCanvas && !videoError && (
+              <span className="text-green-400 text-xs font-semibold whitespace-nowrap">⬛ Frame capturado — dibuja encima</span>
+            )}
+            <button
+              onClick={() => {
+                if (videoRef.current) videoRef.current.pause()
+                setVideoFrameCanvas(null)
+                setVideoUrl(null)
+                setIsVideoPlaying(false)
+                setVideoDuration(0)
+                setVideoCurrentTime(0)
+                setVideoError(null)
+              }}
+              className="px-3 py-1.5 rounded-lg bg-rfpaf-red hover:bg-red-700 text-white font-bold text-sm transition-colors whitespace-nowrap"
+            >
+              ✕ Cerrar vídeo
+            </button>
+          </div>
+          {videoError && (
+            <div className="bg-red-50 border border-red-300 text-red-700 text-xs rounded-lg px-4 py-2 font-semibold">
+              ⚠️ {videoError}
+            </div>
           )}
-          <button
-            onClick={() => {
-              if (videoRef.current) videoRef.current.pause()
-              setVideoFrameCanvas(null)
-              setVideoUrl(null)
-              setIsVideoPlaying(false)
-              setVideoDuration(0)
-              setVideoCurrentTime(0)
-            }}
-            className="px-3 py-1.5 rounded-lg bg-rfpaf-red hover:bg-red-700 text-white font-bold text-sm transition-colors whitespace-nowrap"
-          >
-            ✕ Cerrar vídeo
-          </button>
         </div>
       )}
 
@@ -1066,8 +1113,9 @@ export default function PintadoAcciones() {
               playsInline
               onPlay={() => setIsVideoPlaying(true)}
               onPause={() => { setIsVideoPlaying(false); captureFrame() }}
-              onTimeUpdate={e => setVideoCurrentTime(e.currentTarget.currentTime)}
-              onLoadedMetadata={e => { setVideoDuration(e.currentTarget.duration); setVideoCurrentTime(0) }}
+              onTimeUpdate={handleTimeUpdate}
+              onLoadedMetadata={handleLoadedMetadata}
+              onError={() => setVideoError('Este formato de vídeo no se puede reproducir en el navegador. Conviértelo a MP4 (H.264) — por ejemplo con HandBrake o exportando desde el móvil como "más compatible".')}
               className={`absolute inset-0 w-full h-full object-contain pointer-events-none z-0 ${videoFrameCanvas ? 'invisible' : ''}`}
             />
           )}
