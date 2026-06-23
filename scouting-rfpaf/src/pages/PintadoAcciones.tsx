@@ -509,10 +509,19 @@ export default function PintadoAcciones() {
       const rx = Math.max(Math.abs(se.w / 2), 1)
       const ryE = Math.max(Math.abs(se.w) * 0.22, 4)
       const botCy = se.y + se.h - ryE
+      const gradId = `cone-grad-${el.id}`
+      const bodyPath = `M ${cx},${se.y} L ${se.x},${botCy} A ${rx},${ryE} 0 0 0 ${se.x + se.w},${botCy} L ${cx},${se.y}`
       return (
         <g key={key} opacity={alpha} style={selStyle} onPointerDown={onElMouseDown} cursor="move">
+          <defs>
+            <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={se.fill} stopOpacity="0" />
+              <stop offset="100%" stopColor={se.fill} stopOpacity="0.65" />
+            </linearGradient>
+          </defs>
+          <path d={bodyPath} stroke="none" fill={`url(#${gradId})`} />
           <ellipse cx={cx} cy={botCy} rx={rx} ry={ryE}
-            stroke={se.stroke} strokeWidth={sw} fill={se.fill} fillOpacity={0.55} />
+            stroke={se.stroke} strokeWidth={sw} fill={se.fill} fillOpacity={0.6} />
         </g>
       )
     }
