@@ -272,8 +272,7 @@ export default function PintadoAcciones() {
         id: 'preview', tool: tool as ShapeEl['tool'],
         x: Math.min(drawStart.x, pt.x), y: Math.min(drawStart.y, pt.y),
         w: Math.abs(pt.x - drawStart.x), h: Math.abs(pt.y - drawStart.y),
-        stroke: strokeColor,
-        fill: tool === 'focus' ? 'rgba(0,0,0,0.55)' : fillColor,
+        stroke: strokeColor, fill: fillColor,
         strokeWidth, opacity,
       })
     } else if (tool === 'circle' || tool === 'triangle' || tool === 'cylinder' || tool === 'cone') {
@@ -471,7 +470,7 @@ export default function PintadoAcciones() {
       return (
         <ellipse key={key} cx={se.x + se.w / 2} cy={se.y + se.h / 2}
           rx={Math.abs(se.w / 2)} ry={Math.abs(se.h / 2)}
-          fill="rgba(0,0,0,0.55)" stroke="none"
+          fill={se.fill} fillOpacity={0.55} stroke={se.stroke} strokeWidth={sw}
           opacity={alpha} style={selStyle} onPointerDown={onElMouseDown} cursor="move" />
       )
     }
