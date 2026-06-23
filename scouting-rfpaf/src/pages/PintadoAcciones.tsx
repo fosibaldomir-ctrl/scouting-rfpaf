@@ -955,9 +955,6 @@ export default function PintadoAcciones() {
                 <ToolBtn title="Círculo" active={tool === 'circle'} onClick={() => chooseTool('circle')}>
                   <IcoCircle />
                 </ToolBtn>
-                <ToolBtn title="Zona libre" active={tool === 'zone'} onClick={() => chooseTool('zone')}>
-                  <IcoZone />
-                </ToolBtn>
               </div>
             </div>
 
