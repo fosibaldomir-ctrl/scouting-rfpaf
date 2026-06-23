@@ -27,7 +27,7 @@ function JerseyIcon({ fill, number, size = 44 }: { fill: string; number: number;
 
 type ToolType =
   | 'select'
-  | 'arrow-straight' | 'arrow-curved' | 'arrow-wave' | 'arrow-dashed'
+  | 'arrow-straight' | 'arrow-curved' | 'arrow-wave'
   | 'text' | 'label'
   | 'rect' | 'circle' | 'circle-dashed' | 'circle-dotdash' | 'zone'
   | 'connector' | 'focus' | 'triangle' | 'cylinder' | 'cone'
@@ -48,8 +48,10 @@ interface BaseEl {
 }
 
 interface ArrowEl extends BaseEl {
-  tool: 'arrow-straight' | 'arrow-curved' | 'arrow-wave' | 'arrow-dashed'
+  tool: 'arrow-straight' | 'arrow-curved' | 'arrow-wave'
   start: Pt; end: Pt
+  dashed?: boolean   // trazo discontinuo
+  curve?: number     // curvatura (curva): + un lado, − el otro
 }
 
 interface TextEl extends BaseEl {
@@ -83,12 +85,12 @@ function linePath(s: Pt, e: Pt) {
   return `M ${s.x} ${s.y} L ${e.x} ${e.y}`
 }
 
-function curvedPath(s: Pt, e: Pt) {
+function curvedPath(s: Pt, e: Pt, k = 0.28) {
   const mx = (s.x + e.x) / 2, my = (s.y + e.y) / 2
   const dx = e.x - s.x, dy = e.y - s.y
   const len = Math.sqrt(dx * dx + dy * dy) || 1
-  const cx = mx - (dy / len) * len * 0.28
-  const cy = my + (dx / len) * len * 0.28
+  const cx = mx - (dy / len) * len * k
+  const cy = my + (dx / len) * len * k
   return `M ${s.x} ${s.y} Q ${cx} ${cy} ${e.x} ${e.y}`
 }
 
@@ -120,12 +122,12 @@ function arrowTip(from: Pt, to: Pt, size = 14): string {
   return `M ${to.x} ${to.y} L ${ax1} ${ay1} L ${ax2} ${ay2} Z`
 }
 
-function curvedTip(s: Pt, e: Pt, size = 14): string {
+function curvedTip(s: Pt, e: Pt, size = 14, k = 0.28): string {
   const mx = (s.x + e.x) / 2, my = (s.y + e.y) / 2
   const dx = e.x - s.x, dy = e.y - s.y
   const len = Math.sqrt(dx * dx + dy * dy) || 1
-  const cx = mx - (dy / len) * len * 0.28
-  const cy = my + (dx / len) * len * 0.28
+  const cx = mx - (dy / len) * len * k
+  const cy = my + (dx / len) * len * k
   const tdx = e.x - cx, tdy = e.y - cy
   const tlen = Math.sqrt(tdx * tdx + tdy * tdy) || 1
   const pseudo = { x: e.x - (tdx / tlen), y: e.y - (tdy / tlen) }
@@ -148,6 +150,8 @@ export default function PintadoAcciones() {
   const [opacity, setOpacity] = useState(100)
   const [connectorTilt, setConnectorTilt] = useState(12)      // giro elipse conector (variable)
   const [connectorFlatten, setConnectorFlatten] = useState(40) // achatado % (variable)
+  const [arrowDashed, setArrowDashed] = useState(false)        // flecha discontinua (por defecto)
+  const [curveAmount, setCurveAmount] = useState(28)           // curvatura de la flecha curva (por defecto)
 
   const [tool, setTool] = useState<ToolType>('select')
   const [pendingDorsal, setPendingDorsal] = useState<number | null>(null)
@@ -243,7 +247,7 @@ export default function PintadoAcciones() {
       const orig = dragState.orig
       setElements(prev => prev.map(el => {
         if (el.id !== dragState.elId) return el
-        if (orig.tool === 'arrow-straight' || orig.tool === 'arrow-curved' || orig.tool === 'arrow-wave' || orig.tool === 'arrow-dashed') {
+        if (orig.tool === 'arrow-straight' || orig.tool === 'arrow-curved' || orig.tool === 'arrow-wave') {
           const ae = orig as ArrowEl
           return { ...ae, start: { x: ae.start.x + dx, y: ae.start.y + dy }, end: { x: ae.end.x + dx, y: ae.end.y + dy } }
         }
@@ -275,11 +279,12 @@ export default function PintadoAcciones() {
     if (!isDrawing || !drawStart || tool === 'select' || tool === 'zone' || tool === 'connector') return
     const pt = getSvgPt(e)
 
-    if (tool === 'arrow-straight' || tool === 'arrow-curved' || tool === 'arrow-wave' || tool === 'arrow-dashed') {
+    if (tool === 'arrow-straight' || tool === 'arrow-curved' || tool === 'arrow-wave') {
       setCurrentEl({
         id: 'preview', tool: tool as ArrowEl['tool'],
         start: drawStart, end: pt,
         stroke: strokeColor, fill: strokeColor, strokeWidth, opacity,
+        dashed: arrowDashed, curve: curveAmount,
       })
     } else if (tool === 'rect' || tool === 'focus') {
       setCurrentEl({
@@ -348,7 +353,7 @@ export default function PintadoAcciones() {
     if (!el) return
     const offset = 22
     let newEl: DrawEl
-    if (el.tool === 'arrow-straight' || el.tool === 'arrow-curved' || el.tool === 'arrow-wave' || el.tool === 'arrow-dashed') {
+    if (el.tool === 'arrow-straight' || el.tool === 'arrow-curved' || el.tool === 'arrow-wave') {
       const ae = el as ArrowEl
       newEl = { ...ae, id: uuidv4(), start: { x: ae.start.x + offset, y: ae.start.y + offset }, end: { x: ae.end.x + offset, y: ae.end.y + offset } }
     } else if (el.tool === 'connector') {
@@ -463,12 +468,13 @@ export default function PintadoAcciones() {
       }
     }
 
-    if (el.tool === 'arrow-straight' || el.tool === 'arrow-curved' || el.tool === 'arrow-wave' || el.tool === 'arrow-dashed') {
+    if (el.tool === 'arrow-straight' || el.tool === 'arrow-curved' || el.tool === 'arrow-wave') {
       const ae = el as ArrowEl
-      const path = el.tool === 'arrow-curved' ? curvedPath(ae.start, ae.end)
+      const k = (ae.curve ?? 28) / 100
+      const path = el.tool === 'arrow-curved' ? curvedPath(ae.start, ae.end, k)
         : el.tool === 'arrow-wave' ? wavePath(ae.start, ae.end)
         : linePath(ae.start, ae.end)
-      const tip = el.tool === 'arrow-curved' ? curvedTip(ae.start, ae.end)
+      const tip = el.tool === 'arrow-curved' ? curvedTip(ae.start, ae.end, 14, k)
         : arrowTip(ae.start, ae.end)
 
       if (animMode) {
@@ -503,7 +509,7 @@ export default function PintadoAcciones() {
         )
       }
 
-      const dashArray = el.tool === 'arrow-dashed' ? `${sw * 4} ${sw * 2.5}` : undefined
+      const dashArray = ae.dashed ? `${sw * 4} ${sw * 2.5}` : undefined
       return (
         <g key={key} opacity={alpha} style={selStyle} onPointerDown={onElMouseDown} cursor="move">
           <path d={path} stroke={ae.stroke} strokeWidth={sw * 3} fill="none" opacity={0} />
@@ -716,6 +722,8 @@ export default function PintadoAcciones() {
   const cursor = animMode ? 'default' : tool === 'select' ? (dragState ? 'grabbing' : 'default') : 'crosshair'
   const selectedEl = selectedId ? elements.find(e => e.id === selectedId) ?? null : null
   const selIsConnector = selectedEl?.tool === 'connector'
+  const selIsArrow = selectedEl?.tool === 'arrow-straight' || selectedEl?.tool === 'arrow-curved' || selectedEl?.tool === 'arrow-wave'
+  const selIsCurvedArrow = selectedEl?.tool === 'arrow-curved'
   // Aplica un cambio de estilo al elemento seleccionado, o al valor por defecto si no hay selección
   const updateSelected = (patch: Partial<DrawEl>) => {
     if (!selectedId) return
@@ -1104,9 +1112,31 @@ export default function PintadoAcciones() {
                 <ToolBtn title="Onda" active={tool === 'arrow-wave'} onClick={() => chooseTool('arrow-wave')}>
                   <IcoWaveArrow />
                 </ToolBtn>
-                <ToolBtn title="Discontinua" active={tool === 'arrow-dashed'} onClick={() => chooseTool('arrow-dashed')}>
-                  <IcoDashedArrow />
-                </ToolBtn>
+              </div>
+              {/* Discontinua: aplica a cualquier flecha (seleccionada o nueva) */}
+              <button
+                onClick={() => {
+                  if (selIsArrow) updateSelected({ dashed: !((selectedEl as ArrowEl).dashed) })
+                  else setArrowDashed(d => !d)
+                }}
+                className={`mt-2 w-full px-2 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                  (selIsArrow ? (selectedEl as ArrowEl).dashed : arrowDashed)
+                    ? 'bg-rfpaf-blue text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                {(selIsArrow ? (selectedEl as ArrowEl).dashed : arrowDashed) ? '┄ Discontinua: SÍ' : '── Discontinua: NO'}
+              </button>
+              {/* Curvatura: solo relevante para la flecha curva */}
+              <div className="mt-2">
+                <label className="text-[10px] font-semibold text-gray-500 mb-1 block uppercase tracking-wide">
+                  Curvatura: {selIsCurvedArrow ? ((selectedEl as ArrowEl).curve ?? curveAmount) : curveAmount}
+                </label>
+                <input type="range" min={-100} max={100} value={selIsCurvedArrow ? ((selectedEl as ArrowEl).curve ?? curveAmount) : curveAmount}
+                  onChange={(e: ChangeEvent<HTMLInputElement>) => {
+                    const v = +e.target.value
+                    if (selIsCurvedArrow) updateSelected({ curve: v }); else setCurveAmount(v)
+                  }}
+                  className="w-full accent-rfpaf-blue cursor-pointer" />
               </div>
             </div>
 
@@ -1182,15 +1212,6 @@ function ToolBtn({ children, active, onClick, title }: {
     >
       {children}
     </button>
-  )
-}
-
-function IcoDashedArrow() {
-  return (
-    <svg viewBox="0 0 18 18" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round">
-      <line x1="3" y1="15" x2="14" y2="4" strokeDasharray="3 2" />
-      <path d="M14 4 L9.5 4.5 L13.5 8.5" strokeLinejoin="round" />
-    </svg>
   )
 }
 
