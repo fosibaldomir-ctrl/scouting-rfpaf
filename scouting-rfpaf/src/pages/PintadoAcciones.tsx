@@ -129,6 +129,10 @@ function curvedTip(s: Pt, e: Pt, size = 14): string {
   return arrowTip(pseudo, e, size)
 }
 
+/* Inclinación fija (vista de cámara) de las elipses del conector sobre el césped */
+const CONNECTOR_TILT = 0          // grados de giro (0 = horizontal). Sube p.ej. a 8-12 para ladear.
+const CONNECTOR_FLATTEN = 0.45    // achatamiento vertical (menor = más tumbada en perspectiva)
+
 /* Ease-in-out (aprox. cubic-bezier 0.42 0 0.58 1) para la animación JS */
 function easeInOut(t: number): number {
   return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2
@@ -623,13 +627,6 @@ export default function PintadoAcciones() {
       if (ce.points.length < 2) return null
       const d = ce.points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ')
       const nr = Math.max(16 * (sizeScale / 100), sw * 1.5)
-      // Ángulo del segmento en cada nodo: la elipse gira para seguir el plano
-      const angleAt = (i: number) => {
-        const pts = ce.points
-        const a = i === 0 ? pts[0] : pts[i - 1]
-        const b = i === 0 ? pts[1] : i === pts.length - 1 ? pts[i] : pts[i + 1]
-        return Math.atan2(b.y - a.y, b.x - a.x) * 180 / Math.PI
-      }
       // Transparencia editable en vivo desde el control Transparencia
       const nodeAlpha = opacity / 100
       return (
@@ -637,8 +634,8 @@ export default function PintadoAcciones() {
           <path d={d} stroke={ce.stroke} strokeWidth={sw} fill="none"
             strokeLinecap="round" strokeLinejoin="round" opacity={nodeAlpha} />
           {ce.points.map((p, i) => (
-            <ellipse key={i} cx={p.x} cy={p.y} rx={nr} ry={nr * 0.6}
-              transform={`rotate(${angleAt(i)} ${p.x} ${p.y})`}
+            <ellipse key={i} cx={p.x} cy={p.y} rx={nr} ry={nr * CONNECTOR_FLATTEN}
+              transform={`rotate(${CONNECTOR_TILT} ${p.x} ${p.y})`}
               fill={ce.fill} fillOpacity={nodeAlpha}
               stroke="white" strokeWidth={Math.max(sw * 0.4, 1)} strokeOpacity={nodeAlpha} />
           ))}
@@ -917,13 +914,10 @@ export default function PintadoAcciones() {
                 />
                 {zonePoints.map((p, i) => {
                   if (tool !== 'connector') return <circle key={i} cx={p.x} cy={p.y} r={3} fill={strokeColor} />
-                  const a = i === 0 ? zonePoints[0] : zonePoints[i - 1]
-                  const b = i === 0 ? (zonePoints[1] ?? zonePoints[0]) : (zonePoints[i + 1] ?? zonePoints[i])
-                  const ang = Math.atan2(b.y - a.y, b.x - a.x) * 180 / Math.PI
                   const r = Math.max(16 * (sizeScale / 100), strokeWidth * 1.5)
                   return (
-                    <ellipse key={i} cx={p.x} cy={p.y} rx={r} ry={r * 0.6}
-                      transform={`rotate(${ang} ${p.x} ${p.y})`}
+                    <ellipse key={i} cx={p.x} cy={p.y} rx={r} ry={r * CONNECTOR_FLATTEN}
+                      transform={`rotate(${CONNECTOR_TILT} ${p.x} ${p.y})`}
                       fill={strokeColor} fillOpacity={opacity / 100}
                       stroke="white" strokeWidth={1} strokeOpacity={opacity / 100} />
                   )
