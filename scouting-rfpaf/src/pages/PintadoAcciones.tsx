@@ -1055,13 +1055,6 @@ function IcoCircle() {
   )
 }
 
-function IcoZone() {
-  return (
-    <svg viewBox="0 0 18 18" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.4">
-      <polygon points="9,2 16,7 13.5,16 4.5,16 2,7" strokeLinejoin="round" />
-    </svg>
-  )
-}
 
 function IcoConnector() {
   return (
