@@ -1192,16 +1192,16 @@ export default function PintadoAcciones() {
             <div>
               <p className="text-xs font-bold text-gray-600 mb-2 uppercase tracking-wider text-center">Zonas</p>
               <div className="grid grid-cols-2 gap-2">
-                <ToolBtn title="Rect" active={tool === 'rect'} onClick={() => chooseTool('rect')}>
+                <ToolBtn title="Rectángulo" active={tool === 'rect'} onClick={() => chooseTool('rect')}>
                   <IcoRect />
                 </ToolBtn>
                 <ToolBtn title="Círculo" active={tool === 'circle'} onClick={() => chooseTool('circle')}>
                   <IcoCircle />
                 </ToolBtn>
-                <ToolBtn title="Elipse discontinua" active={tool === 'circle-dashed'} onClick={() => chooseTool('circle-dashed')}>
+                <ToolBtn title="Elipse discontinua" label="Discontinua" active={tool === 'circle-dashed'} onClick={() => chooseTool('circle-dashed')}>
                   <IcoCircleDashed />
                 </ToolBtn>
-                <ToolBtn title="Elipse punto-línea" active={tool === 'circle-dotdash'} onClick={() => chooseTool('circle-dotdash')}>
+                <ToolBtn title="Elipse punto-línea" label="Punto-línea" active={tool === 'circle-dotdash'} onClick={() => chooseTool('circle-dotdash')}>
                   <IcoCircleDotDash />
                 </ToolBtn>
                 <ToolBtn title="Triángulo" active={tool === 'triangle'} onClick={() => chooseTool('triangle')}>
@@ -1235,19 +1235,20 @@ export default function PintadoAcciones() {
   )
 }
 
-function ToolBtn({ children, active, onClick, title }: {
-  children: React.ReactNode; active?: boolean; onClick: () => void; title: string
+function ToolBtn({ children, active, onClick, title, label }: {
+  children: React.ReactNode; active?: boolean; onClick: () => void; title: string; label?: string
 }) {
   return (
     <button
       title={title} onClick={onClick}
-      className={`w-full h-8 rounded flex items-center justify-center transition-all ${
+      className={`w-full py-1.5 px-1 rounded flex flex-col items-center justify-center gap-0.5 transition-all ${
         active
           ? 'bg-rfpaf-blue text-white'
           : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
       }`}
     >
       {children}
+      <span className="text-[8px] font-semibold leading-none text-center w-full truncate">{label ?? title}</span>
     </button>
   )
 }
