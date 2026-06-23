@@ -45,7 +45,7 @@ interface BaseEl {
 }
 
 interface ArrowEl extends BaseEl {
-  tool: 'arrow-straight' | 'arrow-curved' | 'arrow-wave' | 'arrow-dashed' | 'connector'
+  tool: 'arrow-straight' | 'arrow-curved' | 'arrow-wave' | 'arrow-dashed'
   start: Pt; end: Pt
 }
 
@@ -64,12 +64,17 @@ interface ZoneEl extends BaseEl {
   points: Pt[]
 }
 
+interface ConnectorEl extends BaseEl {
+  tool: 'connector'
+  points: Pt[]
+}
+
 interface DorsalEl extends BaseEl {
   tool: 'dorsal'
   pos: Pt; number: number
 }
 
-type DrawEl = ArrowEl | TextEl | ShapeEl | ZoneEl | DorsalEl
+type DrawEl = ArrowEl | TextEl | ShapeEl | ZoneEl | ConnectorEl | DorsalEl
 
 function linePath(s: Pt, e: Pt) {
   return `M ${s.x} ${s.y} L ${e.x} ${e.y}`
@@ -197,7 +202,7 @@ export default function PintadoAcciones() {
       return
     }
 
-    if (tool === 'zone') {
+    if (tool === 'zone' || tool === 'connector') {
       if (!isDrawing) {
         setIsDrawing(true)
         setZonePoints([pt])
@@ -233,9 +238,13 @@ export default function PintadoAcciones() {
       const orig = dragState.orig
       setElements(prev => prev.map(el => {
         if (el.id !== dragState.elId) return el
-        if (orig.tool === 'arrow-straight' || orig.tool === 'arrow-curved' || orig.tool === 'arrow-wave' || orig.tool === 'arrow-dashed' || orig.tool === 'connector') {
+        if (orig.tool === 'arrow-straight' || orig.tool === 'arrow-curved' || orig.tool === 'arrow-wave' || orig.tool === 'arrow-dashed') {
           const ae = orig as ArrowEl
           return { ...ae, start: { x: ae.start.x + dx, y: ae.start.y + dy }, end: { x: ae.end.x + dx, y: ae.end.y + dy } }
+        }
+        if (orig.tool === 'connector') {
+          const ce = orig as ConnectorEl
+          return { ...ce, points: ce.points.map(p => ({ x: p.x + dx, y: p.y + dy })) }
         }
         if (orig.tool === 'text' || orig.tool === 'label') {
           const te = orig as TextEl
@@ -258,10 +267,10 @@ export default function PintadoAcciones() {
       return
     }
 
-    if (!isDrawing || !drawStart || tool === 'select' || tool === 'zone') return
+    if (!isDrawing || !drawStart || tool === 'select' || tool === 'zone' || tool === 'connector') return
     const pt = getSvgPt(e)
 
-    if (tool === 'arrow-straight' || tool === 'arrow-curved' || tool === 'arrow-wave' || tool === 'arrow-dashed' || tool === 'connector') {
+    if (tool === 'arrow-straight' || tool === 'arrow-curved' || tool === 'arrow-wave' || tool === 'arrow-dashed') {
       setCurrentEl({
         id: 'preview', tool: tool as ArrowEl['tool'],
         start: drawStart, end: pt,
@@ -305,6 +314,14 @@ export default function PintadoAcciones() {
       setZonePoints([])
       setIsDrawing(false)
     }
+    if (tool === 'connector' && zonePoints.length >= 2) {
+      setElements(prev => [...prev, {
+        id: uuidv4(), tool: 'connector', points: zonePoints,
+        stroke: strokeColor, fill: strokeColor, strokeWidth, opacity,
+      }])
+      setZonePoints([])
+      setIsDrawing(false)
+    }
   }, [tool, zonePoints, strokeColor, fillColor, strokeWidth, opacity])
 
   const duplicateSelected = () => {
@@ -313,9 +330,12 @@ export default function PintadoAcciones() {
     if (!el) return
     const offset = 22
     let newEl: DrawEl
-    if (el.tool === 'arrow-straight' || el.tool === 'arrow-curved' || el.tool === 'arrow-wave' || el.tool === 'arrow-dashed' || el.tool === 'connector') {
+    if (el.tool === 'arrow-straight' || el.tool === 'arrow-curved' || el.tool === 'arrow-wave' || el.tool === 'arrow-dashed') {
       const ae = el as ArrowEl
       newEl = { ...ae, id: uuidv4(), start: { x: ae.start.x + offset, y: ae.start.y + offset }, end: { x: ae.end.x + offset, y: ae.end.y + offset } }
+    } else if (el.tool === 'connector') {
+      const ce = el as ConnectorEl
+      newEl = { ...ce, id: uuidv4(), points: ce.points.map(p => ({ x: p.x + offset, y: p.y + offset })) }
     } else if (el.tool === 'text' || el.tool === 'label') {
       const te = el as TextEl
       newEl = { ...te, id: uuidv4(), pos: { x: te.pos.x + offset, y: te.pos.y + offset } }
@@ -396,14 +416,13 @@ export default function PintadoAcciones() {
       }
     }
 
-    if (el.tool === 'arrow-straight' || el.tool === 'arrow-curved' || el.tool === 'arrow-wave' || el.tool === 'arrow-dashed' || el.tool === 'connector') {
+    if (el.tool === 'arrow-straight' || el.tool === 'arrow-curved' || el.tool === 'arrow-wave' || el.tool === 'arrow-dashed') {
       const ae = el as ArrowEl
       const path = el.tool === 'arrow-curved' ? curvedPath(ae.start, ae.end)
         : el.tool === 'arrow-wave' ? wavePath(ae.start, ae.end)
         : linePath(ae.start, ae.end)
       const tip = el.tool === 'arrow-curved' ? curvedTip(ae.start, ae.end)
-        : el.tool !== 'connector' ? arrowTip(ae.start, ae.end)
-        : null
+        : arrowTip(ae.start, ae.end)
 
       if (animMode) {
         const ballR = Math.max(sw * 2.5, 7)
@@ -557,6 +576,24 @@ export default function PintadoAcciones() {
         <polygon key={key} points={pts}
           stroke={ze.stroke} strokeWidth={sw} fill={ze.fill}
           opacity={alpha} style={selStyle} onPointerDown={onElMouseDown} cursor="move" />
+      )
+    }
+
+    if (el.tool === 'connector') {
+      const ce = el as ConnectorEl
+      if (ce.points.length < 2) return null
+      const d = ce.points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ')
+      const nr = Math.max(sw * 2.5, 6)
+      return (
+        <g key={key} opacity={alpha} style={selStyle} onPointerDown={onElMouseDown} cursor="move">
+          <path d={d} stroke={ce.stroke} strokeWidth={sw} fill="none"
+            strokeLinecap="round" strokeLinejoin="round" />
+          {ce.points.map((p, i) => (
+            <ellipse key={i} cx={p.x} cy={p.y} rx={nr} ry={nr * 0.65}
+              fill={ce.fill} fillOpacity={0.85}
+              stroke="white" strokeWidth={Math.max(sw * 0.4, 1)} />
+          ))}
+        </g>
       )
     }
 
@@ -825,11 +862,17 @@ export default function PintadoAcciones() {
               <>
                 <path
                   d={`M ${zonePoints[0].x} ${zonePoints[0].y} ${zonePoints.slice(1).map(p => `L ${p.x} ${p.y}`).join(' ')}`}
-                  stroke={strokeColor} strokeWidth={strokeWidth} fill="none" strokeDasharray="5 3"
+                  stroke={strokeColor} strokeWidth={strokeWidth} fill="none"
+                  strokeDasharray={tool === 'connector' ? undefined : '5 3'}
+                  strokeLinecap="round" strokeLinejoin="round"
                 />
-                {zonePoints.map((p, i) => (
-                  <circle key={i} cx={p.x} cy={p.y} r={3} fill={strokeColor} />
-                ))}
+                {zonePoints.map((p, i) =>
+                  tool === 'connector'
+                    ? <ellipse key={i} cx={p.x} cy={p.y}
+                        rx={Math.max(strokeWidth * 2.5, 6)} ry={Math.max(strokeWidth * 1.6, 4)}
+                        fill={strokeColor} fillOpacity={0.85} stroke="white" strokeWidth={1} />
+                    : <circle key={i} cx={p.x} cy={p.y} r={3} fill={strokeColor} />
+                )}
               </>
             )}
           </svg>
