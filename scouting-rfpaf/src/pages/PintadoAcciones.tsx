@@ -183,6 +183,12 @@ export default function PintadoAcciones() {
   const [videoCurrentTime, setVideoCurrentTime] = useState(0)
   const [videoError, setVideoError] = useState<string | null>(null)
   const durationProbing = useRef(false)
+  // YouTube IFrame API
+  const ytPlayerRef = useRef<any>(null)
+  const [ytPlaying, setYtPlaying] = useState(false)
+  const [ytCurrent, setYtCurrent] = useState(0)
+  const [ytDuration, setYtDuration] = useState(0)
+  const ytPollRef = useRef<number | null>(null)
 
   const [mobilePanel, setMobilePanel] = useState<'estilos' | 'lienzo' | 'herramientas'>('lienzo')
 
@@ -468,9 +474,89 @@ export default function PintadoAcciones() {
   const handleLoadVideo = () => {
     const match = ytUrl.match(/(?:v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/)
     if (match) {
-      setYtEmbedUrl(`https://www.youtube.com/embed/${match[1]}?enablejsapi=1`)
+      const params = `enablejsapi=1&controls=0&modestbranding=1&rel=0&playsinline=1&origin=${encodeURIComponent(window.location.origin)}`
+      setYtEmbedUrl(`https://www.youtube.com/embed/${match[1]}?${params}`)
       setBgImage(null)
+      setVideoUrl(null)
     }
+  }
+
+  // Cargar la API de YouTube IFrame una sola vez
+  useEffect(() => {
+    const w = window as any
+    if (w.YT && w.YT.Player) return
+    if (document.getElementById('yt-iframe-api')) return
+    const tag = document.createElement('script')
+    tag.id = 'yt-iframe-api'
+    tag.src = 'https://www.youtube.com/iframe_api'
+    document.body.appendChild(tag)
+  }, [])
+
+  // Crear el reproductor cuando hay un embed de YouTube
+  useEffect(() => {
+    if (!ytEmbedUrl) {
+      // limpiar
+      if (ytPollRef.current) { clearInterval(ytPollRef.current); ytPollRef.current = null }
+      ytPlayerRef.current = null
+      setYtPlaying(false); setYtCurrent(0); setYtDuration(0)
+      return
+    }
+    const w = window as any
+    let cancelled = false
+
+    const createPlayer = () => {
+      if (cancelled) return
+      ytPlayerRef.current = new w.YT.Player('yt-player', {
+        events: {
+          onReady: (e: any) => {
+            setYtDuration(e.target.getDuration() || 0)
+          },
+          onStateChange: (e: any) => {
+            const YT = w.YT
+            setYtPlaying(e.data === YT.PlayerState.PLAYING)
+            if (e.data === YT.PlayerState.PLAYING) {
+              if (ytPollRef.current) clearInterval(ytPollRef.current)
+              ytPollRef.current = window.setInterval(() => {
+                const p = ytPlayerRef.current
+                if (p && p.getCurrentTime) {
+                  setYtCurrent(p.getCurrentTime() || 0)
+                  if (!ytDuration && p.getDuration) setYtDuration(p.getDuration() || 0)
+                }
+              }, 200)
+            } else {
+              if (ytPollRef.current) { clearInterval(ytPollRef.current); ytPollRef.current = null }
+              const p = ytPlayerRef.current
+              if (p && p.getCurrentTime) setYtCurrent(p.getCurrentTime() || 0)
+            }
+          },
+        },
+      })
+    }
+
+    if (w.YT && w.YT.Player) {
+      // pequeño retardo para asegurar que el iframe está en el DOM
+      setTimeout(createPlayer, 50)
+    } else {
+      w.onYouTubeIframeAPIReady = createPlayer
+    }
+
+    return () => {
+      cancelled = true
+      if (ytPollRef.current) { clearInterval(ytPollRef.current); ytPollRef.current = null }
+    }
+  }, [ytEmbedUrl])
+
+  const ytTogglePlay = () => {
+    const p = ytPlayerRef.current
+    if (!p) return
+    if (ytPlaying) p.pauseVideo()
+    else p.playVideo()
+  }
+
+  const ytSeek = (t: number) => {
+    setYtCurrent(t)
+    const p = ytPlayerRef.current
+    if (p && p.seekTo) p.seekTo(t, true)
   }
 
   const handleVideoUpload = (e: ChangeEvent<HTMLInputElement>) => {
@@ -971,6 +1057,40 @@ export default function PintadoAcciones() {
         </div>
       )}
 
+      {/* Barra controles YouTube — play/pausa propios (la API permite controlar el iframe) */}
+      {ytEmbedUrl && (
+        <div className="flex items-center gap-3 bg-gray-900 rounded-xl px-4 py-2.5 flex-shrink-0 flex-wrap">
+          <button
+            onClick={ytTogglePlay}
+            className="px-4 py-1.5 rounded-lg bg-rfpaf-blue hover:bg-blue-700 text-white font-bold text-sm transition-colors whitespace-nowrap"
+          >
+            {ytPlaying ? '⏸ Pausar' : '▶ Reproducir'}
+          </button>
+          <input
+            type="range"
+            min="0"
+            max={ytDuration > 0 ? ytDuration : 100}
+            step="0.1"
+            value={ytCurrent}
+            disabled={ytDuration <= 0}
+            onChange={e => ytSeek(parseFloat(e.target.value))}
+            className="flex-1 min-w-[120px] lab-range text-rfpaf-blue cursor-pointer disabled:opacity-40"
+          />
+          <span className="text-white text-xs tabular-nums whitespace-nowrap">
+            {ytCurrent.toFixed(0)}s{ytDuration > 0 ? ` / ${ytDuration.toFixed(0)}s` : ''}
+          </span>
+          {!ytPlaying && (
+            <span className="text-green-400 text-xs font-semibold whitespace-nowrap">⏸ Pausado — dibuja encima</span>
+          )}
+          <button
+            onClick={() => { setYtEmbedUrl(null); setYtUrl('') }}
+            className="px-3 py-1.5 rounded-lg bg-rfpaf-red hover:bg-red-700 text-white font-bold text-sm transition-colors whitespace-nowrap"
+          >
+            ✕ Cerrar vídeo
+          </button>
+        </div>
+      )}
+
       {/* Main content */}
       <div className="flex flex-1 gap-4 min-h-0 flex-col lg:flex-row overflow-hidden">
         {/* Left Panel */}
@@ -1136,6 +1256,7 @@ export default function PintadoAcciones() {
           {/* Fondo: iframe YouTube */}
           {ytEmbedUrl && !videoUrl && (
             <iframe
+              id="yt-player"
               src={ytEmbedUrl}
               className="absolute inset-0 w-full h-full border-0 z-0"
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
