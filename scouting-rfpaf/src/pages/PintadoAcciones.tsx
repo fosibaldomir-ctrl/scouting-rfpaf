@@ -654,6 +654,60 @@ export default function PintadoAcciones() {
     setActiveMomentId(id)
   }
 
+  // Exportar PNG: fusiona el frame del vídeo + los dibujos del lienzo (Opción B 2/3)
+  const exportPNG = async () => {
+    const svg = svgRef.current
+    if (!svg) return
+    setSelectedId(null)  // quitar resaltado/tiradores de la imagen
+    await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))
+
+    const W = svg.clientWidth, H = svg.clientHeight
+    if (W === 0 || H === 0) return
+    const canvas = document.createElement('canvas')
+    canvas.width = W; canvas.height = H
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+
+    // Fondo: frame del vídeo (object-contain) o blanco si no hay (YouTube)
+    if (videoFrameCanvas) {
+      await new Promise<void>(res => {
+        const img = new Image()
+        img.onload = () => {
+          const scale = Math.min(W / img.naturalWidth, H / img.naturalHeight)
+          const dw = img.naturalWidth * scale, dh = img.naturalHeight * scale
+          ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H)
+          ctx.drawImage(img, (W - dw) / 2, (H - dh) / 2, dw, dh)
+          res()
+        }
+        img.onerror = () => res()
+        img.src = videoFrameCanvas
+      })
+    } else {
+      ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, W, H)
+    }
+
+    // Dibujos: serializar el SVG y pintarlo encima
+    const clone = svg.cloneNode(true) as SVGSVGElement
+    clone.setAttribute('width', String(W))
+    clone.setAttribute('height', String(H))
+    clone.setAttribute('viewBox', `0 0 ${W} ${H}`)
+    const xml = new XMLSerializer().serializeToString(clone)
+    const svgBlob = new Blob([xml], { type: 'image/svg+xml;charset=utf-8' })
+    const url = URL.createObjectURL(svgBlob)
+    await new Promise<void>(res => {
+      const img = new Image()
+      img.onload = () => { ctx.drawImage(img, 0, 0, W, H); res() }
+      img.onerror = () => res()
+      img.src = url
+    })
+    URL.revokeObjectURL(url)
+
+    const a = document.createElement('a')
+    a.download = `momento-${fmtTime(currentVideoTime()).replace(':', '-')}.png`
+    a.href = canvas.toDataURL('image/png')
+    a.click()
+  }
+
   const deleteMoment = (id: string) => {
     setMoments(prev => prev.filter(m => m.id !== id))
     if (activeMomentId === id) setActiveMomentId(null)
@@ -1147,6 +1201,14 @@ export default function PintadoAcciones() {
               ＋ Guardar momento
             </button>
             <button
+              onClick={exportPNG}
+              disabled={!!videoError}
+              title="Descargar el frame actual + los dibujos como imagen PNG"
+              className="px-3 py-1.5 rounded-lg bg-white/15 hover:bg-white/25 disabled:opacity-40 text-white font-bold text-sm transition-colors whitespace-nowrap"
+            >
+              ⬇ PNG
+            </button>
+            <button
               onClick={() => {
                 if (videoRef.current) videoRef.current.pause()
                 setVideoFrameCanvas(null)
@@ -1198,6 +1260,13 @@ export default function PintadoAcciones() {
             className="px-3 py-1.5 rounded-lg bg-green-600 hover:bg-green-700 text-white font-bold text-sm transition-colors whitespace-nowrap"
           >
             ＋ Guardar momento
+          </button>
+          <button
+            onClick={exportPNG}
+            title="Descargar los dibujos como PNG (YouTube no permite capturar el frame: fondo blanco)"
+            className="px-3 py-1.5 rounded-lg bg-white/15 hover:bg-white/25 text-white font-bold text-sm transition-colors whitespace-nowrap"
+          >
+            ⬇ PNG
           </button>
           <button
             onClick={() => { setYtEmbedUrl(null); setYtUrl('') }}
