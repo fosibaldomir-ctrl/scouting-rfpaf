@@ -296,6 +296,9 @@ export default function PintadoAcciones() {
 
   const handleMouseUp = useCallback(() => {
     if (dragState) { setDragState(null); return }
+    // Zona y conector son multiclick: NO reiniciar isDrawing al soltar,
+    // o cada nuevo click empezaría de cero en vez de añadir un nodo más.
+    if (tool === 'zone' || tool === 'connector') return
     if (!isDrawing) return
     if (currentEl) {
       setElements(prev => [...prev, { ...currentEl, id: uuidv4() }])
@@ -303,7 +306,7 @@ export default function PintadoAcciones() {
     }
     setIsDrawing(false)
     setDrawStart(null)
-  }, [isDrawing, currentEl, dragState])
+  }, [isDrawing, currentEl, dragState, tool])
 
   const handleDblClick = useCallback(() => {
     if (tool === 'zone' && zonePoints.length >= 3) {
@@ -314,11 +317,20 @@ export default function PintadoAcciones() {
       setZonePoints([])
       setIsDrawing(false)
     }
-    if (tool === 'connector' && zonePoints.length >= 2) {
-      setElements(prev => [...prev, {
-        id: uuidv4(), tool: 'connector', points: zonePoints,
-        stroke: strokeColor, fill: strokeColor, strokeWidth, opacity,
-      }])
+    if (tool === 'connector') {
+      // Elimina nodos consecutivos casi idénticos (el doble-tap final
+      // suele colocar dos en el mismo punto, sobre todo en táctil).
+      const pts = zonePoints.filter((p, i) => {
+        if (i === 0) return true
+        const prev = zonePoints[i - 1]
+        return Math.hypot(p.x - prev.x, p.y - prev.y) > 8
+      })
+      if (pts.length >= 2) {
+        setElements(prev => [...prev, {
+          id: uuidv4(), tool: 'connector', points: pts,
+          stroke: strokeColor, fill: strokeColor, strokeWidth, opacity,
+        }])
+      }
       setZonePoints([])
       setIsDrawing(false)
     }
