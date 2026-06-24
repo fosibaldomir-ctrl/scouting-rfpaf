@@ -1245,20 +1245,21 @@ export default function PintadoAcciones() {
   }
 
   return (
-    <div className="h-screen flex flex-col overflow-hidden">
+    <div className="h-full flex flex-col overflow-hidden">
       {/* Header Corporate Style */}
-      <div className="bg-slate-100 text-gray-800 px-4 sm:px-6 py-3 flex-shrink-0 border-b-4 border-rfpaf-blue">
+      <div className="bg-slate-100 text-gray-800 px-4 sm:px-6 py-2 sm:py-3 flex-shrink-0 border-b-4 border-rfpaf-blue">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 bg-rfpaf-blue rounded-lg flex items-center justify-center flex-shrink-0">
-              <PenLine className="w-7 h-7 text-white" />
+          <div className="flex items-center gap-2 sm:gap-4">
+            <div className="w-9 h-9 sm:w-12 sm:h-12 bg-rfpaf-blue rounded-lg flex items-center justify-center flex-shrink-0">
+              <PenLine className="w-5 h-5 sm:w-7 sm:h-7 text-white" />
             </div>
             <div className="leading-tight">
-              <h1 className="text-2xl font-black tracking-tight text-rfpaf-blue">ANÁLISIS LAB</h1>
-              <p className="text-gray-600 text-xs mt-0.5">Herramienta de análisis visual</p>
+              <h1 className="text-lg sm:text-2xl font-black tracking-tight text-rfpaf-blue">ANÁLISIS LAB</h1>
+              <p className="text-gray-600 text-[10px] sm:text-xs mt-0.5">Herramienta de análisis visual</p>
             </div>
           </div>
-          <div className="flex items-center gap-3 border-l border-gray-300 pl-4">
+          {/* Marca corporativa — oculta en móvil (ya está en la barra superior) */}
+          <div className="hidden lg:flex items-center gap-3 border-l border-gray-300 pl-4">
             <RFPAFLogo />
             <div className="text-right leading-tight">
               <p className="text-gray-800 font-bold text-xs tracking-wide">STAFF LAB</p>
@@ -1270,9 +1271,9 @@ export default function PintadoAcciones() {
       </div>
 
       {/* Content */}
-      <div className="p-4 sm:p-6 space-y-5 flex-1 flex flex-col overflow-hidden">
+      <div className="p-2 sm:p-6 space-y-2 sm:space-y-5 flex-1 flex flex-col overflow-hidden min-h-0">
         {/* Top bar */}
-        <div className="flex items-center gap-3 bg-white rounded-xl shadow-sm p-4 flex-shrink-0 flex-wrap">
+        <div className="flex items-center gap-2 sm:gap-3 bg-white rounded-xl shadow-sm p-2.5 sm:p-4 flex-shrink-0 flex-wrap">
           <span className="text-gray-600 text-sm font-semibold whitespace-nowrap">Fondo:</span>
           <button
             onClick={() => videoInputRef.current?.click()}
@@ -1447,7 +1448,7 @@ export default function PintadoAcciones() {
       {/* Main content */}
       <div className="flex flex-1 gap-4 min-h-0 flex-col lg:flex-row overflow-hidden">
         {/* Left Panel */}
-        <aside className={`${mobilePanel === 'estilos' ? 'flex' : 'hidden'} lg:flex w-full lg:w-56 bg-white rounded-xl shadow-sm p-4 flex-col overflow-y-auto flex-shrink-0 max-h-[calc(100vh-280px)] lg:max-h-none`}>
+        <aside className={`${mobilePanel === 'estilos' ? 'flex' : 'hidden'} lg:flex w-full lg:w-56 bg-white rounded-xl shadow-sm p-4 flex-col overflow-y-auto flex-1 min-h-0 lg:flex-none`}>
           <h2 className="text-sm font-bold text-rfpaf-blue mb-4 uppercase tracking-wide">Estilos & Controles</h2>
 
           {/* Edición de texto del elemento seleccionado (texto/etiqueta) */}
@@ -1792,7 +1793,7 @@ export default function PintadoAcciones() {
         </aside>
 
         {/* Center Canvas */}
-        <div className={`${mobilePanel === 'lienzo' ? 'flex' : 'hidden'} lg:flex flex-1 bg-white rounded-xl shadow-sm overflow-hidden min-w-0 max-h-[calc(100vh-280px)] lg:max-h-none relative flex-col`} style={{ cursor }}>
+        <div className={`${mobilePanel === 'lienzo' ? 'flex' : 'hidden'} lg:flex flex-1 min-h-0 bg-white rounded-xl shadow-sm overflow-hidden min-w-0 relative flex-col`} style={{ cursor }}>
           {/* Vídeo HTML5 — siempre en el DOM cuando hay videoUrl para que el ref no se pierda */}
           {videoUrl && (
             <video
@@ -1906,7 +1907,7 @@ export default function PintadoAcciones() {
         </div>
 
         {/* Right Panel - Tools */}
-        <aside className={`${mobilePanel === 'herramientas' ? 'flex' : 'hidden'} lg:flex w-full lg:w-32 bg-white rounded-xl shadow-sm p-3 flex-col items-center gap-4 overflow-y-auto flex-shrink-0 max-h-[calc(100vh-280px)] lg:max-h-none`}>
+        <aside className={`${mobilePanel === 'herramientas' ? 'flex' : 'hidden'} lg:flex w-full lg:w-32 bg-white rounded-xl shadow-sm p-3 flex-col items-center gap-4 overflow-y-auto flex-1 min-h-0 lg:flex-none`}>
           {/* Actions */}
           <div className="flex gap-2 flex-col w-full">
             <button
