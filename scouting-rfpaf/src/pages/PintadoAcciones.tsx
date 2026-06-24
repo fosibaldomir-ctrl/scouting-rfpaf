@@ -83,7 +83,7 @@ interface DorsalEl extends BaseEl {
   photo?: string   // dataURL (variante foto)
 }
 
-type DorsalCfg = { number: number; variant: 'jersey' | 'named' | 'photo'; name: string; photo: string | null }
+type DorsalCfg = { number: number; variant: 'jersey' | 'named' | 'photo'; name: string; photo: string | null; color: string }
 
 type DrawEl = ArrowEl | TextEl | ShapeEl | ZoneEl | ConnectorEl | DorsalEl
 
@@ -168,6 +168,7 @@ export default function PintadoAcciones() {
   const [dorsalVariant, setDorsalVariant] = useState<'jersey' | 'named' | 'photo'>('jersey')
   const [dorsalName, setDorsalName] = useState('')
   const [dorsalPhoto, setDorsalPhoto] = useState<string | null>(null)
+  const [dorsalColor, setDorsalColor] = useState('#dc2626')
   const [elements, setElements] = useState<DrawEl[]>([])
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [isDrawing, setIsDrawing] = useState(false)
@@ -251,7 +252,7 @@ export default function PintadoAcciones() {
         variant: pendingDorsal.variant,
         name: pendingDorsal.name || undefined,
         photo: pendingDorsal.photo || undefined,
-        stroke: '#ffffff', fill: '#dc2626', strokeWidth: 2, opacity: 100, sizeScale,
+        stroke: '#ffffff', fill: pendingDorsal.color, strokeWidth: 2, opacity: 100, sizeScale,
       }
       setElements(prev => [...prev, el])
       setPendingDorsal(null)
@@ -499,7 +500,7 @@ export default function PintadoAcciones() {
 
   // Arma la colocación del dorsal con la configuración actual
   const armDorsal = () => {
-    setPendingDorsal({ number: dorsalNumber, variant: dorsalVariant, name: dorsalName, photo: dorsalPhoto })
+    setPendingDorsal({ number: dorsalNumber, variant: dorsalVariant, name: dorsalName, photo: dorsalPhoto, color: dorsalColor })
     setTool('select')
     setMobilePanel('lienzo')
   }
@@ -1621,9 +1622,39 @@ export default function PintadoAcciones() {
               </div>
             )}
 
+            {/* Color de la camiseta (crea o edita el dorsal seleccionado) */}
+            <label className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide">
+              Color camiseta {selectedEl?.tool === 'dorsal' && <span className="text-rfpaf-blue normal-case">(elem.)</span>}
+            </label>
+            <div className="flex items-center gap-2 mb-2">
+              <input
+                type="color"
+                value={selectedEl?.tool === 'dorsal' ? selectedEl.fill : dorsalColor}
+                onChange={(e: ChangeEvent<HTMLInputElement>) => {
+                  if (selectedEl?.tool === 'dorsal') updateSelected({ fill: e.target.value })
+                  else setDorsalColor(e.target.value)
+                }}
+                className="w-10 h-9 rounded-lg border-2 border-gray-300 cursor-pointer"
+              />
+              <div className="flex gap-1">
+                {['#dc2626', '#1d4ed8', '#16a34a', '#000000', '#ffffff', '#f59e0b'].map(c => (
+                  <button
+                    key={c}
+                    onClick={() => {
+                      if (selectedEl?.tool === 'dorsal') updateSelected({ fill: c })
+                      else setDorsalColor(c)
+                    }}
+                    title={c}
+                    className="w-5 h-5 rounded-full border border-gray-300"
+                    style={{ background: c }}
+                  />
+                ))}
+              </div>
+            </div>
+
             {/* Vista previa + colocar */}
             <div className="flex items-center justify-center my-2">
-              <JerseyIcon fill="#dc2626" number={dorsalNumber} size={40} />
+              <JerseyIcon fill={dorsalColor} number={dorsalNumber} size={40} />
             </div>
             <button
               onClick={armDorsal}
