@@ -78,7 +78,12 @@ interface ConnectorEl extends BaseEl {
 interface DorsalEl extends BaseEl {
   tool: 'dorsal'
   pos: Pt; number: number
+  variant?: 'jersey' | 'named' | 'photo'   // camiseta / con nombre / con foto
+  name?: string
+  photo?: string   // dataURL (variante foto)
 }
+
+type DorsalCfg = { number: number; variant: 'jersey' | 'named' | 'photo'; name: string; photo: string | null }
 
 type DrawEl = ArrowEl | TextEl | ShapeEl | ZoneEl | ConnectorEl | DorsalEl
 
@@ -157,7 +162,12 @@ export default function PintadoAcciones() {
   const [curveAmount, setCurveAmount] = useState(28)           // curvatura de la flecha curva (por defecto)
 
   const [tool, setTool] = useState<ToolType>('select')
-  const [pendingDorsal, setPendingDorsal] = useState<number | null>(null)
+  const [pendingDorsal, setPendingDorsal] = useState<DorsalCfg | null>(null)
+  // Configuración del dorsal a colocar (panel)
+  const [dorsalNumber, setDorsalNumber] = useState(1)
+  const [dorsalVariant, setDorsalVariant] = useState<'jersey' | 'named' | 'photo'>('jersey')
+  const [dorsalName, setDorsalName] = useState('')
+  const [dorsalPhoto, setDorsalPhoto] = useState<string | null>(null)
   const [elements, setElements] = useState<DrawEl[]>([])
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [isDrawing, setIsDrawing] = useState(false)
@@ -208,6 +218,7 @@ export default function PintadoAcciones() {
   const fillInputRef = useRef<HTMLInputElement>(null)
   const strokeInputRef = useRef<HTMLInputElement>(null)
   const videoInputRef = useRef<HTMLInputElement>(null)
+  const dorsalPhotoInputRef = useRef<HTMLInputElement>(null)
 
 
   const getSvgPt = useCallback((e: RME): Pt => {
@@ -236,7 +247,10 @@ export default function PintadoAcciones() {
 
     if (pendingDorsal !== null) {
       const el: DorsalEl = {
-        id: uuidv4(), tool: 'dorsal', pos: pt, number: pendingDorsal,
+        id: uuidv4(), tool: 'dorsal', pos: pt, number: pendingDorsal.number,
+        variant: pendingDorsal.variant,
+        name: pendingDorsal.name || undefined,
+        photo: pendingDorsal.photo || undefined,
         stroke: '#ffffff', fill: '#dc2626', strokeWidth: 2, opacity: 100, sizeScale,
       }
       setElements(prev => [...prev, el])
@@ -470,6 +484,23 @@ export default function PintadoAcciones() {
     if (t !== tool) finalizePending()
     setTool(t)
     setPendingDorsal(null)
+    setMobilePanel('lienzo')
+  }
+
+  // Foto para el dorsal con foto
+  const handleDorsalPhotoUpload = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = ev => setDorsalPhoto(ev.target?.result as string)
+    reader.readAsDataURL(file)
+    e.target.value = ''
+  }
+
+  // Arma la colocación del dorsal con la configuración actual
+  const armDorsal = () => {
+    setPendingDorsal({ number: dorsalNumber, variant: dorsalVariant, name: dorsalName, photo: dorsalPhoto })
+    setTool('select')
     setMobilePanel('lienzo')
   }
 
@@ -1146,7 +1177,37 @@ export default function PintadoAcciones() {
 
     if (el.tool === 'dorsal') {
       const de = el as DorsalEl
-      const sz = 32 * (elSize / 100)
+      const k = elSize / 100
+      const nameFs = 11 * k
+      const fontFam = 'system-ui,-apple-system,Arial,sans-serif'
+
+      // Variante FOTO: rectángulo con la imagen + dorsal en esquina + nombre debajo
+      if (de.variant === 'photo' && de.photo) {
+        const w = 40 * k, h = 50 * k
+        const x = de.pos.x - w / 2, y = de.pos.y - h / 2
+        const clipId = `dphoto-${el.id}`
+        const badge = 10 * k
+        return (
+          <g key={key} opacity={alpha} style={selStyle} onPointerDown={onElMouseDown} cursor="move">
+            <defs>
+              <clipPath id={clipId}><rect x={x} y={y} width={w} height={h} rx={5} /></clipPath>
+            </defs>
+            <image href={de.photo} x={x} y={y} width={w} height={h}
+              preserveAspectRatio="xMidYMid slice" clipPath={`url(#${clipId})`} />
+            <rect x={x} y={y} width={w} height={h} rx={5} fill="none" stroke={de.fill} strokeWidth={2.5 * k} />
+            <circle cx={x + w - badge * 0.3} cy={y + badge * 0.3} r={badge} fill={de.fill} stroke="white" strokeWidth={1.5 * k} />
+            <text x={x + w - badge * 0.3} y={y + badge * 0.3} fill="white" fontSize={11 * k} fontWeight="bold"
+              textAnchor="middle" dominantBaseline="central" fontFamily={fontFam}>{de.number}</text>
+            {de.name && (
+              <text x={de.pos.x} y={y + h + nameFs + 2} fill={de.fill} fontSize={nameFs} fontWeight="bold"
+                textAnchor="middle" fontFamily={fontFam} stroke="white" strokeWidth={2.5 * k} paintOrder="stroke">{de.name}</text>
+            )}
+          </g>
+        )
+      }
+
+      // Variantes CAMISETA y CON NOMBRE
+      const sz = 32 * k
       const sc = sz / 40
       const tx = de.pos.x - sz / 2
       const ty = de.pos.y - sz / 2
@@ -1157,7 +1218,11 @@ export default function PintadoAcciones() {
           <g transform={`translate(${tx},${ty}) scale(${sc})`}>
             <path d={JERSEY_PATH} fill={de.fill} stroke="rgba(255,255,255,0.5)" strokeWidth={1.5 / sc} strokeLinejoin="round"/>
           </g>
-          <text x={de.pos.x} y={numY} fill="white" fontSize={numFs} fontWeight="bold" textAnchor="middle" dominantBaseline="middle" fontFamily="system-ui,-apple-system,Arial,sans-serif">{de.number}</text>
+          <text x={de.pos.x} y={numY} fill="white" fontSize={numFs} fontWeight="bold" textAnchor="middle" dominantBaseline="middle" fontFamily={fontFam}>{de.number}</text>
+          {de.variant === 'named' && de.name && (
+            <text x={de.pos.x} y={ty + sz + nameFs} fill={de.fill} fontSize={nameFs} fontWeight="bold"
+              textAnchor="middle" fontFamily={fontFam} stroke="white" strokeWidth={2.5 * k} paintOrder="stroke">{de.name}</text>
+          )}
         </g>
       )
     }
@@ -1495,33 +1560,81 @@ export default function PintadoAcciones() {
           {/* Dorsales */}
           <div>
             <p className="text-xs font-semibold text-gray-600 mb-3 uppercase tracking-wide">Dorsales</p>
-            <div className="grid grid-cols-4 gap-1.5 mb-3">
-              {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map(n => (
+
+            {/* Tipo de dorsal */}
+            <div className="grid grid-cols-3 gap-1.5 mb-2">
+              {([
+                ['jersey', 'Camiseta'],
+                ['named', 'Con nombre'],
+                ['photo', 'Con foto'],
+              ] as const).map(([v, label]) => (
                 <button
-                  key={n}
-                  onClick={() => {
-                    const v = pendingDorsal === n ? null : n
-                    setPendingDorsal(v)
-                    if (v !== null) setMobilePanel('lienzo')
-                  }}
-                  title={`Dorsal ${n}`}
-                  className={`flex items-center justify-center rounded-lg p-1 transition-all border-2 ${
-                    pendingDorsal === n
-                      ? 'border-rfpaf-red bg-red-50 shadow-md scale-105'
-                      : 'border-transparent hover:border-gray-300 hover:bg-gray-50'
+                  key={v}
+                  onClick={() => setDorsalVariant(v)}
+                  className={`px-1 py-1.5 rounded-lg text-[10px] font-bold transition-all border-2 ${
+                    dorsalVariant === v
+                      ? 'border-rfpaf-red bg-red-50 text-rfpaf-red'
+                      : 'border-gray-200 text-gray-600 hover:border-gray-300'
                   }`}
                 >
-                  <JerseyIcon
-                    fill={pendingDorsal === n ? '#dc2626' : fillColor}
-                    number={n}
-                    size={40}
-                  />
+                  {label}
                 </button>
               ))}
             </div>
+
+            {/* Número 1-23 */}
+            <label className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide">Número</label>
+            <select
+              value={dorsalNumber}
+              onChange={(e: ChangeEvent<HTMLSelectElement>) => setDorsalNumber(+e.target.value)}
+              className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm mb-2 bg-white focus:outline-none focus:ring-2 focus:ring-rfpaf-blue"
+            >
+              {Array.from({ length: 23 }, (_, i) => i + 1).map(n => (
+                <option key={n} value={n}>Dorsal {n}</option>
+              ))}
+            </select>
+
+            {/* Nombre (con nombre / con foto) */}
+            {(dorsalVariant === 'named' || dorsalVariant === 'photo') && (
+              <input
+                type="text"
+                value={dorsalName}
+                onChange={(e: ChangeEvent<HTMLInputElement>) => setDorsalName(e.target.value)}
+                placeholder="Nombre (opcional)"
+                className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm mb-2 focus:outline-none focus:ring-2 focus:ring-rfpaf-blue"
+              />
+            )}
+
+            {/* Foto (con foto) */}
+            {dorsalVariant === 'photo' && (
+              <div className="mb-2">
+                <button
+                  onClick={() => dorsalPhotoInputRef.current?.click()}
+                  className="w-full px-2 py-1.5 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold transition-colors flex items-center justify-center gap-1.5"
+                >
+                  <Upload className="w-3.5 h-3.5" /> {dorsalPhoto ? 'Cambiar foto' : 'Subir foto'}
+                </button>
+                <input ref={dorsalPhotoInputRef} type="file" accept="image/*" onChange={handleDorsalPhotoUpload} className="sr-only" />
+                {dorsalPhoto && (
+                  <img src={dorsalPhoto} alt="foto dorsal" className="mt-2 w-16 h-20 object-cover rounded-md border-2 border-rfpaf-red mx-auto" />
+                )}
+              </div>
+            )}
+
+            {/* Vista previa + colocar */}
+            <div className="flex items-center justify-center my-2">
+              <JerseyIcon fill="#dc2626" number={dorsalNumber} size={40} />
+            </div>
+            <button
+              onClick={armDorsal}
+              disabled={dorsalVariant === 'photo' && !dorsalPhoto}
+              className="w-full px-3 py-2 rounded-lg bg-rfpaf-red hover:bg-rfpaf-red-dark disabled:opacity-40 text-white text-xs font-bold transition-colors"
+            >
+              {dorsalVariant === 'photo' && !dorsalPhoto ? 'Sube una foto primero' : '＋ Colocar en el campo'}
+            </button>
             {pendingDorsal !== null && (
-              <p className="text-xs text-rfpaf-red font-semibold">
-                Dorsal {pendingDorsal} seleccionado. Click en el campo para colocar.
+              <p className="text-xs text-rfpaf-red font-semibold mt-2">
+                Dorsal {pendingDorsal.number} listo. Haz clic en el campo para colocarlo.
               </p>
             )}
           </div>
