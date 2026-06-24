@@ -17,6 +17,11 @@ body {
   min-height: 100vh;
 }
 
+/* Oculta los elementos interactivos durante la captura del PDF */
+.pdf-capturing [data-pdf-hide] {
+  display: none !important;
+}
+
 /* Sliders táctiles (tablet/móvil): thumb y pista grandes para usar con el dedo */
 .lab-range {
   -webkit-appearance: none;

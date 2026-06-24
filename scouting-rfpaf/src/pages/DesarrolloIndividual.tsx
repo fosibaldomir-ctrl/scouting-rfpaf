@@ -588,31 +588,94 @@ function DetailView({ objetivo, onBack, onEdit, onDelete, onAddAccion, onDeleteA
   const [pdfLoading, setPdfLoading] = useState(false)
 
   const handlePDF = async () => {
-    if (!pdfRef.current) return
+    const root = pdfRef.current
+    if (!root) return
     setPdfLoading(true)
-    const el = pdfRef.current
-    const prevCss = el.style.cssText
-    el.style.cssText = 'position:fixed;top:0;left:0;width:794px;z-index:99999;background:white;padding:32px;box-sizing:border-box;'
+    root.classList.add('pdf-capturing')
+    const prevCss = root.style.cssText
+    // Ancho fijo (≈ proporción A4) para un layout consistente al rasterizar
+    root.style.cssText = 'position:fixed;top:0;left:0;width:900px;z-index:99999;background:#ffffff;'
     await new Promise<void>(r => requestAnimationFrame(() => requestAnimationFrame(() => r())))
     try {
       const html2canvas = (await import('html2canvas')).default
-      const canvas = await html2canvas(el, { scale: 2, useCORS: true, logging: false, backgroundColor: '#ffffff', allowTaint: true })
       const { jsPDF } = await import('jspdf')
       const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
-      const pdfW = pdf.internal.pageSize.getWidth()
-      const pdfH = pdf.internal.pageSize.getHeight()
-      const imgH = (canvas.height / canvas.width) * pdfW
-      const imgData = canvas.toDataURL('image/png', 1.0)
-      let yOffset = 0, remaining = imgH
-      while (remaining > 0) {
-        if (yOffset > 0) pdf.addPage()
-        pdf.addImage(imgData, 'PNG', 0, -yOffset, pdfW, imgH)
-        yOffset += pdfH; remaining -= pdfH
+      const W = pdf.internal.pageSize.getWidth()
+      const H = pdf.internal.pageSize.getHeight()
+      const M = 12                       // margen
+      const HEADER_H = 24, FOOTER_H = 12
+      const contentW = W - M * 2
+      const topY = HEADER_H + 6
+      let page = 1
+
+      const header = () => {
+        pdf.setFillColor(15, 40, 80); pdf.rect(0, 0, W, HEADER_H, 'F')      // banda azul
+        pdf.setFillColor(220, 38, 38); pdf.rect(0, HEADER_H, W, 1.2, 'F')   // línea roja
+        pdf.setTextColor(255, 255, 255)
+        pdf.setFont('helvetica', 'bold'); pdf.setFontSize(13)
+        pdf.text('INFORME DE DESARROLLO INDIVIDUAL', M, 11)
+        pdf.setFont('helvetica', 'normal'); pdf.setFontSize(7.5)
+        pdf.text('Real Federación de Fútbol del Principado de Asturias · STAFF LAB', M, 17)
+        pdf.setFont('helvetica', 'bold'); pdf.setFontSize(11)
+        pdf.text(o.playerName.toUpperCase(), W - M, 11, { align: 'right' })
+        pdf.setFont('helvetica', 'normal'); pdf.setFontSize(7.5)
+        const sub = [o.playerNumber ? `Nº ${o.playerNumber}` : '', o.playerClub, o.titulo].filter(Boolean).join('  ·  ')
+        pdf.text(sub.toUpperCase().slice(0, 90), W - M, 17, { align: 'right' })
       }
+      const footer = () => {
+        pdf.setDrawColor(225); pdf.setLineWidth(0.2); pdf.line(M, H - FOOTER_H, W - M, H - FOOTER_H)
+        pdf.setTextColor(150); pdf.setFont('helvetica', 'normal'); pdf.setFontSize(7.5)
+        pdf.text(`Generado el ${new Date().toLocaleDateString('es-ES')}`, M, H - 6)
+        pdf.text(`Página ${page}`, W - M, H - 6, { align: 'right' })
+      }
+
+      header()
+      let y = topY
+
+      const addBlock = async (elm: Element, gap = 5) => {
+        const canvas = await html2canvas(elm as HTMLElement, {
+          scale: 3, backgroundColor: '#ffffff', useCORS: true, allowTaint: true, logging: false,
+        })
+        let imgW = contentW
+        let imgH = (canvas.height / canvas.width) * imgW
+        const usableH = H - FOOTER_H - 4 - topY
+        // Salto de página si el bloque no cabe en lo que queda
+        if (y + imgH > H - FOOTER_H - 4) {
+          footer(); pdf.addPage(); page++; header(); y = topY
+        }
+        // Si el bloque es más alto que una página entera, lo ajustamos
+        if (imgH > usableH) { const s = usableH / imgH; imgH = usableH; imgW = imgW * s }
+        const x = M + (contentW - imgW) / 2
+        pdf.addImage(canvas.toDataURL('image/jpeg', 0.95), 'JPEG', x, y, imgW, imgH)
+        y += imgH + gap
+      }
+
+      // 1) Tarjeta del objetivo
+      const obj = root.querySelector('[data-pdf-block="objective"]')
+      if (obj) await addBlock(obj, 7)
+
+      // 2) Título de la sección de historial (vector, nítido)
+      if (y + 14 > H - FOOTER_H - 4) { footer(); pdf.addPage(); page++; header(); y = topY }
+      pdf.setTextColor(220, 38, 38); pdf.setFont('helvetica', 'bold'); pdf.setFontSize(11)
+      pdf.text('HISTORIAL DE ACCIONES Y EVALUACIONES', W / 2, y + 4, { align: 'center' })
+      pdf.setDrawColor(220, 38, 38); pdf.setLineWidth(0.5); pdf.line(M, y + 7, W - M, y + 7)
+      y += 13
+
+      // 3) Tarjetas del historial (una a una, sin cortes)
+      const cards = root.querySelectorAll('[data-pdf-block="hist"]')
+      if (cards.length === 0) {
+        pdf.setTextColor(150); pdf.setFont('helvetica', 'italic'); pdf.setFontSize(9)
+        pdf.text('Sin acciones registradas todavía.', M, y + 4)
+      } else {
+        for (const c of Array.from(cards)) await addBlock(c, 4)
+      }
+
+      footer()
       const safeName = o.playerName.replace(/\s+/g, '-').toLowerCase()
       pdf.save(`desarrollo-individual-${safeName}.pdf`)
     } finally {
-      el.style.cssText = prevCss
+      root.style.cssText = prevCss
+      root.classList.remove('pdf-capturing')
       setPdfLoading(false)
     }
   }
@@ -645,7 +708,7 @@ function DetailView({ objetivo, onBack, onEdit, onDelete, onAddAccion, onDeleteA
       <div ref={pdfRef}>
 
       {/* ── Objective card (matches screenshot 2) ── */}
-      <div className="bg-white border-2 border-gray-900 rounded-xl overflow-hidden shadow-lg">
+      <div data-pdf-block="objective" className="bg-white border-2 border-gray-900 rounded-xl overflow-hidden shadow-lg">
         <div className="flex flex-col md:flex-row">
 
           {/* Left — player section */}
@@ -700,7 +763,7 @@ function DetailView({ objetivo, onBack, onEdit, onDelete, onAddAccion, onDeleteA
             )}
 
             {/* Media buttons */}
-            <div className="flex flex-wrap gap-2">
+            <div data-pdf-hide className="flex flex-wrap gap-2">
               {o.imagenUrl && (
                 <a href={o.imagenUrl} target="_blank" rel="noreferrer"
                   className="flex items-center gap-2 border-2 border-gray-900 px-4 py-2 text-xs font-black uppercase hover:bg-gray-900 hover:text-white transition-colors rounded">
@@ -735,7 +798,7 @@ function DetailView({ objetivo, onBack, onEdit, onDelete, onAddAccion, onDeleteA
           <div className="flex-1 h-0.5 bg-red-600"/>
         </div>
 
-        <div className="flex justify-end">
+        <div data-pdf-hide className="flex justify-end">
           <button onClick={onAddAccion}
             className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white font-bold px-4 py-2 rounded-lg text-xs transition-colors">
             <Plus className="w-3.5 h-3.5"/> Añadir acción / evaluación
@@ -769,7 +832,7 @@ function DetailView({ objetivo, onBack, onEdit, onDelete, onAddAccion, onDeleteA
 function HistorialCard({ acc, onDelete, onViewImg }:
   { acc: HistorialAccion; onDelete:()=>void; onViewImg:(u:string)=>void }) {
   return (
-    <div className="bg-white border-2 border-gray-900 rounded-lg overflow-hidden">
+    <div data-pdf-block="hist" className="bg-white border-2 border-gray-900 rounded-lg overflow-hidden">
       {/* Header row */}
       <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-200">
         <span className="bg-gray-900 text-white text-[11px] font-black px-3 py-1 rounded flex-shrink-0">
@@ -788,7 +851,7 @@ function HistorialCard({ acc, onDelete, onViewImg }:
             {BADGE_LABEL[acc.estadoBadge]}
           </span>
         )}
-        <button onClick={onDelete}
+        <button onClick={onDelete} data-pdf-hide
           className={`${acc.estadoBadge ? '' : 'ml-auto'} flex-shrink-0 text-gray-300 hover:text-red-500 transition-colors p-1`}>
           <Trash2 className="w-3.5 h-3.5"/>
         </button>
@@ -806,7 +869,7 @@ function HistorialCard({ acc, onDelete, onViewImg }:
 
       {/* Media buttons */}
       {(acc.imagenUrl || acc.videoUrl) && (
-        <div className="flex gap-3 px-4 pb-3">
+        <div data-pdf-hide className="flex gap-3 px-4 pb-3">
           {acc.imagenUrl && (
             <button onClick={()=>onViewImg(acc.imagenUrl!)}
               className="flex items-center gap-2 border border-gray-300 rounded px-3 py-1.5 text-[11px] font-bold text-gray-600 hover:border-gray-900 hover:text-gray-900 transition-colors">
