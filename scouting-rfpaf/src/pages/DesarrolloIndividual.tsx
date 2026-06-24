@@ -596,6 +596,27 @@ function DetailView({ objetivo, onBack, onEdit, onDelete, onAddAccion, onDeleteA
     // Ancho fijo (≈ proporción A4) para un layout consistente al rasterizar
     root.style.cssText = 'position:fixed;top:0;left:0;width:900px;z-index:99999;background:#ffffff;'
     await new Promise<void>(r => requestAnimationFrame(() => requestAnimationFrame(() => r())))
+    // Carga una imagen (URL o dataURL) a dataURL PNG, reescalada a maxPx; null si falla (CORS, 404…)
+    const toDataURL = (url?: string | null, maxPx = 220): Promise<string | null> => new Promise(resolve => {
+      if (!url) return resolve(null)
+      const img = new Image()
+      img.crossOrigin = 'anonymous'
+      img.onload = () => {
+        try {
+          const scale = Math.min(1, maxPx / Math.max(img.naturalWidth, img.naturalHeight))
+          const w = Math.max(1, Math.round(img.naturalWidth * scale))
+          const h = Math.max(1, Math.round(img.naturalHeight * scale))
+          const c = document.createElement('canvas'); c.width = w; c.height = h
+          c.getContext('2d')!.drawImage(img, 0, 0, w, h)
+          resolve(c.toDataURL('image/png'))
+        } catch { resolve(null) }
+      }
+      img.onerror = () => resolve(null)
+      img.src = url
+    })
+    const FED_LOGO = 'https://files.asturfutbol.es/pnfg/img/web_responsive_2/ESP/logo(rffpa).png'
+    const [fedLogo, clubLogo] = await Promise.all([toDataURL(FED_LOGO), toDataURL(escudo)])
+
     try {
       const html2canvas = (await import('html2canvas')).default
       const { jsPDF } = await import('jspdf')
@@ -611,16 +632,22 @@ function DetailView({ objetivo, onBack, onEdit, onDelete, onAddAccion, onDeleteA
       const header = () => {
         pdf.setFillColor(15, 40, 80); pdf.rect(0, 0, W, HEADER_H, 'F')      // banda azul
         pdf.setFillColor(220, 38, 38); pdf.rect(0, HEADER_H, W, 1.2, 'F')   // línea roja
+        // Logo de la federación (izquierda) si se pudo cargar
+        let textX = M
+        if (fedLogo) { try { pdf.addImage(fedLogo, 'PNG', M, 3, 14, 18); textX = M + 18 } catch { /* noop */ } }
         pdf.setTextColor(255, 255, 255)
         pdf.setFont('helvetica', 'bold'); pdf.setFontSize(13)
-        pdf.text('INFORME DE DESARROLLO INDIVIDUAL', M, 11)
+        pdf.text('INFORME DE DESARROLLO INDIVIDUAL', textX, 11)
         pdf.setFont('helvetica', 'normal'); pdf.setFontSize(7.5)
-        pdf.text('Real Federación de Fútbol del Principado de Asturias · STAFF LAB', M, 17)
+        pdf.text('Real Federación de Fútbol del Principado de Asturias · STAFF LAB', textX, 17)
+        // Datos de la jugadora (derecha) + escudo del club
+        let rightX = W - M
+        if (clubLogo) { try { pdf.addImage(clubLogo, 'PNG', W - M - 16, 4, 16, 16); rightX = W - M - 20 } catch { /* noop */ } }
         pdf.setFont('helvetica', 'bold'); pdf.setFontSize(11)
-        pdf.text(o.playerName.toUpperCase(), W - M, 11, { align: 'right' })
+        pdf.text(o.playerName.toUpperCase(), rightX, 11, { align: 'right' })
         pdf.setFont('helvetica', 'normal'); pdf.setFontSize(7.5)
         const sub = [o.playerNumber ? `Nº ${o.playerNumber}` : '', o.playerClub, o.titulo].filter(Boolean).join('  ·  ')
-        pdf.text(sub.toUpperCase().slice(0, 90), W - M, 17, { align: 'right' })
+        pdf.text(sub.toUpperCase().slice(0, 80), rightX, 17, { align: 'right' })
       }
       const footer = () => {
         pdf.setDrawColor(225); pdf.setLineWidth(0.2); pdf.line(M, H - FOOTER_H, W - M, H - FOOTER_H)
@@ -653,6 +680,10 @@ function DetailView({ objetivo, onBack, onEdit, onDelete, onAddAccion, onDeleteA
       // 1) Tarjeta del objetivo
       const obj = root.querySelector('[data-pdf-block="objective"]')
       if (obj) await addBlock(obj, 7)
+
+      // 1b) Bloque de progreso (barra + contadores + gráfico)
+      const prog = root.querySelector('[data-pdf-block="progress"]')
+      if (prog) await addBlock(prog, 7)
 
       // 2) Título de la sección de historial (vector, nítido)
       if (y + 14 > H - FOOTER_H - 4) { footer(); pdf.addPage(); page++; header(); y = topY }
@@ -787,6 +818,9 @@ function DetailView({ objetivo, onBack, onEdit, onDelete, onAddAccion, onDeleteA
         </div>
       </div>
 
+      {/* ── Progreso ── */}
+      <ProgresoBlock o={o} />
+
       {/* ── History section (matches screenshot 1) ── */}
       <div className="space-y-4">
         {/* Section title */}
@@ -822,6 +856,95 @@ function DetailView({ objetivo, onBack, onEdit, onDelete, onAddAccion, onDeleteA
       </div>
 
       </div>{/* end pdfRef */}
+    </div>
+  )
+}
+
+/* ═══════════════════════════════════════════════════════
+   BLOQUE DE PROGRESO (barra + contadores + evolución)
+═══════════════════════════════════════════════════════ */
+function ProgresoBlock({ o }: { o: ObjetivoJugadora }) {
+  const hist = [...o.historial].sort((a, b) => a.fecha.localeCompare(b.fecha))
+  const counts = { SESION: 0, PARTIDO: 0, EVALUACION: 0 } as Record<TipoHistorial, number>
+  hist.forEach(h => { counts[h.tipo]++ })
+  const badged = hist.filter(h => h.estadoBadge)
+  const VAL: Record<EstadoBadgeHistorial, number> = { EN_REVISION: 1, EN_CURSO: 2, CONSEGUIDO: 3 }
+  const last = badged.length ? badged[badged.length - 1].estadoBadge : undefined
+  const pct = o.estado === 'COMPLETADO' ? 100
+    : o.estado === 'ABANDONADO' ? 0
+    : last === 'CONSEGUIDO' ? 100 : last === 'EN_CURSO' ? 60 : last === 'EN_REVISION' ? 35 : 45
+  const barColor = pct >= 100 ? '#16a34a' : pct <= 0 ? '#9ca3af' : pct >= 60 ? '#eab308' : '#f97316'
+  const estadoLabel = o.estado === 'COMPLETADO' ? 'COMPLETADO' : o.estado === 'ABANDONADO' ? 'ABANDONADO' : 'EN CURSO'
+
+  // Geometría del gráfico de evolución
+  const W = 540, Hc = 130, padL = 70, padR = 16, padT = 14, padB = 26
+  const innerW = W - padL - padR, innerH = Hc - padT - padB
+  const xAt = (i: number) => badged.length > 1 ? padL + (i / (badged.length - 1)) * innerW : padL + innerW / 2
+  const yAt = (v: number) => padT + innerH - ((v - 1) / 2) * innerH
+  const dotColor = (b: EstadoBadgeHistorial) => b === 'CONSEGUIDO' ? '#16a34a' : b === 'EN_CURSO' ? '#eab308' : '#f97316'
+  const linePts = badged.map((h, i) => `${xAt(i)},${yAt(VAL[h.estadoBadge!])}`).join(' ')
+  const rows: { v: number; label: string }[] = [
+    { v: 3, label: 'Conseguido' }, { v: 2, label: 'En curso' }, { v: 1, label: 'En revisión' },
+  ]
+
+  const Stat = ({ label, n, color }: { label: string; n: number; color: string }) => (
+    <div className="flex-1 rounded-lg border border-gray-200 px-3 py-2 text-center">
+      <p className="text-2xl font-black leading-none" style={{ color }}>{n}</p>
+      <p className="text-[9px] font-bold uppercase tracking-wide text-gray-500 mt-1">{label}</p>
+    </div>
+  )
+
+  return (
+    <div data-pdf-block="progress" className="bg-white border-2 border-gray-900 rounded-xl overflow-hidden">
+      <div className="bg-gray-100 px-4 py-1.5 border-b border-gray-200">
+        <span className="text-[9px] font-black uppercase tracking-widest text-gray-500">Progreso del Objetivo</span>
+      </div>
+      <div className="p-4 space-y-4">
+        {/* Barra de avance */}
+        <div>
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-xs font-bold text-gray-700">Estado: <span style={{ color: barColor }}>{estadoLabel}</span></span>
+            <span className="text-xs font-black" style={{ color: barColor }}>{pct}%</span>
+          </div>
+          <div className="w-full h-3 rounded-full bg-gray-200 overflow-hidden">
+            <div className="h-full rounded-full" style={{ width: `${pct}%`, background: barColor }} />
+          </div>
+        </div>
+
+        {/* Contadores */}
+        <div className="flex gap-2">
+          <Stat label="Sesiones" n={counts.SESION} color="#1d4ed8" />
+          <Stat label="Partidos" n={counts.PARTIDO} color="#16a34a" />
+          <Stat label="Evaluaciones" n={counts.EVALUACION} color="#7c3aed" />
+          <Stat label="Total" n={hist.length} color="#111827" />
+        </div>
+
+        {/* Gráfico de evolución de estados */}
+        {badged.length >= 1 ? (
+          <div>
+            <p className="text-[9px] font-black uppercase tracking-widest text-gray-400 mb-1">Evolución del seguimiento</p>
+            <svg viewBox={`0 0 ${W} ${Hc}`} className="w-full" style={{ height: 'auto' }}>
+              {rows.map(r => (
+                <g key={r.v}>
+                  <line x1={padL} y1={yAt(r.v)} x2={W - padR} y2={yAt(r.v)} stroke="#e5e7eb" strokeWidth="1" />
+                  <text x={padL - 6} y={yAt(r.v) + 3} textAnchor="end" fontSize="9" fill="#9ca3af" fontFamily="system-ui,sans-serif">{r.label}</text>
+                </g>
+              ))}
+              {badged.length > 1 && <polyline points={linePts} fill="none" stroke="#111827" strokeWidth="2" strokeLinejoin="round" />}
+              {badged.map((h, i) => (
+                <circle key={h.id} cx={xAt(i)} cy={yAt(VAL[h.estadoBadge!])} r="5" fill={dotColor(h.estadoBadge!)} stroke="#fff" strokeWidth="1.5" />
+              ))}
+              {/* fechas en extremos */}
+              <text x={xAt(0)} y={Hc - 8} textAnchor="middle" fontSize="8" fill="#9ca3af" fontFamily="system-ui,sans-serif">{fmtDate(badged[0].fecha)}</text>
+              {badged.length > 1 && (
+                <text x={xAt(badged.length - 1)} y={Hc - 8} textAnchor="middle" fontSize="8" fill="#9ca3af" fontFamily="system-ui,sans-serif">{fmtDate(badged[badged.length - 1].fecha)}</text>
+              )}
+            </svg>
+          </div>
+        ) : (
+          <p className="text-[11px] text-gray-400 italic">Aún no hay evaluaciones con estado para mostrar la evolución.</p>
+        )}
+      </div>
     </div>
   )
 }
