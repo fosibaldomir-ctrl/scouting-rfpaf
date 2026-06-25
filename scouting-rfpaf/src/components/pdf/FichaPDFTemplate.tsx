@@ -59,6 +59,7 @@ export default function FichaPDFTemplate({ ficha, obsNombre, clubNombre, fichasJ
     >
       {/* ── HEADER ──────────────────────────────────────────────── */}
       <div
+        data-pdf-block="header"
         style={{
           background: 'linear-gradient(135deg, #1a3a6b 0%, #2e4d8f 60%, #c0392b 100%)',
           padding: '24px 28px',
@@ -194,7 +195,7 @@ export default function FichaPDFTemplate({ ficha, obsNombre, clubNombre, fichasJ
       <div style={{ padding: '20px 28px', display: 'flex', flexDirection: 'column', gap: 18 }}>
 
         {/* ── Fila 1: Datos personales + Contexto partido ──── */}
-        <div style={{ display: 'flex', gap: 16 }}>
+        <div data-pdf-block="datos" style={{ display: 'flex', gap: 16 }}>
           <SectionCard title="Datos Personales" style={{ flex: 1 }}>
             <DataTable rows={[
               ['Fecha Nacimiento', new Date(ficha.fechaNacimiento).toLocaleDateString('es-ES')],
@@ -218,7 +219,7 @@ export default function FichaPDFTemplate({ ficha, obsNombre, clubNombre, fichasJ
         </div>
 
         {/* ── Fila 2: Físico + Técnica con sus radares ──── */}
-        <div style={{ display: 'flex', gap: 16, alignItems: 'stretch' }}>
+        <div data-pdf-block="fisico-tecnica" style={{ display: 'flex', gap: 16, alignItems: 'stretch' }}>
 
           {/* Físico */}
           <SectionCard title="Cualidades Físicas" style={{ flex: 1 }}>
@@ -310,7 +311,7 @@ export default function FichaPDFTemplate({ ficha, obsNombre, clubNombre, fichasJ
         </div>
 
         {/* ── Evaluación final ──── */}
-        <SectionCard title="Evaluación Final">
+        <SectionCard title="Evaluación Final" blockId="final">
           <div style={{ display: 'flex', gap: 32, alignItems: 'center' }}>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 6 }}>
               <div style={{ fontSize: 11, color: '#6b7280', fontWeight: 600 }}>Valoración General</div>
@@ -361,7 +362,7 @@ export default function FichaPDFTemplate({ ficha, obsNombre, clubNombre, fichasJ
 
         {/* ── Historial de observaciones ──── */}
         {fichasJugadora.length > 0 && (
-          <SectionCard title={`Historial de Observaciones · ${ficha.nombre} ${ficha.primerApellido} ${ficha.segundoApellido} · ${edad} años · ${clubNombre}`}>
+          <SectionCard blockId="historial" title={`Historial de Observaciones · ${ficha.nombre} ${ficha.primerApellido} ${ficha.segundoApellido} · ${edad} años · ${clubNombre}`}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 10.5 }}>
               <thead>
                 <tr style={{ borderBottom: '2px solid #e2e8f0', background: '#f8fafc' }}>
@@ -423,7 +424,7 @@ export default function FichaPDFTemplate({ ficha, obsNombre, clubNombre, fichasJ
         )}
 
         {/* ── Footer ──── */}
-        <div style={{
+        <div data-pdf-block="footer" style={{
           borderTop: '1px solid #e2e8f0', paddingTop: 10,
           display: 'flex', justifyContent: 'space-between', alignItems: 'center',
         }}>
@@ -441,9 +442,9 @@ export default function FichaPDFTemplate({ ficha, obsNombre, clubNombre, fichasJ
 
 /* ─── Helpers ─────────────────────────────────────────────── */
 
-function SectionCard({ title, children, style }: { title: string; children: React.ReactNode; style?: React.CSSProperties }) {
+function SectionCard({ title, children, style, blockId }: { title: string; children: React.ReactNode; style?: React.CSSProperties; blockId?: string }) {
   return (
-    <div style={{
+    <div data-pdf-block={blockId} style={{
       border: '1px solid #e2e8f0', borderRadius: 10, overflow: 'hidden',
       boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
       display: 'flex', flexDirection: 'column',

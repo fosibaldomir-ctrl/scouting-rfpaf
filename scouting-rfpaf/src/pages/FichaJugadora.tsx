@@ -183,32 +183,43 @@ export default function FichaJugadora() {
         } catch { /* skip if SVG conversion fails */ }
       }
 
-      // Capturar el template completo
+      // Capturar BLOQUE A BLOQUE para que ninguna tarjeta se corte entre páginas
       const html2canvas = (await import('html2canvas')).default
-      const canvas = await html2canvas(el, {
-        scale: 3,
-        useCORS: true,
-        logging: false,
-        backgroundColor: '#ffffff',
-        allowTaint: true,
-      })
-
-      // Crear PDF A4 con jsPDF directamente
       const { jsPDF } = await import('jspdf')
       const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
       const pdfW = pdf.internal.pageSize.getWidth()   // 210 mm
       const pdfH = pdf.internal.pageSize.getHeight()  // 297 mm
-      const imgH = (canvas.height / canvas.width) * pdfW
-      const imgData = canvas.toDataURL('image/png', 1.0)
 
-      // Soporte multi-página si el contenido supera una hoja
-      let yOffset = 0
-      let remaining = imgH
-      while (remaining > 0) {
-        if (yOffset > 0) pdf.addPage()
-        pdf.addImage(imgData, 'PNG', 0, -yOffset, pdfW, imgH)
-        yOffset += pdfH
-        remaining -= pdfH
+      const SIDE = (28 / 794) * pdfW   // margen lateral equivalente al padding del cuerpo (28px)
+      const TOP = 8                     // margen superior en páginas nuevas
+      const BOTTOM = 8                  // margen inferior
+      const GAP = (18 / 794) * pdfW     // separación entre bloques (gap:18px del cuerpo)
+
+      const blocks = Array.from(el.querySelectorAll<HTMLElement>('[data-pdf-block]'))
+      let y = 0
+
+      for (const block of blocks) {
+        const isHeader = block.dataset.pdfBlock === 'header'
+        const c = await html2canvas(block, {
+          scale: 3,
+          useCORS: true,
+          logging: false,
+          backgroundColor: isHeader ? null : '#ffffff',
+          allowTaint: true,
+        })
+        const blockW = isHeader ? pdfW : pdfW - SIDE * 2
+        const x = isHeader ? 0 : SIDE
+        const imgH = (c.height / c.width) * blockW
+        const imgData = c.toDataURL('image/jpeg', 0.95)
+
+        // Si el bloque no cabe en lo que queda de página, pasar a la siguiente entero
+        if (y > 0 && y + imgH > pdfH - BOTTOM) {
+          pdf.addPage()
+          y = TOP
+        }
+
+        pdf.addImage(imgData, 'JPEG', x, y, blockW, imgH)
+        y += imgH + (isHeader ? GAP * 0.7 : GAP)
       }
 
       pdf.save(`ficha-${ficha.nombre}-${ficha.primerApellido}.pdf`)
