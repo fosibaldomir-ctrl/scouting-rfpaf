@@ -68,7 +68,7 @@ export default function FichaPDFTemplate({ ficha, obsNombre, clubNombre, fichasJ
         }}
       >
         {/* Foto / Iniciales con escudo del club en esquina inferior izquierda */}
-        <div style={{ position: 'relative', flexShrink: 0, width: 80 }}>
+        <div style={{ position: 'relative', flexShrink: 0, width: 80, height: 100 }}>
           {ficha.foto ? (
             <img
               src={ficha.foto}
@@ -84,21 +84,21 @@ export default function FichaPDFTemplate({ ficha, obsNombre, clubNombre, fichasJ
               {ficha.nombre?.charAt(0)}{ficha.primerApellido?.charAt(0)}
             </div>
           )}
-          {/* Miniatura escudo club */}
+          {/* Miniatura escudo club — dentro de la foto para evitar recorte de html2canvas */}
           {clubEscudoUrl && (
             <div style={{
-              position: 'absolute', bottom: -6, left: -6,
-              width: 32, height: 32,
-              background: 'white',
+              position: 'absolute', bottom: 4, left: 4,
+              width: 30, height: 30,
+              background: 'rgba(255,255,255,0.92)',
               borderRadius: '50%',
               padding: 3,
-              boxShadow: '0 2px 6px rgba(0,0,0,0.35)',
+              boxShadow: '0 1px 5px rgba(0,0,0,0.4)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}>
               <img
                 src={clubEscudoUrl}
                 alt={clubNombre}
-                style={{ width: 24, height: 24, objectFit: 'contain' }}
+                style={{ width: 22, height: 22, objectFit: 'contain' }}
               />
             </div>
           )}
