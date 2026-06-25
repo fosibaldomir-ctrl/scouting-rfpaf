@@ -218,7 +218,7 @@ export default function FichaPDFTemplate({ ficha, obsNombre, clubNombre, fichasJ
         </div>
 
         {/* ── Fila 2: Físico + Técnica con sus radares ──── */}
-        <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
+        <div style={{ display: 'flex', gap: 16, alignItems: 'stretch' }}>
 
           {/* Físico */}
           <SectionCard title="Cualidades Físicas" style={{ flex: 1 }}>
@@ -241,14 +241,16 @@ export default function FichaPDFTemplate({ ficha, obsNombre, clubNombre, fichasJ
                 </div>
               </div>
             ))}
-            <div style={{ display: 'flex', justifyContent: 'center', marginTop: 6 }}>
+            {/* Radar centrado en el espacio restante para equilibrar la altura con la técnica */}
+            <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 0 }}>
               <RadarSVG
                 labels={['Fuerza', 'Velocidad', 'Resistencia']}
                 values={[ficha.fuerza ?? 0, ficha.velocidad ?? 0, ficha.resistencia ?? 0]}
                 max={10}
                 colorStart="#1a3a6b"
                 colorEnd="#16a34a"
-                size={260}
+                size={180}
+                pad={44}
               />
             </div>
             <div style={{
@@ -443,17 +445,20 @@ function SectionCard({ title, children, style }: { title: string; children: Reac
   return (
     <div style={{
       border: '1px solid #e2e8f0', borderRadius: 10, overflow: 'hidden',
-      boxShadow: '0 1px 4px rgba(0,0,0,0.06)', ...style,
+      boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
+      display: 'flex', flexDirection: 'column',
+      ...style,
     }}>
       <div style={{
         background: 'linear-gradient(90deg, #1a3a6b, #2e4d8f)',
         padding: '7px 14px',
         fontSize: 11.5, fontWeight: 800, color: 'white', letterSpacing: 0.3,
         textTransform: 'uppercase',
+        flexShrink: 0,
       }}>
         {title}
       </div>
-      <div style={{ padding: '12px 14px' }}>
+      <div style={{ padding: '12px 14px', flex: 1, display: 'flex', flexDirection: 'column' }}>
         {children}
       </div>
     </div>

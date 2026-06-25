@@ -5,6 +5,7 @@ interface RadarSVGProps {
   colorStart?: string
   colorEnd?: string
   size?: number
+  pad?: number
 }
 
 export default function RadarSVG({
@@ -14,14 +15,15 @@ export default function RadarSVG({
   colorStart = '#1a3a6b',
   colorEnd = '#c0392b',
   size = 300,
+  pad = 64,
 }: RadarSVGProps) {
   const n = labels.length
   if (n === 0) return null
 
-  const pad = 64
   const cx = size / 2
   const cy = size / 2
-  const r = (size / 2) * 0.58
+  // Triángulos (3 ejes) llenan mejor con un radio algo mayor
+  const r = (size / 2) * (n <= 3 ? 0.64 : 0.58)
   const levels = max
 
   const angle = (i: number) => (2 * Math.PI * i) / n - Math.PI / 2
@@ -70,8 +72,8 @@ export default function RadarSVG({
         </linearGradient>
       </defs>
 
-      {/* Background */}
-      <circle cx={cx} cy={cy} r={r * 1.15} fill={`url(#${id}-bg)`} />
+      {/* Background — halo sutil ceñido al radar para evitar el efecto ovalado */}
+      <circle cx={cx} cy={cy} r={r * 1.08} fill={`url(#${id}-bg)`} />
 
       {/* Grid rings */}
       {Array.from({ length: levels }, (_, i) => i + 1).map((level) => (
@@ -149,7 +151,7 @@ export default function RadarSVG({
 
       {/* Labels */}
       {labels.map((label, i) => {
-        const p = pt(i, r * 1.30)
+        const p = pt(i, r * 1.24)
         const anchor = p.x > cx + 10 ? 'start' : p.x < cx - 10 ? 'end' : 'middle'
         const words = label.split(' ')
         return (
