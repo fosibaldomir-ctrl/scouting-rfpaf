@@ -8,6 +8,8 @@ interface Props {
   clubNombre: string
   fichasJugadora?: FichaJugadora[]
   observadores?: Observador[]
+  fedLogoUrl?: string | null
+  clubEscudoUrl?: string | null
 }
 
 function calcularEdad(fecha: string): number {
@@ -28,7 +30,7 @@ const PROPUESTA_STYLES: Record<string, { bg: string; color: string; border: stri
 
 const BAR_COLORS = ['#1a3a6b', '#c0392b', '#16a34a', '#f59e0b', '#8b5cf6', '#06b6d4']
 
-export default function FichaPDFTemplate({ ficha, obsNombre, clubNombre, fichasJugadora = [], observadores = [] }: Props) {
+export default function FichaPDFTemplate({ ficha, obsNombre, clubNombre, fichasJugadora = [], observadores = [], fedLogoUrl, clubEscudoUrl }: Props) {
   const itemsDemarc = DEMARCACIONES_ITEMS.find((d) => d.posicion === ficha.demarcacion)?.items ?? []
   const tecValues = [
     ficha.evaluacionTecnica?.item1 ?? 0,
@@ -65,22 +67,42 @@ export default function FichaPDFTemplate({ ficha, obsNombre, clubNombre, fichasJ
           gap: '20px',
         }}
       >
-        {/* Foto / Iniciales */}
-        {ficha.foto ? (
-          <img
-            src={ficha.foto}
-            alt={ficha.nombre}
-            style={{ width: 80, height: 100, objectFit: 'cover', borderRadius: 8, border: '3px solid rgba(255,255,255,0.4)', flexShrink: 0 }}
-          />
-        ) : (
-          <div style={{
-            width: 80, height: 100, background: 'rgba(255,255,255,0.15)',
-            borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 30, fontWeight: 900, color: 'white', flexShrink: 0, border: '2px solid rgba(255,255,255,0.3)',
-          }}>
-            {ficha.nombre?.charAt(0)}{ficha.primerApellido?.charAt(0)}
-          </div>
-        )}
+        {/* Foto / Iniciales con escudo del club en esquina inferior izquierda */}
+        <div style={{ position: 'relative', flexShrink: 0, width: 80 }}>
+          {ficha.foto ? (
+            <img
+              src={ficha.foto}
+              alt={ficha.nombre}
+              style={{ width: 80, height: 100, objectFit: 'cover', borderRadius: 8, border: '3px solid rgba(255,255,255,0.4)', display: 'block' }}
+            />
+          ) : (
+            <div style={{
+              width: 80, height: 100, background: 'rgba(255,255,255,0.15)',
+              borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 30, fontWeight: 900, color: 'white', border: '2px solid rgba(255,255,255,0.3)',
+            }}>
+              {ficha.nombre?.charAt(0)}{ficha.primerApellido?.charAt(0)}
+            </div>
+          )}
+          {/* Miniatura escudo club */}
+          {clubEscudoUrl && (
+            <div style={{
+              position: 'absolute', bottom: -6, left: -6,
+              width: 32, height: 32,
+              background: 'white',
+              borderRadius: '50%',
+              padding: 3,
+              boxShadow: '0 2px 6px rgba(0,0,0,0.35)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+              <img
+                src={clubEscudoUrl}
+                alt={clubNombre}
+                style={{ width: 24, height: 24, objectFit: 'contain' }}
+              />
+            </div>
+          )}
+        </div>
 
         {/* Nombre y datos clave */}
         <div style={{ flex: 1, minWidth: 0 }}>
@@ -123,6 +145,21 @@ export default function FichaPDFTemplate({ ficha, obsNombre, clubNombre, fichasJ
             {clubNombre} · {ficha.categoria} · Obs: {obsNombre}
           </div>
         </div>
+
+        {/* Logo Federación Asturiana — centro del header */}
+        {fedLogoUrl && (
+          <div style={{
+            flexShrink: 0,
+            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+            padding: '0 12px',
+          }}>
+            <img
+              src={fedLogoUrl}
+              alt="RFPAF"
+              style={{ width: 72, height: 72, objectFit: 'contain', filter: 'drop-shadow(0 2px 6px rgba(0,0,0,0.3))' }}
+            />
+          </div>
+        )}
 
         {/* Valoración + Propuesta */}
         <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16, minWidth: 130 }}>

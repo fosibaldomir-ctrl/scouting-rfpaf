@@ -47,6 +47,7 @@ export default function FichaJugadora() {
   const pdfRef = useRef<HTMLDivElement>(null)
   const [showConvModal, setShowConvModal] = useState(false)
   const [addedToId, setAddedToId] = useState<string | null>(null)
+  const [pdfImgs, setPdfImgs] = useState<{ fed: string | null; escudo: string | null }>({ fed: null, escudo: null })
 
   const ficha = getFicha(id ?? '')
 
@@ -70,7 +71,38 @@ export default function FichaJugadora() {
 
   const handleExportPDF = async () => {
     if (!pdfRef.current || !ficha) return
-    const el = pdfRef.current
+
+    // Pre-cargar imágenes como dataURL para que html2canvas las renderice sin problemas CORS
+    const toDataURL = (url?: string | null): Promise<string | null> => {
+      if (!url) return Promise.resolve(null)
+      return new Promise((resolve) => {
+        const img = new Image()
+        img.crossOrigin = 'anonymous'
+        img.onload = () => {
+          const c = document.createElement('canvas')
+          c.width = img.naturalWidth; c.height = img.naturalHeight
+          c.getContext('2d')!.drawImage(img, 0, 0)
+          resolve(c.toDataURL('image/png'))
+        }
+        img.onerror = () => resolve(null)
+        img.src = url + (url.includes('?') ? '&' : '?') + '_t=' + Date.now()
+      })
+    }
+
+    const escudoUrl = clubes.find((c) => c.id === ficha.club)?.escudo
+      ?? clubes.find((c) => c.nombre === ficha.equipo)?.escudo
+      ?? null
+
+    const [fedData, escudoData] = await Promise.all([
+      toDataURL('https://files.asturfutbol.es/pnfg/img/web_responsive_2/ESP/logo(rffpa).png'),
+      toDataURL(escudoUrl),
+    ])
+
+    setPdfImgs({ fed: fedData, escudo: escudoData })
+    // Esperar a que React renderice con las nuevas imágenes
+    await new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r())))
+
+    const el = pdfRef.current!
     const prevCss = el.style.cssText
 
     // Traer al viewport — html2canvas no captura elementos fuera de pantalla
@@ -568,6 +600,8 @@ export default function FichaJugadora() {
           clubNombre={clubNombre}
           fichasJugadora={fichasJugadora}
           observadores={observadores}
+          fedLogoUrl={pdfImgs.fed}
+          clubEscudoUrl={pdfImgs.escudo}
         />
       </div>
     </div>
