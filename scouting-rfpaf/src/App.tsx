@@ -19,6 +19,10 @@ import Admin from './pages/Admin'
 import PintadoAcciones from './pages/PintadoAcciones'
 import DesarrolloIndividual from './pages/DesarrolloIndividual'
 import AnalisisGlobal from './pages/AnalisisGlobal'
+import PizarraPage from './pages/analisis/PizarraPage'
+import PlanPage from './pages/analisis/PlanPage'
+import ABPPage from './pages/analisis/ABPPage'
+import EventosPage from './pages/analisis/EventosPage'
 
 function AppContent() {
   useSupabaseSync()
@@ -51,6 +55,10 @@ function AppContent() {
           <Route path="/analisis-lab" element={<PintadoAcciones />} />
           <Route path="/desarrollo-individual" element={<DesarrolloIndividual />} />
           <Route path="/analisis-global" element={<AnalisisGlobal />} />
+          <Route path="/analisis-global/pizarra" element={<PizarraPage />} />
+          <Route path="/analisis-global/plan" element={<PlanPage />} />
+          <Route path="/analisis-global/abp" element={<ABPPage />} />
+          <Route path="/analisis-global/eventos" element={<EventosPage />} />
         </Route>
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>

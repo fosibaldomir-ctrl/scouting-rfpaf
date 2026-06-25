@@ -34,9 +34,11 @@ interface AppState {
   addEvento: (evento: Evento) => void
   deleteEvento: (id: string) => void
   analisis: AnalisisPartido[]
+  activeAnalisisId: string | null
   addAnalisis: (a: AnalisisPartido) => void
   updateAnalisis: (id: string, data: Partial<AnalisisPartido>) => void
   deleteAnalisis: (id: string) => void
+  setActiveAnalisisId: (id: string | null) => void
   addPartido: (p: PartidoCalendario) => Promise<void>
   deletePartido: (id: string) => Promise<void>
   addFicha: (ficha: FichaJugadora) => Promise<void>
@@ -76,6 +78,7 @@ export const useStore = create<AppState>()(
       videosSesiones: [],
       eventos: [],
       analisis: [],
+      activeAnalisisId: null,
 
       login: (observadorId) => set({ currentObservador: observadorId }),
       logout: () => set({ currentObservador: null }),
@@ -99,7 +102,8 @@ export const useStore = create<AppState>()(
       deleteEvento: (id) => set((s) => ({ eventos: s.eventos.filter((e) => e.id !== id) })),
       addAnalisis: (a) => set((s) => ({ analisis: [a, ...s.analisis] })),
       updateAnalisis: (id, data) => set((s) => ({ analisis: s.analisis.map((a) => a.id === id ? { ...a, ...data } : a) })),
-      deleteAnalisis: (id) => set((s) => ({ analisis: s.analisis.filter((a) => a.id !== id) })),
+      deleteAnalisis: (id) => set((s) => ({ analisis: s.analisis.filter((a) => a.id !== id), activeAnalisisId: s.activeAnalisisId === id ? null : s.activeAnalisisId })),
+      setActiveAnalisisId: (id) => set({ activeAnalisisId: id }),
 
       addPartido: async (p) => {
         set((state) => ({ partidos: [...state.partidos, p] }))
@@ -235,6 +239,7 @@ export const useStore = create<AppState>()(
         videosSesiones: state.videosSesiones,
         eventos: state.eventos,
         analisis: state.analisis,
+        activeAnalisisId: state.activeAnalisisId,
       }),
     }
   )

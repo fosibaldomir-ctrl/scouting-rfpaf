@@ -1,5 +1,9 @@
 import { NavLink, useNavigate, useLocation } from 'react-router-dom'
-import { LayoutDashboard, Database, PlusCircle, Settings, LogOut, LayoutGrid, X, CalendarDays, ChevronDown, Dumbbell, ClipboardList, PenLine, BookOpen, Video, TrendingUp, User, BarChart2 } from 'lucide-react'
+import {
+  LayoutDashboard, Database, PlusCircle, Settings, LogOut, LayoutGrid, X,
+  CalendarDays, ChevronDown, Dumbbell, ClipboardList, PenLine, BookOpen,
+  Video, TrendingUp, User, BarChart2, Target, Shield, Play,
+} from 'lucide-react'
 import { useState } from 'react'
 import { useStore } from '../../store/useStore'
 import RFPAFLogo from '../RFPAFLogo'
@@ -26,7 +30,14 @@ const entrenamientosItems = [
 const desarrolloItems = [
   { to: '/analisis-lab', icon: PenLine, label: 'Análisis Lab' },
   { to: '/desarrollo-individual', icon: User, label: 'Desarrollo Individual' },
-  { to: '/analisis-global', icon: BarChart2, label: 'Análisis Global' },
+]
+
+const analisisGlobalItems = [
+  { to: '/analisis-global', icon: BarChart2, label: 'Mis Análisis' },
+  { to: '/analisis-global/pizarra', icon: Target, label: 'Pizarra Táctica' },
+  { to: '/analisis-global/plan', icon: ClipboardList, label: 'Plan de Partido' },
+  { to: '/analisis-global/abp', icon: Shield, label: 'ABP' },
+  { to: '/analisis-global/eventos', icon: Play, label: 'Eventos' },
 ]
 
 interface SidebarProps {
@@ -34,15 +45,83 @@ interface SidebarProps {
   onClose: () => void
 }
 
+function NavGroup({
+  icon: Icon,
+  label,
+  items,
+  open,
+  onToggle,
+  onClose,
+  accentRed,
+}: {
+  icon: React.ElementType
+  label: string
+  items: { to: string; icon: React.ElementType; label: string }[]
+  open: boolean
+  onToggle: () => void
+  onClose: () => void
+  accentRed?: boolean
+}) {
+  return (
+    <div className="mt-2">
+      <button
+        onClick={onToggle}
+        className={`w-full flex items-center justify-between gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all ${
+          accentRed
+            ? 'text-rfpaf-red bg-white/5 hover:bg-white/10 hover:text-white'
+            : 'text-white/80 hover:bg-white/10 hover:text-white'
+        }`}
+      >
+        <span className="flex items-center gap-3 whitespace-nowrap">
+          <Icon className="w-5 h-5 flex-shrink-0" />
+          {label}
+        </span>
+        <ChevronDown className={`w-4 h-4 transition-transform flex-shrink-0 ${open ? 'rotate-180' : ''}`} />
+      </button>
+
+      {open && (
+        <div className="mt-1 space-y-1 pl-2">
+          {items.map(({ to, icon: ItemIcon, label: itemLabel }) => (
+            <NavLink
+              key={to}
+              to={to}
+              end={to === '/analisis-global'}
+              onClick={onClose}
+              className={({ isActive }) =>
+                `flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all ${
+                  isActive
+                    ? 'bg-white text-rfpaf-blue shadow-sm'
+                    : 'text-white/70 hover:bg-white/10 hover:text-white'
+                }`
+              }
+            >
+              <ItemIcon className="w-5 h-5 flex-shrink-0" />
+              {itemLabel}
+            </NavLink>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function Sidebar({ mobileOpen, onClose }: SidebarProps) {
   const { currentObservador, observadores, logout } = useStore()
   const navigate = useNavigate()
   const location = useLocation()
   const obs = observadores.find((o) => o.id === currentObservador)
-  const [scoutingOpen, setScoutingOpen] = useState(false)
-  const [entrenamientosOpen, setEntrenamientosOpen] = useState(false)
+
+  const [scoutingOpen, setScoutingOpen] = useState(
+    scoutingItems.some((i) => location.pathname.startsWith(i.to))
+  )
+  const [entrenamientosOpen, setEntrenamientosOpen] = useState(
+    entrenamientosItems.some((i) => location.pathname.startsWith(i.to))
+  )
   const [desarrolloOpen, setDesarrolloOpen] = useState(
-    desarrolloItems.some(i => location.pathname.startsWith(i.to))
+    desarrolloItems.some((i) => location.pathname.startsWith(i.to))
+  )
+  const [analisisOpen, setAnalisisOpen] = useState(
+    location.pathname.startsWith('/analisis-global')
   )
 
   const handleLogout = () => {
@@ -52,7 +131,6 @@ export default function Sidebar({ mobileOpen, onClose }: SidebarProps) {
 
   return (
     <>
-      {/* Fondo oscuro al abrir el menú en móvil */}
       {mobileOpen && (
         <div
           onClick={onClose}
@@ -66,7 +144,7 @@ export default function Sidebar({ mobileOpen, onClose }: SidebarProps) {
           mobileOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
-        {/* Logo / Branding (escudo izquierda, texto derecha) */}
+        {/* Logo */}
         <div className="p-4 border-b border-white/10 flex items-center gap-3">
           <RFPAFLogo />
           <div className="flex-1 leading-tight text-right">
@@ -104,119 +182,45 @@ export default function Sidebar({ mobileOpen, onClose }: SidebarProps) {
             </NavLink>
           ))}
 
-          {/* Desplegable Scouting */}
-          <div className="mt-2">
-            <button
-              onClick={() => setScoutingOpen((o) => !o)}
-              className="w-full flex items-center justify-between gap-3 px-4 py-3 rounded-xl text-sm font-medium text-white/80 hover:bg-white/10 hover:text-white transition-all"
-            >
-              <span className="flex items-center gap-3">
-                <LayoutGrid className="w-5 h-5 flex-shrink-0" />
-                Scouting
-              </span>
-              <ChevronDown
-                className={`w-4 h-4 transition-transform ${scoutingOpen ? 'rotate-180' : ''}`}
-              />
-            </button>
+          <NavGroup
+            icon={LayoutGrid}
+            label="Scouting"
+            items={scoutingItems}
+            open={scoutingOpen}
+            onToggle={() => setScoutingOpen((o) => !o)}
+            onClose={onClose}
+          />
 
-            {scoutingOpen && (
-              <div className="mt-1 space-y-1 pl-2">
-                {scoutingItems.map(({ to, icon: Icon, label }) => (
-                  <NavLink
-                    key={to}
-                    to={to}
-                    onClick={onClose}
-                    className={({ isActive }) =>
-                      `flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all ${
-                        isActive
-                          ? 'bg-white text-rfpaf-blue shadow-sm'
-                          : 'text-white/70 hover:bg-white/10 hover:text-white'
-                      }`
-                    }
-                  >
-                    <Icon className="w-5 h-5 flex-shrink-0" />
-                    {label}
-                  </NavLink>
-                ))}
-              </div>
-            )}
-          </div>
+          <NavGroup
+            icon={Dumbbell}
+            label="Entrenamientos"
+            items={entrenamientosItems}
+            open={entrenamientosOpen}
+            onToggle={() => setEntrenamientosOpen((o) => !o)}
+            onClose={onClose}
+          />
 
-          {/* Desplegable Entrenamientos */}
-          <div className="mt-2">
-            <button
-              onClick={() => setEntrenamientosOpen((o) => !o)}
-              className="w-full flex items-center justify-between gap-3 px-4 py-3 rounded-xl text-sm font-medium text-white/80 hover:bg-white/10 hover:text-white transition-all"
-            >
-              <span className="flex items-center gap-3">
-                <Dumbbell className="w-5 h-5 flex-shrink-0" />
-                Entrenamientos
-              </span>
-              <ChevronDown
-                className={`w-4 h-4 transition-transform ${entrenamientosOpen ? 'rotate-180' : ''}`}
-              />
-            </button>
+          <NavGroup
+            icon={TrendingUp}
+            label="Desarrollo Individual"
+            items={desarrolloItems}
+            open={desarrolloOpen}
+            onToggle={() => setDesarrolloOpen((o) => !o)}
+            onClose={onClose}
+          />
 
-            {entrenamientosOpen && (
-              <div className="mt-1 space-y-1 pl-2">
-                {entrenamientosItems.map(({ to, icon: Icon, label }) => (
-                  <NavLink
-                    key={to}
-                    to={to}
-                    onClick={onClose}
-                    className={({ isActive }) =>
-                      `flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all ${
-                        isActive
-                          ? 'bg-white text-rfpaf-blue shadow-sm'
-                          : 'text-white/70 hover:bg-white/10 hover:text-white'
-                      }`
-                    }
-                  >
-                    <Icon className="w-5 h-5 flex-shrink-0" />
-                    {label}
-                  </NavLink>
-                ))}
-              </div>
-            )}
-          </div>
+          {/* Divider before Análisis Global */}
+          <div className="border-t border-white/10 my-2" />
 
-          {/* Desplegable Desarrollo Individual */}
-          <div className="mt-2">
-            <button
-              onClick={() => setDesarrolloOpen((o) => !o)}
-              className="w-full flex items-center justify-between gap-3 px-4 py-3 rounded-xl text-sm font-medium text-white/80 hover:bg-white/10 hover:text-white transition-all"
-            >
-              <span className="flex items-center gap-3 whitespace-nowrap">
-                <TrendingUp className="w-5 h-5 flex-shrink-0" />
-                Desarrollo Individual
-              </span>
-              <ChevronDown
-                className={`w-4 h-4 transition-transform ${desarrolloOpen ? 'rotate-180' : ''}`}
-              />
-            </button>
-
-            {desarrolloOpen && (
-              <div className="mt-1 space-y-1 pl-2">
-                {desarrolloItems.map(({ to, icon: Icon, label }) => (
-                  <NavLink
-                    key={to}
-                    to={to}
-                    onClick={onClose}
-                    className={({ isActive }) =>
-                      `flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all ${
-                        isActive
-                          ? 'bg-white text-rfpaf-blue shadow-sm'
-                          : 'text-white/70 hover:bg-white/10 hover:text-white'
-                      }`
-                    }
-                  >
-                    <Icon className="w-5 h-5 flex-shrink-0" />
-                    {label}
-                  </NavLink>
-                ))}
-              </div>
-            )}
-          </div>
+          <NavGroup
+            icon={BarChart2}
+            label="Análisis Global"
+            items={analisisGlobalItems}
+            open={analisisOpen}
+            onToggle={() => setAnalisisOpen((o) => !o)}
+            onClose={onClose}
+            accentRed
+          />
         </nav>
 
         {/* User */}
