@@ -1,5 +1,5 @@
 import { NavLink, useNavigate, useLocation } from 'react-router-dom'
-import { LayoutDashboard, Database, PlusCircle, Settings, LogOut, LayoutGrid, X, CalendarDays, ChevronDown, Dumbbell, ClipboardList, PenLine, BookOpen, Video, TrendingUp, User } from 'lucide-react'
+import { LayoutDashboard, Database, PlusCircle, Settings, LogOut, LayoutGrid, X, CalendarDays, ChevronDown, Dumbbell, ClipboardList, PenLine, BookOpen, Video, TrendingUp, User, BarChart2 } from 'lucide-react'
 import { useState } from 'react'
 import { useStore } from '../../store/useStore'
 import RFPAFLogo from '../RFPAFLogo'
@@ -26,6 +26,7 @@ const entrenamientosItems = [
 const desarrolloItems = [
   { to: '/analisis-lab', icon: PenLine, label: 'Análisis Lab' },
   { to: '/desarrollo-individual', icon: User, label: 'Desarrollo Individual' },
+  { to: '/analisis-global', icon: BarChart2, label: 'Análisis Global' },
 ]
 
 interface SidebarProps {

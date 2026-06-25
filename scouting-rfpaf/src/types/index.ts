@@ -294,3 +294,81 @@ export interface SelAcc {
   type: AccessoryType
   color?: string
 }
+
+/* ═══════════════════════════════════════
+   ANÁLISIS GLOBAL TYPES
+═══════════════════════════════════════ */
+
+export type FormacionFutbol =
+  | '4-4-2' | '4-3-3' | '4-2-3-1' | '4-3-2-1'
+  | '3-5-2' | '3-4-3' | '5-3-2' | '5-4-1'
+  | '4-1-4-1' | '4-5-1' | '4-4-1-1'
+
+export interface JugadoraTactica {
+  uid: string
+  numero: number
+  nombre: string
+  posX: number
+  posY: number
+}
+
+export interface EquipoTactico {
+  nombre: string
+  formacion: FormacionFutbol
+  color: string
+  jugadoras: JugadoraTactica[]
+}
+
+export interface BloquePlan {
+  notas: string
+  videoUrl: string
+  imagenUrl: string
+}
+
+export interface CaracteristicasRival {
+  salidaBalon: string[]
+  presion: string[]
+  bloque: string[]
+  lineaDefensiva: string[]
+  transicionOfensiva: string[]
+  transicionDefensiva: string[]
+}
+
+export interface AccionBalonParado {
+  id: string
+  notas: string
+  videoUrl: string
+  imagenUrl: string
+}
+
+export type TipoEventoAnalisis = 'GOL' | 'OCASION' | 'DUELO' | 'NOTA'
+
+export interface EventoAnalisis {
+  id: string
+  tipo: TipoEventoAnalisis
+  minutoPartido: number
+  descripcion: string
+  videoSeconds: number
+}
+
+export interface AnalisisPartido {
+  id: string
+  nombre: string
+  rival: string
+  fecha: string
+  equipoLocal: EquipoTactico
+  equipoVisitante: EquipoTactico
+  analisisIA: string
+  caracteristicasRival: CaracteristicasRival
+  videoRivalUrl: string
+  presentacionUrl: string
+  bloqueAtaque: BloquePlan
+  bloqueDefensa: BloquePlan
+  bloqueTransicion: BloquePlan
+  abpOfensivo: AccionBalonParado[]
+  abpDefensivo: AccionBalonParado[]
+  videoPartidoUrl: string
+  tiempos: { inicio1: string; fin1: string; inicio2: string; fin2: string }
+  eventosPartido: EventoAnalisis[]
+  creadoEn: string
+}

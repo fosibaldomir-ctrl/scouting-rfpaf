@@ -18,6 +18,7 @@ import Convocatorias from './pages/Convocatorias'
 import Admin from './pages/Admin'
 import PintadoAcciones from './pages/PintadoAcciones'
 import DesarrolloIndividual from './pages/DesarrolloIndividual'
+import AnalisisGlobal from './pages/AnalisisGlobal'
 
 function AppContent() {
   useSupabaseSync()
@@ -49,6 +50,7 @@ function AppContent() {
           <Route path="/admin" element={<Admin />} />
           <Route path="/analisis-lab" element={<PintadoAcciones />} />
           <Route path="/desarrollo-individual" element={<DesarrolloIndividual />} />
+          <Route path="/analisis-global" element={<AnalisisGlobal />} />
         </Route>
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
