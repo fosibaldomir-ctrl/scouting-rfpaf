@@ -75,6 +75,8 @@ export default function FichaJugadora() {
     // Pre-cargar imágenes como dataURL para que html2canvas las renderice sin problemas CORS
     const toDataURL = (url?: string | null): Promise<string | null> => {
       if (!url) return Promise.resolve(null)
+      // Si ya es un dataURL (base64), devolverlo tal cual — añadir query lo corrompería
+      if (url.startsWith('data:')) return Promise.resolve(url)
       return new Promise((resolve) => {
         const img = new Image()
         img.crossOrigin = 'anonymous'
@@ -82,7 +84,12 @@ export default function FichaJugadora() {
           const c = document.createElement('canvas')
           c.width = img.naturalWidth; c.height = img.naturalHeight
           c.getContext('2d')!.drawImage(img, 0, 0)
-          resolve(c.toDataURL('image/png'))
+          try {
+            resolve(c.toDataURL('image/png'))
+          } catch {
+            // Si el canvas queda "tainted" por CORS, usar la URL original directamente
+            resolve(url)
+          }
         }
         img.onerror = () => resolve(null)
         img.src = url + (url.includes('?') ? '&' : '?') + '_t=' + Date.now()
