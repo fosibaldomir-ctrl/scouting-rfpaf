@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Search, Download, Eye, Edit, Trash2, Copy, ChevronUp, ChevronDown } from 'lucide-react'
+import { Search, Download, Eye, Edit, Trash2, Copy, ChevronUp, ChevronDown, LayoutGrid, List } from 'lucide-react'
 import * as XLSX from 'xlsx'
 import { useStore } from '../store/useStore'
 import type { FichaJugadora } from '../types'
@@ -29,6 +29,113 @@ type SortDir = 'asc' | 'desc'
 
 const PAGE_SIZE = 20
 
+// Position groups mapping
+const POSITION_GROUPS = [
+  { key: 'POR', label: 'Porteras', color: '#7c3aed', bg: '#ede9fe', positions: ['PORTERO'] },
+  { key: 'DEF', label: 'Defensas', color: '#1d4ed8', bg: '#dbeafe', positions: ['LATERAL', 'CENTRAL'] },
+  { key: 'MED', label: 'Centrocampistas', color: '#0369a1', bg: '#e0f2fe', positions: ['MEDIO CENTRO DEF.', 'MEDIO CENTRO OF.', 'INTERIOR', 'MEDIA PUNTA'] },
+  { key: 'EXT', label: 'Extremas', color: '#b45309', bg: '#fef3c7', positions: ['EXTERIOR'] },
+  { key: 'DEL', label: 'Delanteras', color: '#be123c', bg: '#ffe4e6', positions: ['DELANTERO'] },
+]
+
+function valoracionColor(v: number): string {
+  if (v >= 4) return '#16a34a'
+  if (v >= 3) return '#ca8a04'
+  return '#ea580c'
+}
+
+function PlayerCard({ f, onView, onEdit, onDuplicate, onDelete, escudo }: {
+  f: FichaJugadora
+  onView: () => void
+  onEdit: () => void
+  onDuplicate: () => void
+  onDelete: () => void
+  escudo?: string
+}) {
+  const edad = calcularEdad(f.fechaNacimiento)
+  const val = f.valoracionGeneral ?? 0
+  const pct = Math.round((val / 5) * 100)
+  const barColor = valoracionColor(val)
+  const fullName = [f.nombre, f.primerApellido, f.segundoApellido].filter(Boolean).join(' ')
+
+  return (
+    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 flex flex-col overflow-hidden hover:shadow-md transition-shadow w-44 flex-shrink-0">
+      {/* Photo area */}
+      <div className="relative bg-gradient-to-b from-gray-100 to-gray-200 h-44 flex items-end justify-center overflow-hidden">
+        {f.foto ? (
+          <img src={f.foto} alt={fullName} className="w-full h-full object-cover object-top" />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center">
+            <span className="text-4xl font-bold text-gray-300">
+              {f.nombre?.charAt(0)}{f.primerApellido?.charAt(0)}
+            </span>
+          </div>
+        )}
+        {/* Propuesta badge top-right */}
+        <div className="absolute top-2 right-2">
+          <PropuestaBadge p={f.propuesta} />
+        </div>
+        {/* Club escudo top-left */}
+        {escudo && (
+          <div className="absolute top-2 left-2 w-7 h-7 bg-white rounded-full shadow flex items-center justify-center p-0.5">
+            <img src={escudo} alt="" className="w-full h-full object-contain" />
+          </div>
+        )}
+      </div>
+
+      {/* Info */}
+      <div className="p-3 flex flex-col gap-2 flex-1">
+        <div>
+          <p className="font-bold text-gray-900 text-sm leading-tight truncate">{fullName}</p>
+          <p className="text-xs text-gray-400 truncate">{f.equipo || '—'}</p>
+        </div>
+
+        <div className="flex items-center gap-2 text-xs text-gray-500">
+          <span className="font-medium text-gray-700">Edad: {edad || '—'}</span>
+          <span className="text-gray-300">|</span>
+          <span>Nº {f.dorsal || '—'}</span>
+        </div>
+
+        {/* Valoración bar */}
+        <div>
+          <div className="flex justify-between items-center mb-0.5">
+            <span className="text-[10px] text-gray-400 font-medium">Valoración</span>
+            <span className="text-[10px] font-bold" style={{ color: barColor }}>{val}/5</span>
+          </div>
+          <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+            <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: barColor }} />
+          </div>
+        </div>
+
+        {/* Category */}
+        <p className="text-[10px] text-gray-400 truncate">{f.categoria}</p>
+
+        {/* Actions */}
+        <div className="flex items-center justify-between mt-auto pt-1 border-t border-gray-50">
+          <button
+            onClick={onView}
+            className="flex items-center gap-1 text-xs text-rfpaf-blue font-semibold border border-rfpaf-blue/20 rounded-lg px-2 py-1 hover:bg-rfpaf-blue hover:text-white transition-colors flex-1 justify-center"
+          >
+            <Eye className="w-3 h-3" />
+            Ver
+          </button>
+          <div className="flex items-center gap-1 ml-1">
+            <button onClick={onEdit} className="text-gray-400 hover:text-gray-600 p-1" title="Editar">
+              <Edit className="w-3 h-3" />
+            </button>
+            <button onClick={onDuplicate} className="text-gray-300 hover:text-gray-500 p-1" title="Duplicar">
+              <Copy className="w-3 h-3" />
+            </button>
+            <button onClick={onDelete} className="text-red-300 hover:text-red-500 p-1" title="Eliminar">
+              <Trash2 className="w-3 h-3" />
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function BaseDatos() {
   const { fichas, deleteFicha, addFicha, observadores, clubes } = useStore()
   const navigate = useNavigate()
@@ -42,6 +149,7 @@ export default function BaseDatos() {
   const [sortDir, setSortDir] = useState<SortDir>('desc')
   const [page, setPage] = useState(1)
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
+  const [viewMode, setViewMode] = useState<'cards' | 'table'>('cards')
 
   const filtered = useMemo(() => {
     let list = [...fichas]
@@ -127,6 +235,12 @@ export default function BaseDatos() {
   const uniqueCategs = [...new Set(fichas.map((f) => f.categoria))].sort()
   const uniqueDemarcs = [...new Set(fichas.map((f) => f.demarcacion))].sort()
 
+  const getEscudo = (f: FichaJugadora): string | undefined => {
+    const byId = clubes.find((c) => c.id === f.club)?.escudo
+    const byName = clubes.find((c) => c.nombre === f.equipo)?.escudo
+    return byId ?? byName ?? undefined
+  }
+
   return (
     <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-5">
       {/* Header */}
@@ -135,11 +249,30 @@ export default function BaseDatos() {
           <h1 className="text-xl sm:text-2xl font-bold text-rfpaf-blue">Base de Datos</h1>
           <p className="text-gray-500 text-sm">{filtered.length} fichas encontradas</p>
         </div>
-        <button onClick={handleExport} className="btn-secondary flex items-center gap-2 flex-shrink-0">
-          <Download className="w-4 h-4" />
-          <span className="hidden sm:inline">Exportar Excel</span>
-          <span className="sm:hidden">Excel</span>
-        </button>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          {/* View toggle */}
+          <div className="flex items-center bg-gray-100 rounded-lg p-0.5">
+            <button
+              onClick={() => setViewMode('cards')}
+              className={`flex items-center gap-1 px-3 py-1.5 rounded-md text-sm font-medium transition-all ${viewMode === 'cards' ? 'bg-white shadow text-rfpaf-blue' : 'text-gray-500 hover:text-gray-700'}`}
+            >
+              <LayoutGrid className="w-4 h-4" />
+              <span className="hidden sm:inline">Galería</span>
+            </button>
+            <button
+              onClick={() => setViewMode('table')}
+              className={`flex items-center gap-1 px-3 py-1.5 rounded-md text-sm font-medium transition-all ${viewMode === 'table' ? 'bg-white shadow text-rfpaf-blue' : 'text-gray-500 hover:text-gray-700'}`}
+            >
+              <List className="w-4 h-4" />
+              <span className="hidden sm:inline">Tabla</span>
+            </button>
+          </div>
+          <button onClick={handleExport} className="btn-secondary flex items-center gap-2">
+            <Download className="w-4 h-4" />
+            <span className="hidden sm:inline">Exportar Excel</span>
+            <span className="sm:hidden">Excel</span>
+          </button>
+        </div>
       </div>
 
       {/* Filters */}
@@ -181,139 +314,188 @@ export default function BaseDatos() {
         )}
       </div>
 
-      {/* Table */}
-      <div className="card overflow-hidden p-0">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50 border-b">
-              <tr>
-                {[
-                  { key: null, label: 'Foto' },
-                  { key: 'fechaPartido', label: 'Fecha' },
-                  { key: 'primerApellido', label: 'Jugadora' },
-                  { key: null, label: 'Edad' },
-                  { key: 'equipo', label: 'Equipo' },
-                  { key: 'club', label: 'Club' },
-                  { key: 'categoria', label: 'Categoría' },
-                  { key: 'demarcacion', label: 'Demarcación' },
-                  { key: 'lateralidad', label: 'Lateral.' },
-                  { key: 'valoracionGeneral', label: 'Val.' },
-                  { key: 'propuesta', label: 'Propuesta' },
-                  { key: null, label: 'Acciones' },
-                ].map(({ key, label }) => (
-                  <th
-                    key={label}
-                    className={`px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide ${key ? 'cursor-pointer hover:text-gray-700 select-none' : ''}`}
-                    onClick={() => key && toggleSort(key as SortKey)}
-                  >
-                    <span className="flex items-center gap-1">
-                      {label}
-                      {key && <SortIcon k={key as SortKey} />}
+      {/* ── GALLERY VIEW ── */}
+      {viewMode === 'cards' && (
+        <div className="space-y-8">
+          {filtered.length === 0 ? (
+            <div className="card text-center py-16 text-gray-400">
+              {fichas.length === 0 ? 'No hay fichas registradas.' : 'No se encontraron resultados.'}
+            </div>
+          ) : (
+            POSITION_GROUPS.map((group) => {
+              const groupFichas = filtered.filter((f) => group.positions.includes(f.demarcacion))
+              if (groupFichas.length === 0) return null
+              return (
+                <div key={group.key}>
+                  {/* Group header */}
+                  <div className="flex items-center gap-3 mb-4">
+                    <span
+                      className="text-xs font-extrabold px-3 py-1.5 rounded-xl tracking-widest"
+                      style={{ backgroundColor: group.color, color: '#fff' }}
+                    >
+                      {group.key}
                     </span>
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {paged.length === 0 ? (
+                    <h2 className="text-base font-bold text-gray-800">{group.label}</h2>
+                    <span className="text-sm text-gray-400 font-medium">({groupFichas.length})</span>
+                    <div className="flex-1 h-px bg-gray-100" />
+                  </div>
+
+                  {/* Horizontal scroll row */}
+                  <div className="flex gap-4 overflow-x-auto pb-3 -mx-1 px-1" style={{ scrollbarWidth: 'thin' }}>
+                    {groupFichas.map((f) => (
+                      <PlayerCard
+                        key={f.id}
+                        f={f}
+                        escudo={getEscudo(f)}
+                        onView={() => navigate(`/ficha/${f.id}`)}
+                        onEdit={() => navigate(`/editar/${f.id}`)}
+                        onDuplicate={() => handleDuplicate(f)}
+                        onDelete={() => setConfirmDelete(f.id)}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )
+            })
+          )}
+        </div>
+      )}
+
+      {/* ── TABLE VIEW ── */}
+      {viewMode === 'table' && (
+        <div className="card overflow-hidden p-0">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 border-b">
                 <tr>
-                  <td colSpan={12} className="text-center py-12 text-gray-400">
-                    {fichas.length === 0 ? 'No hay fichas registradas.' : 'No se encontraron resultados.'}
-                  </td>
+                  {[
+                    { key: null, label: 'Foto' },
+                    { key: 'fechaPartido', label: 'Fecha' },
+                    { key: 'primerApellido', label: 'Jugadora' },
+                    { key: null, label: 'Edad' },
+                    { key: 'equipo', label: 'Equipo' },
+                    { key: 'club', label: 'Club' },
+                    { key: 'categoria', label: 'Categoría' },
+                    { key: 'demarcacion', label: 'Demarcación' },
+                    { key: 'lateralidad', label: 'Lateral.' },
+                    { key: 'valoracionGeneral', label: 'Val.' },
+                    { key: 'propuesta', label: 'Propuesta' },
+                    { key: null, label: 'Acciones' },
+                  ].map(({ key, label }) => (
+                    <th
+                      key={label}
+                      className={`px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide ${key ? 'cursor-pointer hover:text-gray-700 select-none' : ''}`}
+                      onClick={() => key && toggleSort(key as SortKey)}
+                    >
+                      <span className="flex items-center gap-1">
+                        {label}
+                        {key && <SortIcon k={key as SortKey} />}
+                      </span>
+                    </th>
+                  ))}
                 </tr>
-              ) : (
-                paged.map((f) => (
-                  <tr key={f.id} className="border-b last:border-0 hover:bg-blue-50/30 transition-colors">
-                    <td className="px-4 py-3">
-                      {f.foto ? (
-                        <div className="w-12 h-16 rounded border border-gray-200 overflow-hidden">
-                          <img src={f.foto} alt={f.nombre} className="w-full h-full object-cover" />
-                        </div>
-                      ) : (
-                        <div className="w-12 h-16 rounded border border-gray-200 bg-gray-100 flex items-center justify-center text-xs font-bold text-gray-400">
-                          {f.nombre?.charAt(0)}{f.primerApellido?.charAt(0)}
-                        </div>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-gray-600 whitespace-nowrap">
-                      {new Date(f.fechaPartido).toLocaleDateString('es-ES')}
-                    </td>
-                    <td className="px-4 py-3 font-medium whitespace-nowrap">
-                      {f.nombre} {f.primerApellido}
-                      {f.segundoApellido && ` ${f.segundoApellido}`}
-                    </td>
-                    <td className="px-4 py-3 text-gray-600">{calcularEdad(f.fechaNacimiento)}</td>
-                    <td className="px-4 py-3 text-gray-600 max-w-32">
-                      <div className="flex items-center gap-2">
-                        {clubes.find((c) => c.nombre === f.equipo)?.escudo && (
-                          <img src={clubes.find((c) => c.nombre === f.equipo)?.escudo!} alt={f.equipo} className="w-5 h-6 object-contain flex-shrink-0" />
-                        )}
-                        <span className="truncate">{f.equipo}</span>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 flex items-center justify-center">
-                      {clubes.find((c) => c.id === f.club)?.escudo ? (
-                        <img src={clubes.find((c) => c.id === f.club)?.escudo!} alt={clubes.find((c) => c.id === f.club)?.nombre} className="w-8 h-10 object-contain" />
-                      ) : (
-                        <span className="text-xs text-gray-400">—</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-gray-600 whitespace-nowrap">{f.categoria}</td>
-                    <td className="px-4 py-3 text-gray-600 whitespace-nowrap">{f.demarcacion}</td>
-                    <td className="px-4 py-3 text-gray-600">{f.lateralidad?.charAt(0)}</td>
-                    <td className="px-4 py-3">
-                      <span className="text-yellow-500">{'★'.repeat(f.valoracionGeneral ?? 0)}</span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <PropuestaBadge p={f.propuesta} />
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        <button onClick={() => navigate(`/ficha/${f.id}`)} className="text-rfpaf-blue hover:text-rfpaf-blue-light" title="Ver">
-                          <Eye className="w-4 h-4" />
-                        </button>
-                        <button onClick={() => navigate(`/editar/${f.id}`)} className="text-gray-500 hover:text-gray-700" title="Editar">
-                          <Edit className="w-4 h-4" />
-                        </button>
-                        <button onClick={() => handleDuplicate(f)} className="text-gray-400 hover:text-gray-600" title="Duplicar">
-                          <Copy className="w-4 h-4" />
-                        </button>
-                        <button onClick={() => setConfirmDelete(f.id)} className="text-red-400 hover:text-red-600" title="Eliminar">
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
+              </thead>
+              <tbody>
+                {paged.length === 0 ? (
+                  <tr>
+                    <td colSpan={12} className="text-center py-12 text-gray-400">
+                      {fichas.length === 0 ? 'No hay fichas registradas.' : 'No se encontraron resultados.'}
                     </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Pagination */}
-        {pages > 1 && (
-          <div className="flex items-center justify-between px-4 py-3 border-t bg-gray-50">
-            <p className="text-xs text-gray-500">
-              Mostrando {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, filtered.length)} de {filtered.length}
-            </p>
-            <div className="flex gap-1">
-              <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}
-                className="px-3 py-1 rounded border text-sm disabled:opacity-40 hover:bg-gray-100">‹</button>
-              {Array.from({ length: Math.min(5, pages) }, (_, i) => {
-                const n = Math.max(1, Math.min(pages - 4, page - 2)) + i
-                return (
-                  <button key={n} onClick={() => setPage(n)}
-                    className={`px-3 py-1 rounded border text-sm ${page === n ? 'bg-rfpaf-blue text-white border-rfpaf-blue' : 'hover:bg-gray-100'}`}>
-                    {n}
-                  </button>
-                )
-              })}
-              <button onClick={() => setPage((p) => Math.min(pages, p + 1))} disabled={page === pages}
-                className="px-3 py-1 rounded border text-sm disabled:opacity-40 hover:bg-gray-100">›</button>
-            </div>
+                ) : (
+                  paged.map((f) => (
+                    <tr key={f.id} className="border-b last:border-0 hover:bg-blue-50/30 transition-colors">
+                      <td className="px-4 py-3">
+                        {f.foto ? (
+                          <div className="w-12 h-16 rounded border border-gray-200 overflow-hidden">
+                            <img src={f.foto} alt={f.nombre} className="w-full h-full object-cover" />
+                          </div>
+                        ) : (
+                          <div className="w-12 h-16 rounded border border-gray-200 bg-gray-100 flex items-center justify-center text-xs font-bold text-gray-400">
+                            {f.nombre?.charAt(0)}{f.primerApellido?.charAt(0)}
+                          </div>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-gray-600 whitespace-nowrap">
+                        {new Date(f.fechaPartido).toLocaleDateString('es-ES')}
+                      </td>
+                      <td className="px-4 py-3 font-medium whitespace-nowrap">
+                        {f.nombre} {f.primerApellido}
+                        {f.segundoApellido && ` ${f.segundoApellido}`}
+                      </td>
+                      <td className="px-4 py-3 text-gray-600">{calcularEdad(f.fechaNacimiento)}</td>
+                      <td className="px-4 py-3 text-gray-600 max-w-32">
+                        <div className="flex items-center gap-2">
+                          {clubes.find((c) => c.nombre === f.equipo)?.escudo && (
+                            <img src={clubes.find((c) => c.nombre === f.equipo)?.escudo!} alt={f.equipo} className="w-5 h-6 object-contain flex-shrink-0" />
+                          )}
+                          <span className="truncate">{f.equipo}</span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 flex items-center justify-center">
+                        {clubes.find((c) => c.id === f.club)?.escudo ? (
+                          <img src={clubes.find((c) => c.id === f.club)?.escudo!} alt={clubes.find((c) => c.id === f.club)?.nombre} className="w-8 h-10 object-contain" />
+                        ) : (
+                          <span className="text-xs text-gray-400">—</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-gray-600 whitespace-nowrap">{f.categoria}</td>
+                      <td className="px-4 py-3 text-gray-600 whitespace-nowrap">{f.demarcacion}</td>
+                      <td className="px-4 py-3 text-gray-600">{f.lateralidad?.charAt(0)}</td>
+                      <td className="px-4 py-3">
+                        <span className="text-yellow-500">{'★'.repeat(f.valoracionGeneral ?? 0)}</span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <PropuestaBadge p={f.propuesta} />
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          <button onClick={() => navigate(`/ficha/${f.id}`)} className="text-rfpaf-blue hover:text-rfpaf-blue-light" title="Ver">
+                            <Eye className="w-4 h-4" />
+                          </button>
+                          <button onClick={() => navigate(`/editar/${f.id}`)} className="text-gray-500 hover:text-gray-700" title="Editar">
+                            <Edit className="w-4 h-4" />
+                          </button>
+                          <button onClick={() => handleDuplicate(f)} className="text-gray-400 hover:text-gray-600" title="Duplicar">
+                            <Copy className="w-4 h-4" />
+                          </button>
+                          <button onClick={() => setConfirmDelete(f.id)} className="text-red-400 hover:text-red-600" title="Eliminar">
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
           </div>
-        )}
-      </div>
+
+          {/* Pagination */}
+          {pages > 1 && (
+            <div className="flex items-center justify-between px-4 py-3 border-t bg-gray-50">
+              <p className="text-xs text-gray-500">
+                Mostrando {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, filtered.length)} de {filtered.length}
+              </p>
+              <div className="flex gap-1">
+                <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}
+                  className="px-3 py-1 rounded border text-sm disabled:opacity-40 hover:bg-gray-100">‹</button>
+                {Array.from({ length: Math.min(5, pages) }, (_, i) => {
+                  const n = Math.max(1, Math.min(pages - 4, page - 2)) + i
+                  return (
+                    <button key={n} onClick={() => setPage(n)}
+                      className={`px-3 py-1 rounded border text-sm ${page === n ? 'bg-rfpaf-blue text-white border-rfpaf-blue' : 'hover:bg-gray-100'}`}>
+                      {n}
+                    </button>
+                  )
+                })}
+                <button onClick={() => setPage((p) => Math.min(pages, p + 1))} disabled={page === pages}
+                  className="px-3 py-1 rounded border text-sm disabled:opacity-40 hover:bg-gray-100">›</button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Confirm delete modal */}
       {confirmDelete && (
