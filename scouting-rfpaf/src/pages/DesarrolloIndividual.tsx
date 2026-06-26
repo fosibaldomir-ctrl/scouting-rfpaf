@@ -79,6 +79,9 @@ export default function DesarrolloIndividual() {
   const [showFormAcc, setShowFormAcc] = useState(false)
   const [viewImg, setViewImg] = useState<string|null>(null)
   const photoInputRef = useRef<HTMLInputElement>(null)
+  const imgObjInputRef = useRef<HTMLInputElement>(null)
+  const pdfObjInputRef = useRef<HTMLInputElement>(null)
+  const imgAccInputRef = useRef<HTMLInputElement>(null)
 
   /* ── player search state (used inside form) ── */
   const [fichaSearch, setFichaSearch] = useState('')
@@ -176,6 +179,18 @@ export default function DesarrolloIndividual() {
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f=e.target.files?.[0]; if(!f) return
     const r=new FileReader(); r.onload=()=>setFormObj(prev=>({...prev,playerPhoto:r.result as string})); r.readAsDataURL(f)
+  }
+  const handleImgObjUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f=e.target.files?.[0]; if(!f) return
+    const r=new FileReader(); r.onload=()=>setFormObj(prev=>({...prev,imagenUrl:r.result as string})); r.readAsDataURL(f)
+  }
+  const handlePdfObjUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f=e.target.files?.[0]; if(!f) return
+    const r=new FileReader(); r.onload=()=>setFormObj(prev=>({...prev,pdfUrl:r.result as string})); r.readAsDataURL(f)
+  }
+  const handleImgAccUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f=e.target.files?.[0]; if(!f) return
+    const r=new FileReader(); r.onload=()=>setFormAcc(prev=>({...prev,imagenUrl:r.result as string})); r.readAsDataURL(f)
   }
 
   /* ═══════════════ RENDER ═══════════════ */
@@ -390,14 +405,22 @@ export default function DesarrolloIndividual() {
               </div>
               <div className="grid grid-cols-3 gap-3">
                 <div>
-                  <label className="text-[10px] font-semibold text-gray-500 uppercase">URL Imagen</label>
-                  <input value={formObj.imagenUrl} onChange={e=>setFormObj(p=>({...p,imagenUrl:e.target.value}))}
-                    className="input-field mt-1" placeholder="https://..."/>
+                  <label className="text-[10px] font-semibold text-gray-500 uppercase">Imagen</label>
+                  <button type="button" onClick={()=>imgObjInputRef.current?.click()}
+                    className="mt-1 w-full flex items-center gap-2 input-field cursor-pointer hover:bg-gray-50 text-left">
+                    <Upload className="w-4 h-4 text-gray-400 shrink-0"/>
+                    <span className="text-sm truncate">{formObj.imagenUrl ? <span className="text-green-600 font-semibold">Imagen cargada ✓</span> : <span className="text-gray-400">Subir imagen...</span>}</span>
+                  </button>
+                  <input ref={imgObjInputRef} type="file" accept="image/*" className="hidden" onChange={handleImgObjUpload}/>
                 </div>
                 <div>
-                  <label className="text-[10px] font-semibold text-gray-500 uppercase">URL PDF</label>
-                  <input value={formObj.pdfUrl} onChange={e=>setFormObj(p=>({...p,pdfUrl:e.target.value}))}
-                    className="input-field mt-1" placeholder="https://..."/>
+                  <label className="text-[10px] font-semibold text-gray-500 uppercase">PDF</label>
+                  <button type="button" onClick={()=>pdfObjInputRef.current?.click()}
+                    className="mt-1 w-full flex items-center gap-2 input-field cursor-pointer hover:bg-gray-50 text-left">
+                    <FileText className="w-4 h-4 text-gray-400 shrink-0"/>
+                    <span className="text-sm truncate">{formObj.pdfUrl ? <span className="text-green-600 font-semibold">PDF cargado ✓</span> : <span className="text-gray-400">Subir PDF...</span>}</span>
+                  </button>
+                  <input ref={pdfObjInputRef} type="file" accept="application/pdf" className="hidden" onChange={handlePdfObjUpload}/>
                 </div>
                 <div>
                   <label className="text-[10px] font-semibold text-gray-500 uppercase">URL Vídeo</label>
@@ -459,9 +482,13 @@ export default function DesarrolloIndividual() {
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-[10px] font-semibold text-gray-500 uppercase">URL Imagen</label>
-                  <input value={formAcc.imagenUrl??''} onChange={e=>setFormAcc(p=>({...p,imagenUrl:e.target.value}))}
-                    className="input-field mt-1" placeholder="https://..."/>
+                  <label className="text-[10px] font-semibold text-gray-500 uppercase">Imagen</label>
+                  <button type="button" onClick={()=>imgAccInputRef.current?.click()}
+                    className="mt-1 w-full flex items-center gap-2 input-field cursor-pointer hover:bg-gray-50 text-left">
+                    <Upload className="w-4 h-4 text-gray-400 shrink-0"/>
+                    <span className="text-sm truncate">{formAcc.imagenUrl ? <span className="text-green-600 font-semibold">Imagen cargada ✓</span> : <span className="text-gray-400">Subir imagen...</span>}</span>
+                  </button>
+                  <input ref={imgAccInputRef} type="file" accept="image/*" className="hidden" onChange={handleImgAccUpload}/>
                 </div>
                 <div>
                   <label className="text-[10px] font-semibold text-gray-500 uppercase">URL Vídeo</label>
