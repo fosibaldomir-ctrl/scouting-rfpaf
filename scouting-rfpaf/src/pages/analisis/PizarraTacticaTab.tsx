@@ -196,11 +196,22 @@ export default function PizarraTacticaTab({ analisis }: Props) {
   // ── Player drag
   const movePlayer = (clientX: number, clientY: number) => {
     if (!dragging.current) return
-    didDragRef.current = true // suppress onClick-connect after a drag
     const { x, y } = getRelPos(clientX, clientY)
     const { uid, team } = dragging.current
-    if (team === 'local') setLocalJugadoras(prev => prev.map(j => j.uid === uid ? { ...j, posX: x, posY: y } : j))
-    else setVisitJugadoras(prev => prev.map(j => j.uid === uid ? { ...j, posX: x, posY: y } : j))
+    if (team === 'local') {
+      setLocalJugadoras(prev => {
+        const cur = prev.find(j => j.uid === uid)
+        // Only flag as an intentional drag after moving > 2% (distinguishes tap from drag in connect mode)
+        if (cur && (Math.abs(x - cur.posX) > 2 || Math.abs(y - cur.posY) > 2)) didDragRef.current = true
+        return prev.map(j => j.uid === uid ? { ...j, posX: x, posY: y } : j)
+      })
+    } else {
+      setVisitJugadoras(prev => {
+        const cur = prev.find(j => j.uid === uid)
+        if (cur && (Math.abs(x - cur.posX) > 2 || Math.abs(y - cur.posY) > 2)) didDragRef.current = true
+        return prev.map(j => j.uid === uid ? { ...j, posX: x, posY: y } : j)
+      })
+    }
   }
 
   const moveBall = (clientX: number, clientY: number) => {
@@ -802,12 +813,17 @@ export default function PizarraTacticaTab({ analisis }: Props) {
                 return null
               })()}
 
-              {/* Connectors */}
+              {/* Connectors — line from/to avatar EDGES (not centers) so arrowhead stays visible */}
               {connectors.map(conn => {
                 const from = allJugadoras.find(j => j.uid === conn.fromUid)
                 const to = allJugadoras.find(j => j.uid === conn.toUid)
                 if (!from || !to) return null
                 const mid = `conn-${conn.uid}`
+                // Offset endpoints by ~4 SVG units toward each other so line clears the avatar circles
+                const dx = to.posX - from.posX; const dy = to.posY - from.posY
+                const dist = Math.sqrt(dx * dx + dy * dy) || 1
+                const off = Math.min(4, dist * 0.4) // shrink gap if players very close
+                const nx = dx / dist; const ny = dy / dist
                 return (
                   <g key={conn.uid}>
                     <defs>
@@ -815,7 +831,9 @@ export default function PizarraTacticaTab({ analisis }: Props) {
                         <path d="M0,0 L5,2.5 L0,5 L1.5,2.5 Z" fill={conn.color} />
                       </marker>
                     </defs>
-                    <line x1={from.posX} y1={from.posY} x2={to.posX} y2={to.posY}
+                    <line
+                      x1={from.posX + nx * off} y1={from.posY + ny * off}
+                      x2={to.posX - nx * off}   y2={to.posY - ny * off}
                       stroke={conn.color} strokeWidth={2.5}
                       strokeDasharray={conn.dashed ? '4 2.5' : undefined}
                       markerEnd={`url(#${mid})`}
@@ -864,7 +882,7 @@ export default function PizarraTacticaTab({ analisis }: Props) {
               <PlayerToken key={j.uid} player={j} color={analisis.equipoVisitante.color}
                 interactive={tokensInteractive} animTransition={animTransition}
                 isConnectSource={connectFrom === j.uid}
-                onDragStart={() => { if (editorMode === 'move' || editorMode === 'anim' || editorMode === 'connect') dragging.current = { uid: j.uid, team: 'visit' } }}
+                onDragStart={() => { didDragRef.current = false; if (editorMode === 'move' || editorMode === 'anim' || editorMode === 'connect') dragging.current = { uid: j.uid, team: 'visit' } }}
                 onConnect={editorMode === 'connect' ? () => handlePlayerConnect(j.uid) : undefined}
               />
             ))}
@@ -873,7 +891,7 @@ export default function PizarraTacticaTab({ analisis }: Props) {
               <PlayerToken key={j.uid} player={j} color={analisis.equipoLocal.color}
                 interactive={tokensInteractive} animTransition={animTransition}
                 isConnectSource={connectFrom === j.uid}
-                onDragStart={() => { if (editorMode === 'move' || editorMode === 'anim' || editorMode === 'connect') dragging.current = { uid: j.uid, team: 'local' } }}
+                onDragStart={() => { didDragRef.current = false; if (editorMode === 'move' || editorMode === 'anim' || editorMode === 'connect') dragging.current = { uid: j.uid, team: 'local' } }}
                 onConnect={editorMode === 'connect' ? () => handlePlayerConnect(j.uid) : undefined}
               />
             ))}
@@ -1017,7 +1035,10 @@ function PlayerToken({ player, color, onDragStart, onRemove, onConnect, interact
   return (
     <div
       style={{
-        position: 'absolute', left: `${player.posX}%`, top: `${player.posY}%`, transform: 'translate(-50%, -50%)',
+        position: 'absolute', left: `${player.posX}%`, top: `${player.posY}%`,
+        // -17px = avatar radius (size=34 → r=17): centers the avatar circle at posX%,posY%
+        // so connector endpoints land exactly on the player circle center
+        transform: 'translate(-50%, -17px)',
         cursor: onConnect ? 'pointer' : interactive ? 'grab' : 'default',
         touchAction: 'none', zIndex: 20, userSelect: 'none',
         pointerEvents: interactive ? 'all' : 'none',
