@@ -399,22 +399,60 @@ export default function PizarraTacticaTab({ analisis }: Props) {
             <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Jugadoras</p>
             <div className="space-y-0.5 max-h-72 overflow-y-auto">
 
-              {/* LOCAL — only on-field players, drag ⠿ to swap field positions */}
+              {/* LOCAL — full convocatoria list when selected, otherwise on-field only */}
               <p className="text-xs font-bold text-rfpaf-blue mb-1">{analisis.equipoLocal.nombre}</p>
-              {localJugadoras.map(j => (
-                <PlayerNameRow
-                  key={j.uid}
-                  player={j}
-                  color={analisis.equipoLocal.color}
-                  onDragStart={() => { listDragRef.current = j.uid }}
-                  onDrop={() => handleListSwap(j.uid)}
-                  onChange={name => {
-                    const updated = localJugadoras.map(p => p.uid === j.uid ? { ...p, nombre: name } : p)
-                    setLocalJugadoras(updated)
-                    updateAnalisis(analisis.id, { equipoLocal: { ...analisis.equipoLocal, jugadoras: updated } })
-                  }}
-                />
-              ))}
+              {selectedConv ? (
+                allConvPlayers.map(player => {
+                  const onFieldPlayer = localJugadoras.find(j => j.fichaId === player.fichaId)
+                  if (onFieldPlayer) {
+                    return (
+                      <PlayerNameRow
+                        key={player.fichaId}
+                        player={onFieldPlayer}
+                        color={analisis.equipoLocal.color}
+                        onDragStart={() => { listDragRef.current = onFieldPlayer.uid }}
+                        onDrop={() => handleListSwap(onFieldPlayer.uid)}
+                        onChange={name => {
+                          const updated = localJugadoras.map(p => p.uid === onFieldPlayer.uid ? { ...p, nombre: name } : p)
+                          setLocalJugadoras(updated)
+                          updateAnalisis(analisis.id, { equipoLocal: { ...analisis.equipoLocal, jugadoras: updated } })
+                        }}
+                      />
+                    )
+                  }
+                  // Player on bench: show dimmed, click to add
+                  return (
+                    <button
+                      key={player.fichaId}
+                      onClick={() => handleAddBenchPlayer(player)}
+                      className="w-full flex items-center gap-2 rounded px-1 py-0.5 hover:bg-green-50 group text-left transition-colors"
+                      title="Añadir al campo"
+                    >
+                      <span className="w-4 flex-shrink-0" />
+                      <div style={{ opacity: 0.45, flexShrink: 0 }}>
+                        <PlayerAvatar foto={player.foto} numero={player.numero} color={analisis.equipoLocal.color} size={20} />
+                      </div>
+                      <span className="flex-1 text-xs text-gray-400 truncate group-hover:text-gray-700 transition-colors">{player.nombre}</span>
+                      <span className="text-green-500 text-xs font-bold opacity-0 group-hover:opacity-100 transition-opacity pr-1">+</span>
+                    </button>
+                  )
+                })
+              ) : (
+                localJugadoras.map(j => (
+                  <PlayerNameRow
+                    key={j.uid}
+                    player={j}
+                    color={analisis.equipoLocal.color}
+                    onDragStart={() => { listDragRef.current = j.uid }}
+                    onDrop={() => handleListSwap(j.uid)}
+                    onChange={name => {
+                      const updated = localJugadoras.map(p => p.uid === j.uid ? { ...p, nombre: name } : p)
+                      setLocalJugadoras(updated)
+                      updateAnalisis(analisis.id, { equipoLocal: { ...analisis.equipoLocal, jugadoras: updated } })
+                    }}
+                  />
+                ))
+              )}
 
               {/* VISIT */}
               <p className="text-xs font-bold text-rfpaf-red mt-3 mb-1">{analisis.equipoVisitante.nombre}</p>
