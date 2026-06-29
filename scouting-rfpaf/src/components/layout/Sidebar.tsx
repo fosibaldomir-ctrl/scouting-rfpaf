@@ -219,7 +219,6 @@ export default function Sidebar({ mobileOpen, onClose }: SidebarProps) {
             open={analisisOpen}
             onToggle={() => setAnalisisOpen((o) => !o)}
             onClose={onClose}
-            accentRed
           />
         </nav>
 
