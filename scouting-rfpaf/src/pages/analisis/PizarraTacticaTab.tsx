@@ -87,10 +87,9 @@ export default function PizarraTacticaTab({ analisis }: Props) {
   const [showAnalysis, setShowAnalysis] = useState(!!analisis.analisisIA)
   const [editingLocal, setEditingLocal] = useState(false)
   const [editingVisit, setEditingVisit] = useState(false)
-  const [listDragUid, setListDragUid] = useState<string | null>(null)
-
   const dragging = useRef<DragState>(null)
   const benchDragRef = useRef<BenchItem | null>(null)
+  const listDragRef = useRef<string | null>(null)
   const pitchRef = useRef<HTMLDivElement>(null)
 
   const selectedConv = convocatorias.find(c => c.id === selectedConvId) ?? null
@@ -227,18 +226,20 @@ export default function PizarraTacticaTab({ analisis }: Props) {
     setLocalJugadoras(updated); save(updated, visitJugadoras)
   }
 
-  // Swap field positions of two on-field players via list drag
+  // Swap field positions of two on-field players via list drag (uses ref, no re-render on dragStart)
   const handleListSwap = (targetUid: string) => {
-    if (!listDragUid || listDragUid === targetUid) { setListDragUid(null); return }
-    const src = localJugadoras.find(j => j.uid === listDragUid)
+    const srcUid = listDragRef.current
+    listDragRef.current = null
+    if (!srcUid || srcUid === targetUid) return
+    const src = localJugadoras.find(j => j.uid === srcUid)
     const tgt = localJugadoras.find(j => j.uid === targetUid)
-    if (!src || !tgt) { setListDragUid(null); return }
+    if (!src || !tgt) return
     const updated = localJugadoras.map(j => {
-      if (j.uid === listDragUid) return { ...j, posX: tgt.posX, posY: tgt.posY }
+      if (j.uid === srcUid) return { ...j, posX: tgt.posX, posY: tgt.posY }
       if (j.uid === targetUid) return { ...j, posX: src.posX, posY: src.posY }
       return j
     })
-    setLocalJugadoras(updated); save(updated, visitJugadoras); setListDragUid(null)
+    setLocalJugadoras(updated); save(updated, visitJugadoras)
   }
 
   // Bench drag → pitch drop
@@ -398,54 +399,22 @@ export default function PizarraTacticaTab({ analisis }: Props) {
             <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Jugadoras</p>
             <div className="space-y-0.5 max-h-72 overflow-y-auto">
 
-              {/* LOCAL — full convocatoria list or just on-field players */}
+              {/* LOCAL — only on-field players, drag ⠿ to swap field positions */}
               <p className="text-xs font-bold text-rfpaf-blue mb-1">{analisis.equipoLocal.nombre}</p>
-              {selectedConv ? (
-                allConvPlayers.map(player => {
-                  const onFieldPlayer = localJugadoras.find(j => j.fichaId === player.fichaId)
-                  if (onFieldPlayer) {
-                    return (
-                      <PlayerNameRow
-                        key={player.fichaId}
-                        player={onFieldPlayer}
-                        color={analisis.equipoLocal.color}
-                        dragging={listDragUid === onFieldPlayer.uid}
-                        onDragStart={() => setListDragUid(onFieldPlayer.uid)}
-                        onDrop={() => handleListSwap(onFieldPlayer.uid)}
-                        onChange={name => {
-                          const updated = localJugadoras.map(p => p.uid === onFieldPlayer.uid ? { ...p, nombre: name } : p)
-                          setLocalJugadoras(updated)
-                          updateAnalisis(analisis.id, { equipoLocal: { ...analisis.equipoLocal, jugadoras: updated } })
-                        }}
-                      />
-                    )
-                  }
-                  return (
-                    <BenchListRow
-                      key={player.fichaId}
-                      player={player}
-                      color={analisis.equipoLocal.color}
-                      onAdd={() => handleAddBenchPlayer(player)}
-                    />
-                  )
-                })
-              ) : (
-                localJugadoras.map(j => (
-                  <PlayerNameRow
-                    key={j.uid}
-                    player={j}
-                    color={analisis.equipoLocal.color}
-                    dragging={listDragUid === j.uid}
-                    onDragStart={() => setListDragUid(j.uid)}
-                    onDrop={() => handleListSwap(j.uid)}
-                    onChange={name => {
-                      const updated = localJugadoras.map(p => p.uid === j.uid ? { ...p, nombre: name } : p)
-                      setLocalJugadoras(updated)
-                      updateAnalisis(analisis.id, { equipoLocal: { ...analisis.equipoLocal, jugadoras: updated } })
-                    }}
-                  />
-                ))
-              )}
+              {localJugadoras.map(j => (
+                <PlayerNameRow
+                  key={j.uid}
+                  player={j}
+                  color={analisis.equipoLocal.color}
+                  onDragStart={() => { listDragRef.current = j.uid }}
+                  onDrop={() => handleListSwap(j.uid)}
+                  onChange={name => {
+                    const updated = localJugadoras.map(p => p.uid === j.uid ? { ...p, nombre: name } : p)
+                    setLocalJugadoras(updated)
+                    updateAnalisis(analisis.id, { equipoLocal: { ...analisis.equipoLocal, jugadoras: updated } })
+                  }}
+                />
+              ))}
 
               {/* VISIT */}
               <p className="text-xs font-bold text-rfpaf-red mt-3 mb-1">{analisis.equipoVisitante.nombre}</p>
@@ -462,11 +431,9 @@ export default function PizarraTacticaTab({ analisis }: Props) {
                 />
               ))}
             </div>
-            {selectedConv && (
-              <p className="text-[10px] text-gray-400 mt-2 leading-snug">
-                ≡ Arrastra las filas del equipo local para intercambiar posiciones en el campo
-              </p>
-            )}
+            <p className="text-[10px] text-gray-400 mt-2 leading-snug">
+              ⠿ Arrastra las filas para intercambiar posiciones en el campo
+            </p>
           </div>
 
         </div>
@@ -547,9 +514,9 @@ function PlayerToken({ player, color, onDragStart, onRemove }: {
   )
 }
 
-function PlayerNameRow({ player, color, onChange, dragging: isDragging, onDragStart, onDrop }: {
+function PlayerNameRow({ player, color, onChange, onDragStart, onDrop }: {
   player: JugadoraTactica; color: string; onChange: (n: string) => void
-  dragging?: boolean; onDragStart?: () => void; onDrop?: () => void
+  onDragStart?: () => void; onDrop?: () => void
 }) {
   return (
     <div
@@ -557,10 +524,13 @@ function PlayerNameRow({ player, color, onChange, dragging: isDragging, onDragSt
       onDragStart={e => { e.dataTransfer.effectAllowed = 'move'; onDragStart?.() }}
       onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move' }}
       onDrop={e => { e.preventDefault(); onDrop?.() }}
-      className={`flex items-center gap-2 rounded px-1 py-0.5 transition-colors ${isDragging ? 'opacity-40' : 'hover:bg-gray-50'}`}
+      className="flex items-center gap-2 rounded px-1 py-0.5 hover:bg-gray-50 transition-colors"
     >
       {onDragStart && (
-        <span className="text-gray-300 cursor-grab text-sm select-none leading-none" title="Arrastra para intercambiar posición en el campo">⠿</span>
+        <span
+          className="text-gray-400 hover:text-gray-600 cursor-grab text-base select-none leading-none flex-shrink-0"
+          title="Arrastra para intercambiar posición en el campo"
+        >⠿</span>
       )}
       <PlayerAvatar foto={player.foto} numero={player.numero} color={color} size={20} />
       <input
