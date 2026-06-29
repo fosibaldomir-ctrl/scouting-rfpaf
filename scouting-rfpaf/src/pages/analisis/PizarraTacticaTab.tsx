@@ -196,6 +196,7 @@ export default function PizarraTacticaTab({ analisis }: Props) {
   // ── Player drag
   const movePlayer = (clientX: number, clientY: number) => {
     if (!dragging.current) return
+    didDragRef.current = true // suppress onClick-connect after a drag
     const { x, y } = getRelPos(clientX, clientY)
     const { uid, team } = dragging.current
     if (team === 'local') setLocalJugadoras(prev => prev.map(j => j.uid === uid ? { ...j, posX: x, posY: y } : j))
@@ -291,8 +292,12 @@ export default function PizarraTacticaTab({ analisis }: Props) {
     handleSVGUp()
   }
 
+  // Track if a player was dragged to suppress the onClick connect after a drag
+  const didDragRef = useRef(false)
+
   // ── Connect mode
   const handlePlayerConnect = (uid: string) => {
+    if (didDragRef.current) { didDragRef.current = false; return }
     if (!connectFrom) {
       setConnectFrom(uid)
     } else if (connectFrom === uid) {
@@ -393,7 +398,18 @@ export default function PizarraTacticaTab({ analisis }: Props) {
     e.preventDefault()
     if (!benchDragRef.current || !pitchRef.current) return
     const { x, y } = getRelPos(e.clientX, e.clientY)
-    handleAddBenchPlayer(benchDragRef.current, x, y); benchDragRef.current = null
+    const player = benchDragRef.current
+
+    // If dropped within 9% of an existing local player → substitute (keep UID so connectors follow)
+    const near = localJugadoras.find(j => Math.sqrt((j.posX - x) ** 2 + (j.posY - y) ** 2) < 9)
+    if (near) {
+      const subst: JugadoraTactica = { uid: near.uid, numero: player.numero, nombre: player.nombre, foto: player.foto, fichaId: player.fichaId, posX: near.posX, posY: near.posY }
+      const updated = localJugadoras.map(j => j.uid === near.uid ? subst : j)
+      setLocalJugadoras(updated); save(updated, visitJugadoras)
+    } else {
+      handleAddBenchPlayer(player, x, y)
+    }
+    benchDragRef.current = null
   }
 
   // ── Animation
@@ -486,7 +502,7 @@ export default function PizarraTacticaTab({ analisis }: Props) {
       {/* Bench panel */}
       {benchPlayers.length > 0 && (
         <div className="mb-3 bg-gray-50 border border-gray-200 rounded-xl p-3">
-          <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-2">Banquillo — arrastra al campo o pulsa para añadir</p>
+          <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-2">Banquillo — arrastra sobre una jugadora del campo para sustituirla · pulsa para añadir</p>
           <div className="flex gap-2 overflow-x-auto pb-1">
             {benchPlayers.map(player => (
               <BenchPlayerCard key={player.fichaId} player={player} onAdd={() => handleAddBenchPlayer(player)} onDragStart={e => handleBenchDragStart(e, player)} />
@@ -513,8 +529,8 @@ export default function PizarraTacticaTab({ analisis }: Props) {
 
           {/* ── TOOLBAR ── */}
           <div className="mb-2 rounded-xl border border-gray-200 bg-gray-100 overflow-hidden">
-            {/* Row 1: mode buttons — always visible, wrap cleanly */}
-            <div className="flex flex-wrap gap-1 p-1.5">
+            {/* Row 1: mode buttons + global undo */}
+            <div className="flex flex-wrap gap-1 p-1.5 items-center">
               {modeBtn('move', 'Mover', <span className="text-sm leading-none">✋</span>)}
               {modeBtn('freehand', 'Trazar', <Pencil className="w-3 h-3" />)}
               {modeBtn('arrow', 'Flecha', <ArrowRight className="w-3 h-3" />)}
@@ -522,6 +538,20 @@ export default function PizarraTacticaTab({ analisis }: Props) {
               {modeBtn('ball', 'Balón', <span className="text-sm leading-none">⚽</span>)}
               {modeBtn('connect', 'Conectar', <Link2 className="w-3 h-3" />)}
               {modeBtn('anim', 'Animar', <span className="text-sm leading-none">🎬</span>)}
+              <div className="w-px h-5 bg-gray-300 mx-0.5" />
+              <button
+                onClick={() => {
+                  if (shapes.length > 0) setShapes(p => p.slice(0, -1))
+                  else if (connectors.length > 0) setConnectors(p => p.slice(0, -1))
+                }}
+                disabled={shapes.length === 0 && connectors.length === 0}
+                className={`flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-semibold transition-all border ${
+                  shapes.length > 0 || connectors.length > 0
+                    ? 'bg-orange-50 text-orange-600 border-orange-200 hover:bg-orange-100'
+                    : 'bg-white/20 text-gray-300 border-gray-100 cursor-not-allowed'
+                }`}>
+                <Eraser className="w-3 h-3" /> Deshacer
+              </button>
             </div>
 
             {/* Row 2: mode-specific options */}
@@ -834,7 +864,7 @@ export default function PizarraTacticaTab({ analisis }: Props) {
               <PlayerToken key={j.uid} player={j} color={analisis.equipoVisitante.color}
                 interactive={tokensInteractive} animTransition={animTransition}
                 isConnectSource={connectFrom === j.uid}
-                onDragStart={() => { if (editorMode === 'move' || editorMode === 'anim') dragging.current = { uid: j.uid, team: 'visit' } }}
+                onDragStart={() => { if (editorMode === 'move' || editorMode === 'anim' || editorMode === 'connect') dragging.current = { uid: j.uid, team: 'visit' } }}
                 onConnect={editorMode === 'connect' ? () => handlePlayerConnect(j.uid) : undefined}
               />
             ))}
@@ -843,20 +873,19 @@ export default function PizarraTacticaTab({ analisis }: Props) {
               <PlayerToken key={j.uid} player={j} color={analisis.equipoLocal.color}
                 interactive={tokensInteractive} animTransition={animTransition}
                 isConnectSource={connectFrom === j.uid}
-                onDragStart={() => { if (editorMode === 'move' || editorMode === 'anim') dragging.current = { uid: j.uid, team: 'local' } }}
-                onRemove={editorMode === 'move' ? () => handleRemoveLocal(j.uid) : undefined}
+                onDragStart={() => { if (editorMode === 'move' || editorMode === 'anim' || editorMode === 'connect') dragging.current = { uid: j.uid, team: 'local' } }}
                 onConnect={editorMode === 'connect' ? () => handlePlayerConnect(j.uid) : undefined}
               />
             ))}
           </div>
 
           <p className="text-center text-xs text-gray-400 mt-1">
-            {editorMode === 'move' && 'Arrastra en el campo para mover · ✕ para quitar'}
+            {editorMode === 'move' && 'Arrastra para mover · quitar jugadora desde el panel'}
             {editorMode === 'freehand' && 'Dibuja trazos libres sobre el campo'}
             {editorMode === 'arrow' && 'Arrastra para dibujar una flecha de movimiento'}
             {editorMode === 'curve' && 'Arrastra para dibujar · arrastra el punto blanco para curvar 360°'}
             {editorMode === 'ball' && 'Pulsa para colocar · arrastra · clic derecho para quitar'}
-            {editorMode === 'connect' && (connectFrom ? 'Ahora pulsa la jugadora de destino' : 'Pulsa una jugadora para iniciar la conexión')}
+            {editorMode === 'connect' && (connectFrom ? 'Pulsa la jugadora de destino · arrastra para moverla' : 'Pulsa para conectar · arrastra para mover con la línea')}
             {editorMode === 'anim' && 'Captura fotogramas en distintas posiciones y reproduce'}
           </p>
         </div>
@@ -900,6 +929,7 @@ export default function PizarraTacticaTab({ analisis }: Props) {
                       <PlayerNameRow key={player.fichaId} player={onFieldPlayer} color={analisis.equipoLocal.color}
                         onDragStart={() => { listDragRef.current = onFieldPlayer.uid }}
                         onDrop={() => handleListSwap(onFieldPlayer.uid)}
+                        onRemove={() => handleRemoveLocal(onFieldPlayer.uid)}
                         onChange={name => {
                           const updated = localJugadoras.map(p => p.uid === onFieldPlayer.uid ? { ...p, nombre: name } : p)
                           setLocalJugadoras(updated); updateAnalisis(analisis.id, { equipoLocal: { ...analisis.equipoLocal, jugadoras: updated } })
@@ -921,6 +951,7 @@ export default function PizarraTacticaTab({ analisis }: Props) {
                   <PlayerNameRow key={j.uid} player={j} color={analisis.equipoLocal.color}
                     onDragStart={() => { listDragRef.current = j.uid }}
                     onDrop={() => handleListSwap(j.uid)}
+                    onRemove={() => handleRemoveLocal(j.uid)}
                     onChange={name => {
                       const updated = localJugadoras.map(p => p.uid === j.uid ? { ...p, nombre: name } : p)
                       setLocalJugadoras(updated); updateAnalisis(analisis.id, { equipoLocal: { ...analisis.equipoLocal, jugadoras: updated } })
@@ -993,7 +1024,6 @@ function PlayerToken({ player, color, onDragStart, onRemove, onConnect, interact
         transition: animTransition ? 'left 0.8s ease-in-out, top 0.8s ease-in-out' : undefined,
       }}
       onMouseDown={e => {
-        if (onConnect) return // connect mode: handle via onClick
         e.preventDefault(); onDragStart()
       }}
       onTouchStart={e => { e.preventDefault(); onDragStart() }}
@@ -1019,8 +1049,9 @@ function PlayerToken({ player, color, onDragStart, onRemove, onConnect, interact
   )
 }
 
-function PlayerNameRow({ player, color, onChange, onDragStart, onDrop }: {
-  player: JugadoraTactica; color: string; onChange: (n: string) => void; onDragStart?: () => void; onDrop?: () => void
+function PlayerNameRow({ player, color, onChange, onDragStart, onDrop, onRemove }: {
+  player: JugadoraTactica; color: string; onChange: (n: string) => void
+  onDragStart?: () => void; onDrop?: () => void; onRemove?: () => void
 }) {
   return (
     <div
@@ -1028,13 +1059,19 @@ function PlayerNameRow({ player, color, onChange, onDragStart, onDrop }: {
       onDragStart={e => { e.dataTransfer.effectAllowed = 'move'; onDragStart?.() }}
       onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move' }}
       onDrop={e => { e.preventDefault(); onDrop?.() }}
-      className="flex items-center gap-2 rounded px-1 py-0.5 hover:bg-gray-50 transition-colors"
+      className="flex items-center gap-2 rounded px-1 py-0.5 hover:bg-gray-50 transition-colors group"
     >
       {onDragStart && <span className="text-gray-400 hover:text-gray-600 cursor-grab text-base select-none leading-none flex-shrink-0">⠿</span>}
       <PlayerAvatar foto={player.foto} numero={player.numero} color={color} size={20} />
       <input value={player.nombre} onChange={e => onChange(e.target.value)}
         className="flex-1 text-xs border-b border-gray-200 focus:border-rfpaf-blue outline-none py-0.5 bg-transparent"
         placeholder={`Jugadora ${player.numero}`} />
+      {onRemove && (
+        <button onClick={onRemove} title="Sacar del campo"
+          className="flex-shrink-0 w-5 h-5 rounded-full bg-red-50 hover:bg-red-200 text-red-400 hover:text-red-700 text-xs font-bold flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all">
+          ×
+        </button>
+      )}
     </div>
   )
 }
