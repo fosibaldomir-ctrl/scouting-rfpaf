@@ -151,6 +151,7 @@ export default function PizarraTacticaTab({ analisis }: Props) {
   const [animPlaying, setAnimPlaying] = useState(false)
   const [animTransition, setAnimTransition] = useState(false)
   const animTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const animRafRef = useRef<number | null>(null)
 
   // ── Drag refs
   const dragging = useRef<DragState>(null)
@@ -434,28 +435,58 @@ export default function PizarraTacticaTab({ analisis }: Props) {
 
   const stopAnimation = useCallback(() => {
     if (animTimerRef.current) clearTimeout(animTimerRef.current)
+    if (animRafRef.current) cancelAnimationFrame(animRafRef.current)
+    animTimerRef.current = null; animRafRef.current = null
     setAnimPlaying(false); setAnimTransition(false)
   }, [])
 
+  // Interpolated playback: positions are driven frame-by-frame via rAF, so the
+  // player tokens AND the connector lines (and any other position-based overlay)
+  // move together in lockstep instead of the lines snapping to the end.
   const playAnimation = useCallback(() => {
     if (animFrames.length < 2) return
-    stopAnimation(); setAnimTransition(true); setAnimPlaying(true)
-    let idx = 0
-    const step = () => {
-      idx++
-      if (idx >= animFrames.length) {
-        setLocalJugadoras(JSON.parse(JSON.stringify(animFrames[0].local)))
-        setVisitJugadoras(JSON.parse(JSON.stringify(animFrames[0].visit)))
-        animTimerRef.current = setTimeout(() => { setAnimPlaying(false); setAnimTransition(false) }, 800)
-        return
+    stopAnimation()
+    setAnimTransition(false) // we drive positions manually, no CSS transition
+    setAnimPlaying(true)
+
+    const SEGMENT = 900 // ms to glide from one frame to the next
+    const HOLD = 250    // ms pause on each frame
+
+    const lerp = (a: number, b: number, t: number) => a + (b - a) * t
+    const easeInOut = (t: number) => (t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2)
+    const interpTeam = (fromArr: JugadoraTactica[], toArr: JugadoraTactica[], t: number): JugadoraTactica[] =>
+      fromArr.map(j => {
+        const tgt = toArr.find(p => p.uid === j.uid)
+        if (!tgt) return j
+        return { ...j, posX: lerp(j.posX, tgt.posX, t), posY: lerp(j.posY, tgt.posY, t) }
+      })
+
+    let seg = 0
+    const runSegment = () => {
+      const fromFrame = animFrames[seg]
+      const toFrame = animFrames[seg + 1]
+      const startTime = performance.now()
+      const tick = (now: number) => {
+        const te = easeInOut(Math.min(1, (now - startTime) / SEGMENT))
+        setLocalJugadoras(interpTeam(fromFrame.local, toFrame.local, te))
+        setVisitJugadoras(interpTeam(fromFrame.visit, toFrame.visit, te))
+        if (te < 1) {
+          animRafRef.current = requestAnimationFrame(tick)
+        } else {
+          // land exactly on the target frame
+          setLocalJugadoras(JSON.parse(JSON.stringify(toFrame.local)))
+          setVisitJugadoras(JSON.parse(JSON.stringify(toFrame.visit)))
+          seg++
+          if (seg >= animFrames.length - 1) { setAnimPlaying(false); return }
+          animTimerRef.current = setTimeout(runSegment, HOLD)
+        }
       }
-      setLocalJugadoras(JSON.parse(JSON.stringify(animFrames[idx].local)))
-      setVisitJugadoras(JSON.parse(JSON.stringify(animFrames[idx].visit)))
-      animTimerRef.current = setTimeout(step, 1000)
+      animRafRef.current = requestAnimationFrame(tick)
     }
+
     setLocalJugadoras(JSON.parse(JSON.stringify(animFrames[0].local)))
     setVisitJugadoras(JSON.parse(JSON.stringify(animFrames[0].visit)))
-    animTimerRef.current = setTimeout(step, 1000)
+    animTimerRef.current = setTimeout(runSegment, HOLD)
   }, [animFrames, stopAnimation])
 
   const goToFrame = (idx: number) => {
@@ -469,7 +500,10 @@ export default function PizarraTacticaTab({ analisis }: Props) {
     animFrames.forEach((f, i) => setTimeout(() => downloadFramePNG(f, i, analisis.equipoLocal.color, analisis.equipoVisitante.color), i * 400))
   }
 
-  useEffect(() => () => { if (animTimerRef.current) clearTimeout(animTimerRef.current) }, [])
+  useEffect(() => () => {
+    if (animTimerRef.current) clearTimeout(animTimerRef.current)
+    if (animRafRef.current) cancelAnimationFrame(animRafRef.current)
+  }, [])
 
   // ── Toolbar helpers
   const inDrawMode = editorMode === 'freehand' || editorMode === 'arrow' || editorMode === 'curve'
