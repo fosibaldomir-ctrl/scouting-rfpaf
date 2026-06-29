@@ -813,42 +813,29 @@ export default function PizarraTacticaTab({ analisis }: Props) {
                 return null
               })()}
 
-              {/* Connectors — line from/to avatar EDGES (not centers) so arrowhead stays visible */}
+              {/* Connectors — plain line, no arrowhead, follows player positions live */}
               {connectors.map(conn => {
                 const from = allJugadoras.find(j => j.uid === conn.fromUid)
                 const to = allJugadoras.find(j => j.uid === conn.toUid)
                 if (!from || !to) return null
-                const mid = `conn-${conn.uid}`
-                // Offset endpoints by ~4 SVG units toward each other so line clears the avatar circles
-                const dx = to.posX - from.posX; const dy = to.posY - from.posY
-                const dist = Math.sqrt(dx * dx + dy * dy) || 1
-                const off = Math.min(4, dist * 0.4) // shrink gap if players very close
-                const nx = dx / dist; const ny = dy / dist
                 return (
-                  <g key={conn.uid}>
-                    <defs>
-                      <marker id={mid} markerWidth="5" markerHeight="5" refX="4.5" refY="2.5" orient="auto" markerUnits="strokeWidth">
-                        <path d="M0,0 L5,2.5 L0,5 L1.5,2.5 Z" fill={conn.color} />
-                      </marker>
-                    </defs>
-                    <line
-                      x1={from.posX + nx * off} y1={from.posY + ny * off}
-                      x2={to.posX - nx * off}   y2={to.posY - ny * off}
-                      stroke={conn.color} strokeWidth={2.5}
-                      strokeDasharray={conn.dashed ? '4 2.5' : undefined}
-                      markerEnd={`url(#${mid})`}
-                      vectorEffect="non-scaling-stroke" />
-                  </g>
+                  <line key={conn.uid}
+                    x1={from.posX} y1={from.posY}
+                    x2={to.posX}   y2={to.posY}
+                    stroke={conn.color} strokeWidth={2.5} strokeLinecap="round"
+                    strokeDasharray={conn.dashed ? '4 2.5' : undefined}
+                    vectorEffect="non-scaling-stroke" />
                 )
               })}
 
-              {/* Connector preview line */}
+              {/* Connector preview line — plain, no arrow */}
               {editorMode === 'connect' && connectFrom && svgMousePos && (() => {
                 const from = allJugadoras.find(j => j.uid === connectFrom)
                 if (!from) return null
                 return (
                   <line x1={from.posX} y1={from.posY} x2={svgMousePos.x} y2={svgMousePos.y}
-                    stroke={penColor} strokeWidth={2} strokeDasharray="4 2" opacity={0.7}
+                    stroke={penColor} strokeWidth={2} strokeLinecap="round"
+                    strokeDasharray="4 2" opacity={0.6}
                     vectorEffect="non-scaling-stroke" />
                 )
               })()}
