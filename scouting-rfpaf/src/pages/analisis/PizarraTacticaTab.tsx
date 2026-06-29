@@ -184,13 +184,14 @@ export default function PizarraTacticaTab({ analisis }: Props) {
       y: Math.max(0, Math.min(100, ((clientY - rect.top) / rect.height) * 100)),
     }
   }
-  const getSVGPos = (e: React.MouseEvent): SVGPt => {
+  const getSVGPosXY = (clientX: number, clientY: number): SVGPt => {
     const rect = svgRef.current!.getBoundingClientRect()
     return {
-      x: Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100)),
-      y: Math.max(0, Math.min(100, ((e.clientY - rect.top) / rect.height) * 100)),
+      x: Math.max(0, Math.min(100, ((clientX - rect.left) / rect.width) * 100)),
+      y: Math.max(0, Math.min(100, ((clientY - rect.top) / rect.height) * 100)),
     }
   }
+  const getSVGPos = (e: React.MouseEvent): SVGPt => getSVGPosXY(e.clientX, e.clientY)
 
   // ── Player drag
   const movePlayer = (clientX: number, clientY: number) => {
@@ -238,24 +239,7 @@ export default function PizarraTacticaTab({ analisis }: Props) {
   }
 
   const handleSVGMove = (e: React.MouseEvent) => {
-    // Curve handle drag
-    if (curveHandleDragRef.current) {
-      const pt = getSVGPos(e)
-      setShapes(prev => prev.map(s => s.uid === curveHandleDragRef.current && s.type === 'curve' ? { ...s, pts: [s.pts[0], pt, s.pts[2]] } : s))
-      return
-    }
-    if (!isDrawingRef.current || !currentShape) return
-    const pt = getSVGPos(e)
-    setCurrentShape(prev => {
-      if (!prev) return prev
-      if (prev.type === 'freehand') return { ...prev, pts: [...prev.pts, pt] }
-      if (prev.type === 'arrow') return { ...prev, pts: [prev.pts[0], pt] }
-      if (prev.type === 'curve') {
-        const ctrl = computeCurveCtrl(prev.pts[0], pt)
-        return { ...prev, pts: [prev.pts[0], ctrl, pt] }
-      }
-      return prev
-    })
+    applyDrawMove(e.clientX, e.clientY)
   }
 
   const handleSVGUp = () => {
@@ -268,6 +252,43 @@ export default function PizarraTacticaTab({ analisis }: Props) {
       (currentShape.type === 'curve' && currentShape.pts.length === 3)
     if (valid) setShapes(prev => [...prev, currentShape])
     setCurrentShape(null)
+  }
+
+  // ── SVG touch handlers (drawing on tablet/mobile)
+  const applyDrawMove = (clientX: number, clientY: number) => {
+    if (curveHandleDragRef.current) {
+      const pt = getSVGPosXY(clientX, clientY)
+      setShapes(prev => prev.map(s => s.uid === curveHandleDragRef.current && s.type === 'curve' ? { ...s, pts: [s.pts[0], pt, s.pts[2]] } : s))
+      return
+    }
+    if (!isDrawingRef.current) return
+    const pt = getSVGPosXY(clientX, clientY)
+    setCurrentShape(prev => {
+      if (!prev) return prev
+      if (prev.type === 'freehand') return { ...prev, pts: [...prev.pts, pt] }
+      if (prev.type === 'arrow') return { ...prev, pts: [prev.pts[0], pt] }
+      if (prev.type === 'curve') return { ...prev, pts: [prev.pts[0], computeCurveCtrl(prev.pts[0], pt), pt] }
+      return prev
+    })
+  }
+
+  const handleSVGTouchStart = (e: React.TouchEvent) => {
+    if (editorMode !== 'freehand' && editorMode !== 'arrow' && editorMode !== 'curve') return
+    if (!e.touches[0]) return
+    e.preventDefault(); e.stopPropagation()
+    const t = e.touches[0]
+    const pt = getSVGPosXY(t.clientX, t.clientY)
+    isDrawingRef.current = true
+    setCurrentShape({ uid: crypto.randomUUID(), type: editorMode as 'freehand' | 'arrow' | 'curve', color: penColor, width: penWidth, pts: [pt] })
+  }
+  const handleSVGTouchMove = (e: React.TouchEvent) => {
+    if (!e.touches[0]) return
+    e.preventDefault(); e.stopPropagation()
+    applyDrawMove(e.touches[0].clientX, e.touches[0].clientY)
+  }
+  const handleSVGTouchEnd = (e: React.TouchEvent) => {
+    e.stopPropagation()
+    handleSVGUp()
   }
 
   // ── Connect mode
@@ -443,18 +464,20 @@ export default function PizarraTacticaTab({ analisis }: Props) {
 
       {/* Convocatoria selector */}
       {convocatorias.length > 0 && (
-        <div className="flex items-center gap-2 mb-3 bg-rfpaf-blue/5 border border-rfpaf-blue/20 rounded-xl p-3 flex-wrap">
-          <Users className="w-4 h-4 text-rfpaf-blue flex-shrink-0" />
-          <span className="text-xs font-semibold text-rfpaf-blue whitespace-nowrap">Convocatoria</span>
+        <div className="flex flex-wrap items-center gap-2 mb-3 bg-rfpaf-blue/5 border border-rfpaf-blue/20 rounded-xl p-3">
+          <div className="flex items-center gap-1.5 flex-shrink-0">
+            <Users className="w-4 h-4 text-rfpaf-blue" />
+            <span className="text-xs font-semibold text-rfpaf-blue">Convocatoria</span>
+          </div>
           <select value={selectedConvId} onChange={e => setSelectedConvId(e.target.value)}
-            className="flex-1 min-w-[180px] text-xs border border-gray-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-rfpaf-blue">
+            className="flex-1 min-w-0 text-xs border border-gray-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-rfpaf-blue">
             <option value="">Sin convocatoria</option>
             {convocatorias.map(c => <option key={c.id} value={c.id}>{c.nombre} — {fmtDate(c.fecha)}</option>)}
           </select>
           {selectedConv && (
             <button onClick={handleLoadConvocatoria}
               className="flex items-center gap-1.5 bg-rfpaf-blue hover:bg-blue-700 text-white text-xs font-bold px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap">
-              <UserPlus className="w-3.5 h-3.5" /> Cargar plantilla
+              <UserPlus className="w-3.5 h-3.5" /> Cargar
             </button>
           )}
         </div>
@@ -476,12 +499,12 @@ export default function PizarraTacticaTab({ analisis }: Props) {
         <div className="flex-1 min-w-0">
 
           {/* Formation selectors */}
-          <div className="flex gap-3 mb-3 flex-wrap">
+          <div className="grid grid-cols-[1fr_auto_1fr] items-start gap-2 mb-3">
             <FormationSelector label={analisis.equipoLocal.nombre} color="#1a3a6b"
               value={analisis.equipoLocal.formacion} onChange={f => handleFormationChange('local', f)}
               onReset={() => handleResetPositions('local')} onNameEdit={n => handleNameEdit('local', n)}
               editing={editingLocal} setEditing={setEditingLocal} />
-            <div className="flex items-center text-gray-400 font-bold text-lg">vs</div>
+            <div className="flex items-center justify-center text-gray-400 font-bold text-base pt-5">vs</div>
             <FormationSelector label={analisis.equipoVisitante.nombre} color="#c0392b"
               value={analisis.equipoVisitante.formacion} onChange={f => handleFormationChange('visit', f)}
               onReset={() => handleResetPositions('visit')} onNameEdit={n => handleNameEdit('visit', n)}
@@ -489,71 +512,70 @@ export default function PizarraTacticaTab({ analisis }: Props) {
           </div>
 
           {/* ── TOOLBAR ── */}
-          <div className="flex items-center gap-1.5 flex-wrap mb-2 p-2 bg-gray-100 rounded-xl border border-gray-200">
-            {modeBtn('move', 'Mover', <span className="text-sm leading-none">✋</span>)}
-            {modeBtn('freehand', 'Trazar', <Pencil className="w-3 h-3" />)}
-            {modeBtn('arrow', 'Flecha', <ArrowRight className="w-3 h-3" />)}
-            {modeBtn('curve', 'Curva', <Spline className="w-3 h-3" />)}
-            {modeBtn('ball', 'Balón', <span className="text-sm leading-none">⚽</span>)}
-            {modeBtn('connect', 'Conectar', <Link2 className="w-3 h-3" />)}
-            {modeBtn('anim', 'Animar', <span className="text-sm leading-none">🎬</span>)}
+          <div className="mb-2 rounded-xl border border-gray-200 bg-gray-100 overflow-hidden">
+            {/* Row 1: mode buttons — always visible, wrap cleanly */}
+            <div className="flex flex-wrap gap-1 p-1.5">
+              {modeBtn('move', 'Mover', <span className="text-sm leading-none">✋</span>)}
+              {modeBtn('freehand', 'Trazar', <Pencil className="w-3 h-3" />)}
+              {modeBtn('arrow', 'Flecha', <ArrowRight className="w-3 h-3" />)}
+              {modeBtn('curve', 'Curva', <Spline className="w-3 h-3" />)}
+              {modeBtn('ball', 'Balón', <span className="text-sm leading-none">⚽</span>)}
+              {modeBtn('connect', 'Conectar', <Link2 className="w-3 h-3" />)}
+              {modeBtn('anim', 'Animar', <span className="text-sm leading-none">🎬</span>)}
+            </div>
 
-            {(inDrawMode || editorMode === 'connect') && (
-              <>
-                <div className="w-px h-5 bg-gray-300 mx-0.5" />
-                <label className="flex items-center gap-1 text-xs text-gray-500">
-                  Color
-                  <input type="color" value={penColor} onChange={e => setPenColor(e.target.value)}
-                    className="w-6 h-6 rounded cursor-pointer border-0 p-0" />
-                </label>
+            {/* Row 2: mode-specific options */}
+            {(inDrawMode || editorMode === 'connect' || editorMode === 'ball') && (
+              <div className="flex flex-wrap items-center gap-2 px-2 pb-2 pt-1 border-t border-gray-200">
+                {(inDrawMode || editorMode === 'connect') && (
+                  <label className="flex items-center gap-1 text-xs text-gray-500">
+                    Color
+                    <input type="color" value={penColor} onChange={e => setPenColor(e.target.value)}
+                      className="w-6 h-6 rounded cursor-pointer border-0 p-0" />
+                  </label>
+                )}
                 {inDrawMode && (
                   <label className="flex items-center gap-1 text-xs text-gray-500">
                     Grosor
                     <input type="range" min={1} max={8} value={penWidth} onChange={e => setPenWidth(Number(e.target.value))}
-                      className="w-16 accent-rfpaf-blue" />
+                      className="w-20 accent-rfpaf-blue" />
                   </label>
                 )}
-              </>
-            )}
-
-            {inDrawMode && (
-              <>
-                <button onClick={() => setShapes(prev => prev.slice(0, -1))}
-                  className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs text-gray-500 hover:bg-white border border-gray-200 transition-colors">
-                  <Eraser className="w-3 h-3" /> Deshacer
-                </button>
-                <button onClick={() => setShapes([])}
-                  className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs text-gray-500 hover:bg-white border border-gray-200 transition-colors">
-                  <Trash2 className="w-3 h-3" /> Borrar
-                </button>
-              </>
-            )}
-
-            {editorMode === 'connect' && (
-              <>
-                <button onClick={() => setConnDashed(d => !d)}
-                  className={`text-xs px-2 py-1 rounded-lg border transition-colors ${connDashed ? 'bg-rfpaf-blue text-white border-rfpaf-blue' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'}`}>
-                  - - Discontinuo
-                </button>
-                <button onClick={() => setConnectors(prev => prev.slice(0, -1))}
-                  className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs text-gray-500 hover:bg-white border border-gray-200 transition-colors">
-                  <Eraser className="w-3 h-3" /> Deshacer
-                </button>
-                <button onClick={() => setConnectors([])}
-                  className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs text-gray-500 hover:bg-white border border-gray-200 transition-colors">
-                  <Trash2 className="w-3 h-3" /> Borrar
-                </button>
-              </>
-            )}
-
-            {editorMode === 'ball' && (
-              <>
-                <div className="w-px h-5 bg-gray-300 mx-0.5" />
-                <button onClick={() => setBalls([])}
-                  className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs text-gray-500 hover:bg-white border border-gray-200 transition-colors">
-                  <Trash2 className="w-3 h-3" /> Quitar balones
-                </button>
-              </>
+                {inDrawMode && (
+                  <>
+                    <button onClick={() => setShapes(prev => prev.slice(0, -1))}
+                      className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs text-gray-500 hover:bg-white border border-gray-200 transition-colors">
+                      <Eraser className="w-3 h-3" /> Deshacer
+                    </button>
+                    <button onClick={() => setShapes([])}
+                      className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs text-gray-500 hover:bg-white border border-gray-200 transition-colors">
+                      <Trash2 className="w-3 h-3" /> Borrar
+                    </button>
+                  </>
+                )}
+                {editorMode === 'connect' && (
+                  <>
+                    <button onClick={() => setConnDashed(d => !d)}
+                      className={`text-xs px-2 py-1 rounded-lg border transition-colors ${connDashed ? 'bg-rfpaf-blue text-white border-rfpaf-blue' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'}`}>
+                      - - Discontinuo
+                    </button>
+                    <button onClick={() => setConnectors(prev => prev.slice(0, -1))}
+                      className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs text-gray-500 hover:bg-white border border-gray-200 transition-colors">
+                      <Eraser className="w-3 h-3" /> Deshacer
+                    </button>
+                    <button onClick={() => setConnectors([])}
+                      className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs text-gray-500 hover:bg-white border border-gray-200 transition-colors">
+                      <Trash2 className="w-3 h-3" /> Borrar
+                    </button>
+                  </>
+                )}
+                {editorMode === 'ball' && (
+                  <button onClick={() => setBalls([])}
+                    className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs text-gray-500 hover:bg-white border border-gray-200 transition-colors">
+                    <Trash2 className="w-3 h-3" /> Quitar balones
+                  </button>
+                )}
+              </div>
             )}
           </div>
 
@@ -655,10 +677,13 @@ export default function PizarraTacticaTab({ analisis }: Props) {
               ref={svgRef}
               viewBox="0 0 100 100"
               preserveAspectRatio="none"
-              style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: svgActive ? 'all' : 'none', zIndex: 15, overflow: 'visible' }}
+              style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: svgActive ? 'all' : 'none', zIndex: 15, overflow: 'visible', touchAction: 'none' }}
               onMouseDown={handleSVGDown}
               onMouseMove={handleSVGMove}
               onMouseUp={handleSVGUp}
+              onTouchStart={handleSVGTouchStart}
+              onTouchMove={handleSVGTouchMove}
+              onTouchEnd={handleSVGTouchEnd}
             >
               <defs>
                 {/* Preview marker (current pen color) */}
@@ -710,10 +735,11 @@ export default function PizarraTacticaTab({ analisis }: Props) {
                         <>
                           <line x1={p0.x} y1={p0.y} x2={cp.x} y2={cp.y} stroke={s.color} strokeWidth={0.5} strokeDasharray="2 1.5" vectorEffect="non-scaling-stroke" opacity={0.5} />
                           <line x1={cp.x} y1={cp.y} x2={p2.x} y2={p2.y} stroke={s.color} strokeWidth={0.5} strokeDasharray="2 1.5" vectorEffect="non-scaling-stroke" opacity={0.5} />
-                          <circle cx={cp.x} cy={cp.y} r={2.5} fill="white" stroke={s.color} strokeWidth={1}
+                          <circle cx={cp.x} cy={cp.y} r={3} fill="white" stroke={s.color} strokeWidth={1}
                             style={{ cursor: 'grab', pointerEvents: 'all' }}
                             vectorEffect="non-scaling-stroke"
-                            onMouseDown={e => { e.stopPropagation(); curveHandleDragRef.current = s.uid }} />
+                            onMouseDown={e => { e.stopPropagation(); curveHandleDragRef.current = s.uid }}
+                            onTouchStart={e => { e.stopPropagation(); curveHandleDragRef.current = s.uid }} />
                         </>
                       )}
                     </g>
@@ -791,6 +817,11 @@ export default function PizarraTacticaTab({ analisis }: Props) {
                 onMouseDown={e => {
                   if (editorMode !== 'ball') return
                   e.preventDefault(); e.stopPropagation()
+                  ballDragRef.current = { uid: b.uid }
+                }}
+                onTouchStart={e => {
+                  if (editorMode !== 'ball') return
+                  e.stopPropagation()
                   ballDragRef.current = { uid: b.uid }
                 }}
                 onContextMenu={e => { e.preventDefault(); if (editorMode === 'ball') setBalls(prev => prev.filter(x => x.uid !== b.uid)) }}
