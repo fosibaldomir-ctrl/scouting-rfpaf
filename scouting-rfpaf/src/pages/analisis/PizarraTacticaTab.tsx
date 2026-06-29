@@ -159,6 +159,7 @@ export default function PizarraTacticaTab({ analisis }: Props) {
   const listDragRef = useRef<string | null>(null)
   const pitchRef = useRef<HTMLDivElement>(null)
   const svgRef = useRef<SVGSVGElement>(null)
+  const [touchDragPos, setTouchDragPos] = useState<{ x: number; y: number } | null>(null)
 
   const selectedConv = convocatorias.find(c => c.id === selectedConvId) ?? null
   const onFieldFichaIds = new Set(localJugadoras.map(j => j.fichaId).filter(Boolean) as string[])
@@ -404,13 +405,15 @@ export default function PizarraTacticaTab({ analisis }: Props) {
     setLocalJugadoras(updated); save(updated, visitJugadoras)
   }
 
-  const handleBenchDragStart = (e: React.DragEvent, player: BenchItem) => { e.dataTransfer.effectAllowed = 'copy'; benchDragRef.current = player }
-  const handlePitchDragOver = (e: React.DragEvent) => { e.preventDefault(); e.dataTransfer.dropEffect = 'copy' }
-  const handlePitchDrop = (e: React.DragEvent) => {
-    e.preventDefault()
-    if (!benchDragRef.current || !pitchRef.current) return
-    const { x, y } = getRelPos(e.clientX, e.clientY)
+  // Shared drop logic for both HTML5 drag (desktop) and touch drag (tablet/mobile)
+  const dropBenchPlayerAt = (clientX: number, clientY: number) => {
     const player = benchDragRef.current
+    benchDragRef.current = null
+    if (!player || !pitchRef.current) return
+    const rect = pitchRef.current.getBoundingClientRect()
+    // Ignore releases outside the pitch (matters for touch — touchend can land anywhere)
+    if (clientX < rect.left || clientX > rect.right || clientY < rect.top || clientY > rect.bottom) return
+    const { x, y } = getRelPos(clientX, clientY)
 
     // If dropped within 9% of an existing local player → substitute (keep UID so connectors follow)
     const near = localJugadoras.find(j => Math.sqrt((j.posX - x) ** 2 + (j.posY - y) ** 2) < 9)
@@ -421,7 +424,30 @@ export default function PizarraTacticaTab({ analisis }: Props) {
     } else {
       handleAddBenchPlayer(player, x, y)
     }
+  }
+
+  const handleBenchDragStart = (e: React.DragEvent, player: BenchItem) => { e.dataTransfer.effectAllowed = 'copy'; benchDragRef.current = player }
+  const handlePitchDragOver = (e: React.DragEvent) => { e.preventDefault(); e.dataTransfer.dropEffect = 'copy' }
+  const handlePitchDrop = (e: React.DragEvent) => { e.preventDefault(); dropBenchPlayerAt(e.clientX, e.clientY) }
+
+  // ── Touch drag from bench (HTML5 DnD doesn't fire on touch devices)
+  const benchTouchMovedRef = useRef(false)
+  const handleBenchTouchStart = (player: BenchItem, t: React.Touch) => {
+    benchDragRef.current = player
+    benchTouchMovedRef.current = false
+    setTouchDragPos({ x: t.clientX, y: t.clientY })
+  }
+  const handleBenchTouchMove = (t: React.Touch) => {
+    if (!benchDragRef.current) return
+    benchTouchMovedRef.current = true
+    setTouchDragPos({ x: t.clientX, y: t.clientY })
+  }
+  const handleBenchTouchEnd = (t: React.Touch | undefined): boolean => {
+    setTouchDragPos(null)
+    // Only treat as a drop if the finger actually moved; a plain tap falls through to onClick (add)
+    if (benchTouchMovedRef.current && t) { dropBenchPlayerAt(t.clientX, t.clientY); return true }
     benchDragRef.current = null
+    return false
   }
 
   // ── Animation
@@ -547,10 +573,15 @@ export default function PizarraTacticaTab({ analisis }: Props) {
       {/* Bench panel */}
       {benchPlayers.length > 0 && (
         <div className="mb-3 bg-gray-50 border border-gray-200 rounded-xl p-3">
-          <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-2">Banquillo — arrastra sobre una jugadora del campo para sustituirla · pulsa para añadir</p>
+          <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-2">Banquillo — arrastra (también con el dedo) sobre una jugadora para sustituirla · pulsa para añadir</p>
           <div className="flex gap-2 overflow-x-auto pb-1">
             {benchPlayers.map(player => (
-              <BenchPlayerCard key={player.fichaId} player={player} onAdd={() => handleAddBenchPlayer(player)} onDragStart={e => handleBenchDragStart(e, player)} />
+              <BenchPlayerCard key={player.fichaId} player={player}
+                onAdd={() => handleAddBenchPlayer(player)}
+                onDragStart={e => handleBenchDragStart(e, player)}
+                onTouchDragStart={t => handleBenchTouchStart(player, t)}
+                onTouchDragMove={handleBenchTouchMove}
+                onTouchDragEnd={handleBenchTouchEnd} />
             ))}
           </div>
         </div>
@@ -977,11 +1008,11 @@ export default function PizarraTacticaTab({ analisis }: Props) {
                   }
                   return (
                     <button key={player.fichaId} onClick={() => handleAddBenchPlayer(player)}
-                      className="w-full flex items-center gap-2 rounded px-1 py-0.5 hover:bg-green-50 group text-left transition-colors">
+                      className="w-full flex items-center gap-2 rounded px-1 py-0.5 hover:bg-green-50 active:bg-green-100 group text-left transition-colors">
                       <span className="w-4 flex-shrink-0" />
-                      <div style={{ opacity: 0.45, flexShrink: 0 }}><PlayerAvatar foto={player.foto} numero={player.numero} color={analisis.equipoLocal.color} size={20} /></div>
-                      <span className="flex-1 text-xs text-gray-400 truncate group-hover:text-gray-700 transition-colors">{player.nombre}</span>
-                      <span className="text-green-500 text-xs font-bold opacity-0 group-hover:opacity-100 transition-opacity pr-1">+</span>
+                      <div style={{ opacity: 0.5, flexShrink: 0 }}><PlayerAvatar foto={player.foto} numero={player.numero} color={analisis.equipoLocal.color} size={20} /></div>
+                      <span className="flex-1 text-xs text-gray-500 truncate group-hover:text-gray-700 transition-colors">{player.nombre}</span>
+                      <span className="flex-shrink-0 w-6 h-6 rounded-full bg-green-50 text-green-600 text-base font-bold flex items-center justify-center">+</span>
                     </button>
                   )
                 })
@@ -1010,6 +1041,13 @@ export default function PizarraTacticaTab({ analisis }: Props) {
           </div>
         </div>
       </div>
+
+      {/* Floating preview while dragging a bench player with touch */}
+      {touchDragPos && benchDragRef.current && (
+        <div style={{ position: 'fixed', left: touchDragPos.x, top: touchDragPos.y, transform: 'translate(-50%, -50%)', zIndex: 100, pointerEvents: 'none', opacity: 0.85 }}>
+          <PlayerAvatar foto={benchDragRef.current.foto} numero={benchDragRef.current.numero} color="#1a3a6b" size={44} />
+        </div>
+      )}
     </div>
   )
 }
@@ -1035,10 +1073,18 @@ function PlayerAvatar({ foto, numero, color, size = 32 }: { foto?: string | null
   )
 }
 
-function BenchPlayerCard({ player, onAdd, onDragStart }: { player: BenchItem; onAdd: () => void; onDragStart: (e: React.DragEvent) => void }) {
+function BenchPlayerCard({ player, onAdd, onDragStart, onTouchDragStart, onTouchDragMove, onTouchDragEnd }: {
+  player: BenchItem; onAdd: () => void; onDragStart: (e: React.DragEvent) => void
+  onTouchDragStart: (t: React.Touch) => void; onTouchDragMove: (t: React.Touch) => void
+  onTouchDragEnd: (t: React.Touch | undefined) => boolean
+}) {
   return (
     <button draggable onDragStart={onDragStart} onClick={onAdd}
+      onTouchStart={e => { if (e.touches[0]) onTouchDragStart(e.touches[0]) }}
+      onTouchMove={e => { if (e.touches[0]) onTouchDragMove(e.touches[0]) }}
+      onTouchEnd={e => { const handled = onTouchDragEnd(e.changedTouches[0]); if (handled) e.preventDefault() }}
       className="flex-shrink-0 flex flex-col items-center gap-1 cursor-grab active:cursor-grabbing select-none hover:scale-105 transition-transform"
+      style={{ touchAction: 'pan-x' }}
       title={`Añadir ${player.nombre} al campo`}>
       <div className="relative">
         <PlayerAvatar foto={player.foto} numero={player.numero} color="#1a3a6b" size={42} />
@@ -1110,7 +1156,7 @@ function PlayerNameRow({ player, color, onChange, onDragStart, onDrop, onRemove 
         placeholder={`Jugadora ${player.numero}`} />
       {onRemove && (
         <button onClick={onRemove} title="Sacar del campo"
-          className="flex-shrink-0 w-5 h-5 rounded-full bg-red-50 hover:bg-red-200 text-red-400 hover:text-red-700 text-xs font-bold flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all">
+          className="flex-shrink-0 w-7 h-7 rounded-full bg-red-50 hover:bg-red-200 active:bg-red-300 text-red-500 hover:text-red-700 text-base font-bold flex items-center justify-center transition-colors">
           ×
         </button>
       )}
