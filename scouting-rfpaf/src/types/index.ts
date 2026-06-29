@@ -310,6 +310,8 @@ export interface JugadoraTactica {
   nombre: string
   posX: number
   posY: number
+  foto?: string | null
+  fichaId?: string
 }
 
 export interface EquipoTactico {
