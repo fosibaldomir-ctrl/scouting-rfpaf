@@ -5,6 +5,41 @@ import type { EjercicioDB } from '../lib/supabase'
 import { OBSERVADORES, CATEGORIAS, CLUBES } from '../data/masterData'
 import { supabaseService } from '../services/supabaseService'
 import { SESION_EMPTY } from '../lib/entrenamientoConstants'
+import { buildTeamJugadoras } from '../utils/tactics'
+
+const PIZARRA_LIBRE_ID = '__pizarra_libre__'
+
+const DEFAULT_PIZARRA_LIBRE: AnalisisPartido = {
+  id: PIZARRA_LIBRE_ID,
+  nombre: 'Pizarra Libre',
+  rival: '',
+  fecha: '',
+  equipoLocal: {
+    nombre: 'Equipo Local',
+    formacion: '4-3-3',
+    color: '#1a3a6b',
+    jugadoras: buildTeamJugadoras('4-3-3', 'local'),
+  },
+  equipoVisitante: {
+    nombre: 'Rival',
+    formacion: '4-4-2',
+    color: '#c0392b',
+    jugadoras: buildTeamJugadoras('4-4-2', 'visit'),
+  },
+  analisisIA: '',
+  caracteristicasRival: { salidaBalon: [], presion: [], bloque: [], lineaDefensiva: [], transicionOfensiva: [], transicionDefensiva: [] },
+  videoRivalUrl: '',
+  presentacionUrl: '',
+  bloqueAtaque: { notas: '', videoUrl: '', imagenUrl: '' },
+  bloqueDefensa: { notas: '', videoUrl: '', imagenUrl: '' },
+  bloqueTransicion: { notas: '', videoUrl: '', imagenUrl: '' },
+  abpOfensivo: [],
+  abpDefensivo: [],
+  videoPartidoUrl: '',
+  tiempos: { inicio1: '', fin1: '', inicio2: '', fin2: '' },
+  eventosPartido: [],
+  creadoEn: '',
+}
 
 interface AppState {
   fichas: FichaJugadora[]
@@ -35,6 +70,7 @@ interface AppState {
   deleteEvento: (id: string) => void
   analisis: AnalisisPartido[]
   activeAnalisisId: string | null
+  pizarraLibre: AnalisisPartido
   addAnalisis: (a: AnalisisPartido) => void
   updateAnalisis: (id: string, data: Partial<AnalisisPartido>) => void
   deleteAnalisis: (id: string) => void
@@ -79,6 +115,7 @@ export const useStore = create<AppState>()(
       eventos: [],
       analisis: [],
       activeAnalisisId: null,
+      pizarraLibre: DEFAULT_PIZARRA_LIBRE,
 
       login: (observadorId) => set({ currentObservador: observadorId }),
       logout: () => set({ currentObservador: null }),
@@ -101,7 +138,13 @@ export const useStore = create<AppState>()(
       addEvento: (evento) => set((s) => ({ eventos: [...s.eventos, evento] })),
       deleteEvento: (id) => set((s) => ({ eventos: s.eventos.filter((e) => e.id !== id) })),
       addAnalisis: (a) => set((s) => ({ analisis: [a, ...s.analisis] })),
-      updateAnalisis: (id, data) => set((s) => ({ analisis: s.analisis.map((a) => a.id === id ? { ...a, ...data } : a) })),
+      updateAnalisis: (id, data) => {
+        if (id === PIZARRA_LIBRE_ID) {
+          set((s) => ({ pizarraLibre: { ...s.pizarraLibre, ...data } }))
+        } else {
+          set((s) => ({ analisis: s.analisis.map((a) => a.id === id ? { ...a, ...data } : a) }))
+        }
+      },
       deleteAnalisis: (id) => set((s) => ({ analisis: s.analisis.filter((a) => a.id !== id), activeAnalisisId: s.activeAnalisisId === id ? null : s.activeAnalisisId })),
       setActiveAnalisisId: (id) => set({ activeAnalisisId: id }),
 
@@ -240,6 +283,7 @@ export const useStore = create<AppState>()(
         eventos: state.eventos,
         analisis: state.analisis,
         activeAnalisisId: state.activeAnalisisId,
+        pizarraLibre: state.pizarraLibre,
       }),
     }
   )

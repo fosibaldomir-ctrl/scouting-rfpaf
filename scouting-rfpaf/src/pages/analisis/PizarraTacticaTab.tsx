@@ -5,7 +5,7 @@ import type {
   AnalisisPartido, FormacionFutbol, JugadoraTactica,
   EquipoTactico, Convocatoria, FichaJugadora,
 } from '../../types'
-import { buildTeamJugadoras } from '../AnalisisGlobal'
+import { buildTeamJugadoras } from '../../utils/tactics'
 
 const FORMATIONS: FormacionFutbol[] = [
   '4-4-2', '4-3-3', '4-2-3-1', '4-3-2-1', '3-5-2',
