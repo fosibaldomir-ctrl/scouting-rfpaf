@@ -160,6 +160,7 @@ export default function PizarraTacticaTab({ analisis }: Props) {
   const pitchRef = useRef<HTMLDivElement>(null)
   const svgRef = useRef<SVGSVGElement>(null)
   const [touchDragPos, setTouchDragPos] = useState<{ x: number; y: number } | null>(null)
+  const [swapSrcUid, setSwapSrcUid] = useState<string | null>(null) // touch row-swap source highlight
 
   const selectedConv = convocatorias.find(c => c.id === selectedConvId) ?? null
   const onFieldFichaIds = new Set(localJugadoras.map(j => j.fichaId).filter(Boolean) as string[])
@@ -403,6 +404,13 @@ export default function PizarraTacticaTab({ analisis }: Props) {
       return j
     })
     setLocalJugadoras(updated); save(updated, visitJugadoras)
+  }
+
+  // Touch row-swap (tablet/móvil): targetUid '' = cancelar (solo limpia el resaltado)
+  const handleTouchSwapTo = (targetUid: string) => {
+    setSwapSrcUid(null)
+    if (targetUid) handleListSwap(targetUid)
+    else listDragRef.current = null
   }
 
   // Shared drop logic for both HTML5 drag (desktop) and touch drag (tablet/mobile)
@@ -999,6 +1007,9 @@ export default function PizarraTacticaTab({ analisis }: Props) {
                       <PlayerNameRow key={player.fichaId} player={onFieldPlayer} color={analisis.equipoLocal.color}
                         onDragStart={() => { listDragRef.current = onFieldPlayer.uid }}
                         onDrop={() => handleListSwap(onFieldPlayer.uid)}
+                        onTouchSwapStart={() => setSwapSrcUid(onFieldPlayer.uid)}
+                        onTouchSwapTo={handleTouchSwapTo}
+                        isSwapSource={swapSrcUid === onFieldPlayer.uid}
                         onRemove={() => handleRemoveLocal(onFieldPlayer.uid)}
                         onChange={name => {
                           const updated = localJugadoras.map(p => p.uid === onFieldPlayer.uid ? { ...p, nombre: name } : p)
@@ -1021,6 +1032,9 @@ export default function PizarraTacticaTab({ analisis }: Props) {
                   <PlayerNameRow key={j.uid} player={j} color={analisis.equipoLocal.color}
                     onDragStart={() => { listDragRef.current = j.uid }}
                     onDrop={() => handleListSwap(j.uid)}
+                    onTouchSwapStart={() => setSwapSrcUid(j.uid)}
+                    onTouchSwapTo={handleTouchSwapTo}
+                    isSwapSource={swapSrcUid === j.uid}
                     onRemove={() => handleRemoveLocal(j.uid)}
                     onChange={name => {
                       const updated = localJugadoras.map(p => p.uid === j.uid ? { ...p, nombre: name } : p)
@@ -1037,7 +1051,7 @@ export default function PizarraTacticaTab({ analisis }: Props) {
                   }} />
               ))}
             </div>
-            <p className="text-[10px] text-gray-400 mt-2 leading-snug">⠿ Arrastra las filas para intercambiar posiciones</p>
+            <p className="text-[10px] text-gray-400 mt-2 leading-snug">⠿ Arrastra (ratón o dedo) para intercambiar posiciones</p>
           </div>
         </div>
       </div>
@@ -1137,19 +1151,38 @@ function PlayerToken({ player, color, onDragStart, onRemove, onConnect, interact
   )
 }
 
-function PlayerNameRow({ player, color, onChange, onDragStart, onDrop, onRemove }: {
+function PlayerNameRow({ player, color, onChange, onDragStart, onDrop, onRemove, onTouchSwapStart, onTouchSwapTo, isSwapSource }: {
   player: JugadoraTactica; color: string; onChange: (n: string) => void
   onDragStart?: () => void; onDrop?: () => void; onRemove?: () => void
+  onTouchSwapStart?: () => void; onTouchSwapTo?: (targetUid: string) => void; isSwapSource?: boolean
 }) {
   return (
     <div
+      data-player-uid={player.uid}
       draggable={!!onDragStart}
       onDragStart={e => { e.dataTransfer.effectAllowed = 'move'; onDragStart?.() }}
       onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move' }}
       onDrop={e => { e.preventDefault(); onDrop?.() }}
-      className="flex items-center gap-2 rounded px-1 py-0.5 hover:bg-gray-50 transition-colors group"
+      className={`flex items-center gap-2 rounded px-1 py-0.5 hover:bg-gray-50 transition-colors group ${isSwapSource ? 'ring-2 ring-rfpaf-blue bg-blue-50' : ''}`}
     >
-      {onDragStart && <span className="text-gray-400 hover:text-gray-600 cursor-grab text-base select-none leading-none flex-shrink-0">⠿</span>}
+      {onDragStart && (
+        // Desktop: HTML5 drag (unchanged). Tablet/móvil: touch-drag con elementFromPoint.
+        <span
+          className="text-gray-400 hover:text-gray-600 active:text-rfpaf-blue cursor-grab text-base select-none leading-none flex-shrink-0"
+          style={{ touchAction: 'none' }}
+          onTouchStart={e => { e.stopPropagation(); onDragStart?.(); onTouchSwapStart?.() }}
+          onTouchMove={e => { e.preventDefault() }}
+          onTouchEnd={e => {
+            const t = e.changedTouches[0]
+            if (t && onTouchSwapTo) {
+              const rowEl = document.elementFromPoint(t.clientX, t.clientY)?.closest('[data-player-uid]')
+              const targetUid = rowEl?.getAttribute('data-player-uid')
+              if (targetUid) onTouchSwapTo(targetUid)
+              else onTouchSwapTo('') // cancel: clears source highlight
+            }
+          }}
+        >⠿</span>
+      )}
       <PlayerAvatar foto={player.foto} numero={player.numero} color={color} size={20} />
       <input value={player.nombre} onChange={e => onChange(e.target.value)}
         className="flex-1 text-xs border-b border-gray-200 focus:border-rfpaf-blue outline-none py-0.5 bg-transparent"
