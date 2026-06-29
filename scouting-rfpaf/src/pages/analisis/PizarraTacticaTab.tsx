@@ -543,24 +543,6 @@ function PlayerNameRow({ player, color, onChange, onDragStart, onDrop }: {
   )
 }
 
-function BenchListRow({ player, color, onAdd }: {
-  player: BenchItem; color: string; onAdd: () => void
-}) {
-  return (
-    <button
-      onClick={onAdd}
-      className="w-full flex items-center gap-2 rounded px-1 py-0.5 hover:bg-green-50 transition-colors group text-left"
-      title="Añadir al campo"
-    >
-      <span className="text-gray-200 text-sm select-none leading-none w-4">⠿</span>
-      <div style={{ opacity: 0.5 }}>
-        <PlayerAvatar foto={player.foto} numero={player.numero} color={color} size={20} />
-      </div>
-      <span className="flex-1 text-xs text-gray-400 truncate group-hover:text-gray-700 transition-colors">{player.nombre}</span>
-      <span className="text-green-500 font-bold text-xs opacity-0 group-hover:opacity-100 transition-opacity">+ campo</span>
-    </button>
-  )
-}
 
 function PitchMarkings() {
   return (
