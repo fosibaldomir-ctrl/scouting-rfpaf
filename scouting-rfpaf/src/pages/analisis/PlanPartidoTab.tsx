@@ -102,16 +102,16 @@ function BloqueCard({
 
       {/* Vídeo Vimeo / YouTube */}
       <div>
-        <p className="text-xs text-gray-500 mb-1.5">Vídeo específico (Vimeo)</p>
+        <p className="text-xs text-gray-500 mb-1.5">Vídeo específico (YouTube)</p>
         <input
           value={data.videoUrl}
           onChange={(e) => onChange({ videoUrl: e.target.value })}
-          placeholder="https://vimeo.com/123456789"
+          placeholder="https://www.youtube.com/watch?v=..."
           className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-rfpaf-blue outline-none mb-2"
         />
         {data.videoUrl
           ? <VideoEmbed url={data.videoUrl} />
-          : <EmptyPreview text="Introduce el enlace de Vimeo para previsualizarlo aquí" />
+          : <EmptyPreview text="Introduce el enlace de YouTube para previsualizarlo aquí" />
         }
       </div>
 
@@ -224,17 +224,17 @@ export default function PlanPartidoTab({ analisis }: Props) {
         <section className="bg-white rounded-2xl border border-gray-200 shadow-sm p-4 flex flex-col gap-3">
           <div className="flex items-center gap-2">
             <span className="text-lg">🎬</span>
-            <h3 className="font-bold text-sm text-gray-800">Vídeo Vimeo del Rival</h3>
+            <h3 className="font-bold text-sm text-gray-800">Vídeo YouTube del Rival</h3>
           </div>
           <input
             value={analisis.videoRivalUrl}
             onChange={(e) => updateAnalisis(analisis.id, { videoRivalUrl: e.target.value })}
-            placeholder="Pega el enlace de Vimeo (ej. https://vimeo.com/123456789)..."
+            placeholder="Pega el enlace de YouTube (ej. https://youtube.com/watch?v=...)..."
             className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-rfpaf-blue outline-none"
           />
           {analisis.videoRivalUrl
             ? <VideoEmbed url={analisis.videoRivalUrl} />
-            : <EmptyPreview text="Introduce el enlace de Vimeo para previsualizarlo aquí" />
+            : <EmptyPreview text="Introduce el enlace de YouTube para previsualizarlo aquí" />
           }
         </section>
       </div>
