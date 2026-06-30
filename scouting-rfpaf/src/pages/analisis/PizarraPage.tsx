@@ -4,9 +4,12 @@ import { useStore } from '../../store/useStore'
 import PizarraTacticaTab from './PizarraTacticaTab'
 
 // Safety net: a render error inside the board must NOT blank the whole app to a white screen.
-class PizarraErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean }> {
-  state = { hasError: false }
-  static getDerivedStateFromError() { return { hasError: true } }
+class PizarraErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean; msg: string; stack: string }> {
+  state = { hasError: false, msg: '', stack: '' }
+  static getDerivedStateFromError(error: unknown) {
+    const e = error as Error
+    return { hasError: true, msg: e?.message || String(error), stack: (e?.stack || '').split('\n').slice(0, 6).join('\n') }
+  }
   componentDidCatch(error: unknown) { console.error('Pizarra crashed:', error) }
   render() {
     if (this.state.hasError) {
@@ -14,8 +17,14 @@ class PizarraErrorBoundary extends Component<{ children: ReactNode }, { hasError
         <div className="flex flex-col items-center justify-center h-full gap-3 p-6 text-center">
           <AlertTriangle className="w-10 h-10 text-amber-500" />
           <p className="text-sm font-semibold text-gray-700">La pizarra ha tenido un problema.</p>
+          {/* Temporary diagnostic: surfaces the real error so we can fix the root cause from a device screenshot */}
+          <pre className="max-w-full overflow-auto text-left text-[11px] bg-red-50 border border-red-200 text-red-700 rounded-lg p-3 whitespace-pre-wrap">
+            {this.state.msg}
+            {'\n\n'}
+            {this.state.stack}
+          </pre>
           <button
-            onClick={() => this.setState({ hasError: false })}
+            onClick={() => this.setState({ hasError: false, msg: '', stack: '' })}
             className="bg-rfpaf-blue hover:bg-blue-700 text-white text-sm font-bold px-4 py-2 rounded-lg transition-colors">
             Recargar pizarra
           </button>
