@@ -4,6 +4,7 @@ import type { FichaJugadora, Observador, Club, CategoriaItem, PartidoCalendario,
 import type { EjercicioDB } from '../lib/supabase'
 import { OBSERVADORES, CATEGORIAS, CLUBES } from '../data/masterData'
 import { supabaseService } from '../services/supabaseService'
+import { fetchAnalisis, saveAnalisis, deleteAnalisisFromDB } from '../lib/supabase'
 import { SESION_EMPTY } from '../lib/entrenamientoConstants'
 import { buildTeamJugadoras } from '../utils/tactics'
 
@@ -75,6 +76,7 @@ interface AppState {
   updateAnalisis: (id: string, data: Partial<AnalisisPartido>) => void
   deleteAnalisis: (id: string) => void
   setActiveAnalisisId: (id: string | null) => void
+  loadAnalisisFromDB: () => Promise<void>
   addPartido: (p: PartidoCalendario) => Promise<void>
   deletePartido: (id: string) => Promise<void>
   addFicha: (ficha: FichaJugadora) => Promise<void>
@@ -137,16 +139,31 @@ export const useStore = create<AppState>()(
       setEventos: (eventos) => set({ eventos }),
       addEvento: (evento) => set((s) => ({ eventos: [...s.eventos, evento] })),
       deleteEvento: (id) => set((s) => ({ eventos: s.eventos.filter((e) => e.id !== id) })),
-      addAnalisis: (a) => set((s) => ({ analisis: [a, ...s.analisis] })),
+      addAnalisis: (a) => {
+        set((s) => ({ analisis: [a, ...s.analisis] }))
+        saveAnalisis(a).catch(console.error)
+      },
       updateAnalisis: (id, data) => {
         if (id === PIZARRA_LIBRE_ID) {
           set((s) => ({ pizarraLibre: { ...s.pizarraLibre, ...data } }))
         } else {
-          set((s) => ({ analisis: s.analisis.map((a) => a.id === id ? { ...a, ...data } : a) }))
+          set((s) => {
+            const updated = s.analisis.map((a) => a.id === id ? { ...a, ...data } : a)
+            const updatedItem = updated.find((a) => a.id === id)
+            if (updatedItem) saveAnalisis(updatedItem).catch(console.error)
+            return { analisis: updated }
+          })
         }
       },
-      deleteAnalisis: (id) => set((s) => ({ analisis: s.analisis.filter((a) => a.id !== id), activeAnalisisId: s.activeAnalisisId === id ? null : s.activeAnalisisId })),
+      deleteAnalisis: (id) => {
+        set((s) => ({ analisis: s.analisis.filter((a) => a.id !== id), activeAnalisisId: s.activeAnalisisId === id ? null : s.activeAnalisisId }))
+        deleteAnalisisFromDB(id).catch(console.error)
+      },
       setActiveAnalisisId: (id) => set({ activeAnalisisId: id }),
+      loadAnalisisFromDB: async () => {
+        const data = await fetchAnalisis()
+        if (data.length > 0) set({ analisis: data })
+      },
 
       addPartido: async (p) => {
         set((state) => ({ partidos: [...state.partidos, p] }))

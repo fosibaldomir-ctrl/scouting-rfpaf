@@ -326,6 +326,102 @@ export async function deleteHistorialAccion(id: string): Promise<boolean> {
   return true
 }
 
+/* ─── Análisis de Partidos ─── */
+
+import type { AnalisisPartido } from '../types'
+
+function analisisToRow(a: AnalisisPartido) {
+  return {
+    id:                    a.id,
+    nombre:                a.nombre,
+    rival:                 a.rival,
+    fecha:                 a.fecha,
+    categoria:             a.categoria ?? null,
+    equipo_local:          a.equipoLocal,
+    equipo_visitante:      a.equipoVisitante,
+    analisis_ia:           a.analisisIA,
+    caracteristicas_rival: a.caracteristicasRival,
+    video_rival_url:       a.videoRivalUrl,
+    presentacion_url:      a.presentacionUrl,
+    bloque_ataque:         a.bloqueAtaque,
+    bloque_defensa:        a.bloqueDefensa,
+    bloque_transicion:     a.bloqueTransicion,
+    abp_ofensivo:          a.abpOfensivo,
+    abp_defensivo:         a.abpDefensivo,
+    video_partido_url:     a.videoPartidoUrl,
+    tiempos:               a.tiempos,
+    eventos_partido:       a.eventosPartido,
+    creado_en:             a.creadoEn,
+  }
+}
+
+function rowToAnalisis(row: any): AnalisisPartido {
+  return {
+    id:                    row.id,
+    nombre:                row.nombre,
+    rival:                 row.rival        ?? '',
+    fecha:                 row.fecha        ?? '',
+    categoria:             row.categoria    ?? undefined,
+    equipoLocal:           row.equipo_local,
+    equipoVisitante:       row.equipo_visitante,
+    analisisIA:            row.analisis_ia  ?? '',
+    caracteristicasRival:  row.caracteristicas_rival ?? { salidaBalon:[], presion:[], bloque:[], lineaDefensiva:[], transicionOfensiva:[], transicionDefensiva:[] },
+    videoRivalUrl:         row.video_rival_url   ?? '',
+    presentacionUrl:       row.presentacion_url  ?? '',
+    bloqueAtaque:          row.bloque_ataque      ?? { notas:'', videoUrl:'', imagenUrl:'' },
+    bloqueDefensa:         row.bloque_defensa     ?? { notas:'', videoUrl:'', imagenUrl:'' },
+    bloqueTransicion:      row.bloque_transicion  ?? { notas:'', videoUrl:'', imagenUrl:'' },
+    abpOfensivo:           row.abp_ofensivo       ?? [],
+    abpDefensivo:          row.abp_defensivo      ?? [],
+    videoPartidoUrl:       row.video_partido_url  ?? '',
+    tiempos:               row.tiempos            ?? { inicio1:'', fin1:'', inicio2:'', fin2:'' },
+    eventosPartido:        row.eventos_partido     ?? [],
+    creadoEn:              row.creado_en,
+  }
+}
+
+export async function fetchAnalisis(): Promise<AnalisisPartido[]> {
+  const { data, error } = await supabase
+    .from('analisis_partidos')
+    .select('*')
+    .order('creado_en', { ascending: false })
+  if (error) { console.error('Error fetching analisis:', error); return [] }
+  return (data ?? []).map(rowToAnalisis)
+}
+
+export async function saveAnalisis(a: AnalisisPartido): Promise<boolean> {
+  const { error } = await supabase
+    .from('analisis_partidos')
+    .upsert([analisisToRow(a)], { onConflict: 'id' })
+  if (error) { console.error('Error saving analisis:', error); return false }
+  return true
+}
+
+export async function deleteAnalisisFromDB(id: string): Promise<boolean> {
+  const { error } = await supabase
+    .from('analisis_partidos')
+    .delete()
+    .eq('id', id)
+  if (error) { console.error('Error deleting analisis:', error); return false }
+  return true
+}
+
+// Upload a file (PDF, image, video) for an analysis
+// Returns the public URL or null on error
+export async function uploadAnalisisArchivo(
+  file: File,
+  analisisId: string
+): Promise<string | null> {
+  const ext = file.name.split('.').pop() ?? 'bin'
+  const path = `${analisisId}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
+  const { error } = await supabase.storage
+    .from('analisis-archivos')
+    .upload(path, file, { contentType: file.type, upsert: false })
+  if (error) { console.error('Error uploading archivo:', error); return null }
+  const { data } = supabase.storage.from('analisis-archivos').getPublicUrl(path)
+  return data.publicUrl
+}
+
 /* ─── Ejercicios ─── */
 
 export async function deleteEjercicio(id: string): Promise<boolean> {

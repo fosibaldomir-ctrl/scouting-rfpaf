@@ -45,6 +45,7 @@ export function useSupabaseSync() {
   const setClubes = useStore((s) => s.setClubes)
   const setVideosSesiones = useStore((s) => s.setVideosSesiones)
   const setEventos = useStore((s) => s.setEventos)
+  const loadAnalisisFromDB = useStore((s) => s.loadAnalisisFromDB)
 
   useEffect(() => {
     async function init() {
@@ -70,11 +71,13 @@ export function useSupabaseSync() {
       const eventos = await fetchEventos()
       setEventos(eventos)
 
+      await loadAnalisisFromDB()
+
       console.log(`✅ Supabase sync lista. Fichas: ${fichas.length}, Partidos: ${partidos.length}, Convocatorias: ${convocatorias.length}, Clubes: ${clubes.length}, Videos: ${videos.length}, Eventos: ${eventos.length}`)
     }
 
     init().catch((err) => {
       console.error('❌ Error en sincronización:', err)
     })
-  }, [setFichasWithSync, setFichasMain, setPartidos, setConvocatorias, setClubes, setVideosSesiones, setEventos])
+  }, [setFichasWithSync, setFichasMain, setPartidos, setConvocatorias, setClubes, setVideosSesiones, setEventos, loadAnalisisFromDB])
 }
