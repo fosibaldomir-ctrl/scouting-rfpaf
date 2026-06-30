@@ -19,7 +19,7 @@ const FORMATIONS: FormacionFutbol[] = [
 ]
 
 interface Props { analisis: AnalisisPartido }
-type DragState = { uid: string; team: 'local' | 'visit' } | null
+type DragState = { uid: string; team: 'local' | 'visit'; startX: number; startY: number } | null
 type BenchItem = { numero: number; nombre: string; foto: string | null; fichaId: string }
 type EditorMode = 'move' | 'freehand' | 'arrow' | 'curve' | 'ball' | 'anim' | 'connect'
 interface SVGPt { x: number; y: number }
@@ -144,6 +144,8 @@ export default function PizarraTacticaTab({ analisis }: Props) {
   // ── Ball tokens
   const [balls, setBalls] = useState<BallToken[]>([])
   const ballDragRef = useRef<{ uid: string } | null>(null)
+  // Suppress the synthetic click that follows a drag end (prevents placing a new ball after moving one)
+  const suppressPitchClickRef = useRef(false)
 
   // ── Animation
   const [animFrames, setAnimFrames] = useState<AnimFrame[]>([])
@@ -161,6 +163,17 @@ export default function PizarraTacticaTab({ analisis }: Props) {
   const svgRef = useRef<SVGSVGElement>(null)
   const [touchDragPos, setTouchDragPos] = useState<{ x: number; y: number } | null>(null)
   const [swapSrcUid, setSwapSrcUid] = useState<string | null>(null) // touch row-swap source highlight
+  // Pitch pixel size — needed to draw aspect-correct arrowheads (SVG uses preserveAspectRatio="none")
+  const [pitchSize, setPitchSize] = useState({ w: 1, h: 1 })
+  useEffect(() => {
+    const el = pitchRef.current
+    if (!el) return
+    const update = () => setPitchSize({ w: el.clientWidth || 1, h: el.clientHeight || 1 })
+    update()
+    const ro = new ResizeObserver(update)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
 
   const selectedConv = convocatorias.find(c => c.id === selectedConvId) ?? null
   const onFieldFichaIds = new Set(localJugadoras.map(j => j.fichaId).filter(Boolean) as string[])
@@ -195,6 +208,26 @@ export default function PizarraTacticaTab({ analisis }: Props) {
     }
   }
   const getSVGPos = (e: React.MouseEvent): SVGPt => getSVGPosXY(e.clientX, e.clientY)
+
+  // Aspect-correct arrowhead: returns a `points` string (in 0–100 SVG units) for a triangle that
+  // looks proportionate on screen even though the SVG is stretched (preserveAspectRatio="none").
+  // We build the triangle in real pixel space using pitchSize, then map back to 0–100 units.
+  const arrowHeadPoints = (from: SVGPt, tip: SVGPt, lenPx: number, halfPx: number): string => {
+    const { w, h } = pitchSize
+    const txp = (tip.x / 100) * w, typ = (tip.y / 100) * h
+    const fxp = (from.x / 100) * w, fyp = (from.y / 100) * h
+    let dx = txp - fxp, dy = typ - fyp
+    const len = Math.hypot(dx, dy) || 1
+    dx /= len; dy /= len                          // unit vector pointing toward the tip
+    const bx = txp - dx * lenPx, by = typ - dy * lenPx  // base centre, behind the tip
+    const px = -dy, py = dx                        // perpendicular
+    const toUnit = (X: number, Y: number) => `${(X / w) * 100},${(Y / h) * 100}`
+    return [
+      toUnit(txp, typ),
+      toUnit(bx + px * halfPx, by + py * halfPx),
+      toUnit(bx - px * halfPx, by - py * halfPx),
+    ].join(' ')
+  }
 
   // ── Player drag
   const movePlayer = (clientX: number, clientY: number) => {
@@ -240,7 +273,32 @@ export default function PizarraTacticaTab({ analisis }: Props) {
     moveBall(e.touches[0].clientX, e.touches[0].clientY)
   }
   const handleEnd = () => {
-    if (dragging.current) { save(localJugadoras, visitJugadoras); dragging.current = null }
+    if (dragging.current) {
+      const drag = dragging.current
+      dragging.current = null
+      // Drag-to-swap: if dropped on top of another same-team player, swap their positions
+      const teamArr = drag.team === 'local' ? localJugadoras : visitJugadoras
+      const setTeam = drag.team === 'local' ? setLocalJugadoras : setVisitJugadoras
+      const moved = teamArr.find(j => j.uid === drag.uid)
+      // Swap only in 'move' mode — in 'anim' players are placed freely to capture frames
+      const target = editorMode === 'move' && moved && teamArr.find(j =>
+        j.uid !== drag.uid &&
+        Math.abs(j.posX - moved.posX) < 5 && Math.abs(j.posY - moved.posY) < 5)
+      if (moved && target) {
+        // dragged player takes target's slot; target takes the dragged player's ORIGINAL slot
+        const updated = teamArr.map(j => {
+          if (j.uid === drag.uid) return { ...j, posX: target.posX, posY: target.posY }
+          if (j.uid === target.uid) return { ...j, posX: drag.startX, posY: drag.startY }
+          return j
+        })
+        setTeam(updated)
+        if (drag.team === 'local') save(updated, visitJugadoras); else save(localJugadoras, updated)
+      } else {
+        save(localJugadoras, visitJugadoras)
+      }
+    }
+    // A ball was being dragged → the click that follows must NOT place a new ball
+    if (ballDragRef.current) suppressPitchClickRef.current = true
     ballDragRef.current = null
   }
 
@@ -326,6 +384,10 @@ export default function PizarraTacticaTab({ analisis }: Props) {
   const handlePitchClick = (e: React.MouseEvent) => {
     if (editorMode !== 'ball') return
     if (ballDragRef.current) return
+    // Just finished dragging a ball — swallow this click instead of dropping a new ball
+    if (suppressPitchClickRef.current) { suppressPitchClickRef.current = false; return }
+    // Clicking directly on an existing ball should move/keep it, not spawn another
+    if ((e.target as HTMLElement)?.dataset?.ball === '1') return
     const { x, y } = getRelPos(e.clientX, e.clientY)
     setBalls(prev => [...prev, { uid: crypto.randomUUID(), posX: x, posY: y }])
   }
@@ -552,8 +614,6 @@ export default function PizarraTacticaTab({ analisis }: Props) {
   )
 
   // ── Derived marker ID (for current shape preview)
-  const previewMarkerId = 'arr-preview'
-
   return (
     <div className="p-3 md:p-5">
 
@@ -765,12 +825,14 @@ export default function PizarraTacticaTab({ analisis }: Props) {
             </div>
           )}
 
-          {/* ── PITCH ── */}
+          {/* ── PITCH ── (centered, capped by viewport height so the full field fits without scrolling) */}
+          <div className="flex justify-center">
           <div
             ref={pitchRef}
             className="relative w-full rounded-xl select-none"
             style={{
               aspectRatio: '68/105', background: '#2d6a27', touchAction: 'none', overflow: 'visible',
+              maxHeight: 'calc(100dvh - 11rem)', maxWidth: '100%',
               cursor: editorMode === 'ball' ? 'crosshair' : inDrawMode ? 'crosshair' : editorMode === 'connect' ? 'cell' : 'default',
             }}
             onMouseMove={handleMouseMove} onMouseUp={handleEnd} onMouseLeave={handleEnd}
@@ -799,16 +861,8 @@ export default function PizarraTacticaTab({ analisis }: Props) {
               onTouchMove={handleSVGTouchMove}
               onTouchEnd={handleSVGTouchEnd}
             >
-              <defs>
-                {/* Preview marker (current pen color) */}
-                <marker id={previewMarkerId} markerWidth="5" markerHeight="5" refX="4.5" refY="2.5" orient="auto" markerUnits="strokeWidth">
-                  <path d="M0,0 L5,2.5 L0,5 L1.5,2.5 Z" fill={penColor} />
-                </marker>
-              </defs>
-
               {/* Committed shapes */}
               {shapes.map(s => {
-                const mid = `m-${s.uid}`
                 if (s.type === 'freehand') {
                   return (
                     <polyline key={s.uid}
@@ -819,16 +873,13 @@ export default function PizarraTacticaTab({ analisis }: Props) {
                   )
                 }
                 if (s.type === 'arrow' && s.pts.length >= 2) {
+                  const a = s.pts[0], b = s.pts[s.pts.length - 1]
                   return (
                     <g key={s.uid}>
-                      <defs>
-                        <marker id={mid} markerWidth="5" markerHeight="5" refX="4.5" refY="2.5" orient="auto" markerUnits="strokeWidth">
-                          <path d="M0,0 L5,2.5 L0,5 L1.5,2.5 Z" fill={s.color} />
-                        </marker>
-                      </defs>
-                      <line x1={s.pts[0].x} y1={s.pts[0].y} x2={s.pts[s.pts.length - 1].x} y2={s.pts[s.pts.length - 1].y}
+                      <line x1={a.x} y1={a.y} x2={b.x} y2={b.y}
                         stroke={s.color} strokeWidth={s.width} strokeLinecap="round"
-                        vectorEffect="non-scaling-stroke" markerEnd={`url(#${mid})`} />
+                        vectorEffect="non-scaling-stroke" />
+                      <polygon points={arrowHeadPoints(a, b, 13 + s.width, 5 + s.width * 0.6)} fill={s.color} />
                     </g>
                   )
                 }
@@ -836,14 +887,10 @@ export default function PizarraTacticaTab({ analisis }: Props) {
                   const [p0, cp, p2] = s.pts
                   return (
                     <g key={s.uid}>
-                      <defs>
-                        <marker id={mid} markerWidth="5" markerHeight="5" refX="4.5" refY="2.5" orient="auto" markerUnits="strokeWidth">
-                          <path d="M0,0 L5,2.5 L0,5 L1.5,2.5 Z" fill={s.color} />
-                        </marker>
-                      </defs>
                       <path d={`M ${p0.x} ${p0.y} Q ${cp.x} ${cp.y} ${p2.x} ${p2.y}`}
                         stroke={s.color} strokeWidth={s.width} fill="none" strokeLinecap="round"
-                        vectorEffect="non-scaling-stroke" markerEnd={`url(#${mid})`} />
+                        vectorEffect="non-scaling-stroke" />
+                      <polygon points={arrowHeadPoints(cp, p2, 13 + s.width, 5 + s.width * 0.6)} fill={s.color} />
                       {/* Curve control handle — visible only in curve mode */}
                       {editorMode === 'curve' && (
                         <>
@@ -870,17 +917,26 @@ export default function PizarraTacticaTab({ analisis }: Props) {
                     stroke={s.color} strokeWidth={s.width} fill="none"
                     strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
                 )
-                if (s.type === 'arrow' && s.pts.length >= 2) return (
-                  <line x1={s.pts[0].x} y1={s.pts[0].y} x2={s.pts[s.pts.length - 1].x} y2={s.pts[s.pts.length - 1].y}
-                    stroke={s.color} strokeWidth={s.width} strokeLinecap="round"
-                    vectorEffect="non-scaling-stroke" markerEnd={`url(#${previewMarkerId})`} />
-                )
+                if (s.type === 'arrow' && s.pts.length >= 2) {
+                  const a = s.pts[0], b = s.pts[s.pts.length - 1]
+                  return (
+                    <>
+                      <line x1={a.x} y1={a.y} x2={b.x} y2={b.y}
+                        stroke={s.color} strokeWidth={s.width} strokeLinecap="round"
+                        vectorEffect="non-scaling-stroke" />
+                      <polygon points={arrowHeadPoints(a, b, 13 + s.width, 5 + s.width * 0.6)} fill={s.color} />
+                    </>
+                  )
+                }
                 if (s.type === 'curve' && s.pts.length === 3) {
                   const [p0, cp, p2] = s.pts
                   return (
-                    <path d={`M ${p0.x} ${p0.y} Q ${cp.x} ${cp.y} ${p2.x} ${p2.y}`}
-                      stroke={s.color} strokeWidth={s.width} fill="none" strokeLinecap="round"
-                      vectorEffect="non-scaling-stroke" markerEnd={`url(#${previewMarkerId})`} />
+                    <>
+                      <path d={`M ${p0.x} ${p0.y} Q ${cp.x} ${cp.y} ${p2.x} ${p2.y}`}
+                        stroke={s.color} strokeWidth={s.width} fill="none" strokeLinecap="round"
+                        vectorEffect="non-scaling-stroke" />
+                      <polygon points={arrowHeadPoints(cp, p2, 13 + s.width, 5 + s.width * 0.6)} fill={s.color} />
+                    </>
                   )
                 }
                 return null
@@ -917,10 +973,14 @@ export default function PizarraTacticaTab({ analisis }: Props) {
             {/* Ball tokens */}
             {balls.map(b => (
               <div key={b.uid}
+                data-ball="1"
                 style={{
                   position: 'absolute', left: `${b.posX}%`, top: `${b.posY}%`, transform: 'translate(-50%, -50%)',
                   zIndex: 18, cursor: editorMode === 'ball' ? 'grab' : 'default', fontSize: 22, lineHeight: 1,
-                  filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.6))', pointerEvents: editorMode === 'ball' ? 'all' : 'none', userSelect: 'none',
+                  filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.6))',
+                  pointerEvents: editorMode === 'ball' ? 'all' : 'none',
+                  userSelect: 'none',
+                  touchAction: 'none', // required: without this the browser steals touch as scroll and touchmove never fires
                 }}
                 onMouseDown={e => {
                   if (editorMode !== 'ball') return
@@ -929,11 +989,11 @@ export default function PizarraTacticaTab({ analisis }: Props) {
                 }}
                 onTouchStart={e => {
                   if (editorMode !== 'ball') return
-                  e.stopPropagation()
+                  e.preventDefault(); e.stopPropagation()
                   ballDragRef.current = { uid: b.uid }
                 }}
                 onContextMenu={e => { e.preventDefault(); if (editorMode === 'ball') setBalls(prev => prev.filter(x => x.uid !== b.uid)) }}
-                title="Arrastrar · clic derecho para quitar"
+                title="Arrastrar · mantén pulsado para quitar"
               >⚽</div>
             ))}
 
@@ -942,7 +1002,7 @@ export default function PizarraTacticaTab({ analisis }: Props) {
               <PlayerToken key={j.uid} player={j} color={analisis.equipoVisitante.color}
                 interactive={tokensInteractive} animTransition={animTransition}
                 isConnectSource={connectFrom === j.uid}
-                onDragStart={() => { didDragRef.current = false; if (editorMode === 'move' || editorMode === 'anim' || editorMode === 'connect') dragging.current = { uid: j.uid, team: 'visit' } }}
+                onDragStart={() => { didDragRef.current = false; if (editorMode === 'move' || editorMode === 'anim' || editorMode === 'connect') dragging.current = { uid: j.uid, team: 'visit', startX: j.posX, startY: j.posY } }}
                 onConnect={editorMode === 'connect' ? () => handlePlayerConnect(j.uid) : undefined}
               />
             ))}
@@ -951,14 +1011,15 @@ export default function PizarraTacticaTab({ analisis }: Props) {
               <PlayerToken key={j.uid} player={j} color={analisis.equipoLocal.color}
                 interactive={tokensInteractive} animTransition={animTransition}
                 isConnectSource={connectFrom === j.uid}
-                onDragStart={() => { didDragRef.current = false; if (editorMode === 'move' || editorMode === 'anim' || editorMode === 'connect') dragging.current = { uid: j.uid, team: 'local' } }}
+                onDragStart={() => { didDragRef.current = false; if (editorMode === 'move' || editorMode === 'anim' || editorMode === 'connect') dragging.current = { uid: j.uid, team: 'local', startX: j.posX, startY: j.posY } }}
                 onConnect={editorMode === 'connect' ? () => handlePlayerConnect(j.uid) : undefined}
               />
             ))}
           </div>
+          </div>
 
           <p className="text-center text-xs text-gray-400 mt-1">
-            {editorMode === 'move' && 'Arrastra para mover · quitar jugadora desde el panel'}
+            {editorMode === 'move' && 'Arrastra para mover · suelta una jugadora sobre otra para intercambiarlas'}
             {editorMode === 'freehand' && 'Dibuja trazos libres sobre el campo'}
             {editorMode === 'arrow' && 'Arrastra para dibujar una flecha de movimiento'}
             {editorMode === 'curve' && 'Arrastra para dibujar · arrastra el punto blanco para curvar 360°'}
@@ -1010,6 +1071,7 @@ export default function PizarraTacticaTab({ analisis }: Props) {
                         onTouchSwapStart={() => setSwapSrcUid(onFieldPlayer.uid)}
                         onTouchSwapTo={handleTouchSwapTo}
                         isSwapSource={swapSrcUid === onFieldPlayer.uid}
+                        swapSrcActive={swapSrcUid !== null}
                         onRemove={() => handleRemoveLocal(onFieldPlayer.uid)}
                         onChange={name => {
                           const updated = localJugadoras.map(p => p.uid === onFieldPlayer.uid ? { ...p, nombre: name } : p)
@@ -1035,6 +1097,7 @@ export default function PizarraTacticaTab({ analisis }: Props) {
                     onTouchSwapStart={() => setSwapSrcUid(j.uid)}
                     onTouchSwapTo={handleTouchSwapTo}
                     isSwapSource={swapSrcUid === j.uid}
+                    swapSrcActive={swapSrcUid !== null}
                     onRemove={() => handleRemoveLocal(j.uid)}
                     onChange={name => {
                       const updated = localJugadoras.map(p => p.uid === j.uid ? { ...p, nombre: name } : p)
@@ -1051,7 +1114,7 @@ export default function PizarraTacticaTab({ analisis }: Props) {
                   }} />
               ))}
             </div>
-            <p className="text-[10px] text-gray-400 mt-2 leading-snug">⠿ Arrastra (ratón o dedo) para intercambiar posiciones</p>
+            <p className="text-[10px] text-gray-400 mt-2 leading-snug">⠿ Arrastra (ratón) o toca dos veces (dedo) para intercambiar posiciones</p>
           </div>
         </div>
       </div>
@@ -1151,10 +1214,11 @@ function PlayerToken({ player, color, onDragStart, onRemove, onConnect, interact
   )
 }
 
-function PlayerNameRow({ player, color, onChange, onDragStart, onDrop, onRemove, onTouchSwapStart, onTouchSwapTo, isSwapSource }: {
+function PlayerNameRow({ player, color, onChange, onDragStart, onDrop, onRemove, onTouchSwapStart, onTouchSwapTo, isSwapSource, swapSrcActive }: {
   player: JugadoraTactica; color: string; onChange: (n: string) => void
   onDragStart?: () => void; onDrop?: () => void; onRemove?: () => void
-  onTouchSwapStart?: () => void; onTouchSwapTo?: (targetUid: string) => void; isSwapSource?: boolean
+  onTouchSwapStart?: () => void; onTouchSwapTo?: (targetUid: string) => void
+  isSwapSource?: boolean; swapSrcActive?: boolean
 }) {
   return (
     <div
@@ -1163,22 +1227,28 @@ function PlayerNameRow({ player, color, onChange, onDragStart, onDrop, onRemove,
       onDragStart={e => { e.dataTransfer.effectAllowed = 'move'; onDragStart?.() }}
       onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move' }}
       onDrop={e => { e.preventDefault(); onDrop?.() }}
-      className={`flex items-center gap-2 rounded px-1 py-0.5 hover:bg-gray-50 transition-colors group ${isSwapSource ? 'ring-2 ring-rfpaf-blue bg-blue-50' : ''}`}
+      onClick={swapSrcActive && !isSwapSource && onTouchSwapTo ? e => {
+        if ((e.target as HTMLElement).tagName === 'INPUT') return
+        onTouchSwapTo(player.uid)
+      } : undefined}
+      className={`flex items-center gap-2 rounded px-1 py-0.5 hover:bg-gray-50 transition-colors group
+        ${isSwapSource ? 'ring-2 ring-rfpaf-blue bg-blue-50' : ''}
+        ${swapSrcActive && !isSwapSource ? 'ring-1 ring-blue-300 cursor-pointer hover:bg-blue-50' : ''}`}
     >
       {onDragStart && (
-        // Desktop: HTML5 drag (unchanged). Tablet/móvil: touch-drag con elementFromPoint.
+        // Desktop: HTML5 drag. Mobile: tap-tap — tap ⠿ to select source, tap any other ⠿ or row to swap.
         <span
-          className="text-gray-400 hover:text-gray-600 active:text-rfpaf-blue cursor-grab text-base select-none leading-none flex-shrink-0"
-          style={{ touchAction: 'none' }}
-          onTouchStart={e => { e.stopPropagation(); onDragStart?.(); onTouchSwapStart?.() }}
-          onTouchMove={e => { e.preventDefault() }}
-          onTouchEnd={e => {
-            const t = e.changedTouches[0]
-            if (t && onTouchSwapTo) {
-              const rowEl = document.elementFromPoint(t.clientX, t.clientY)?.closest('[data-player-uid]')
-              const targetUid = rowEl?.getAttribute('data-player-uid')
-              if (targetUid) onTouchSwapTo(targetUid)
-              else onTouchSwapTo('') // cancel: clears source highlight
+          className={`text-base select-none leading-none flex-shrink-0 cursor-grab
+            ${isSwapSource ? 'text-rfpaf-blue' : swapSrcActive ? 'text-blue-400 hover:text-blue-600' : 'text-gray-400 hover:text-gray-600 active:text-rfpaf-blue'}`}
+          onClick={e => {
+            e.stopPropagation()
+            if (!swapSrcActive) {
+              onDragStart?.()       // sets listDragRef.current (same as HTML5 drag)
+              onTouchSwapStart?.()  // sets swapSrcUid highlight
+            } else if (isSwapSource) {
+              onTouchSwapTo?.('')   // tap same ⠿ again → cancel
+            } else {
+              onTouchSwapTo?.(player.uid) // tap different ⠿ → complete swap
             }
           }}
         >⠿</span>
