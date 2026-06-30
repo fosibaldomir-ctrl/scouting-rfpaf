@@ -197,49 +197,49 @@ export default function AnalisisGlobal() {
               <button
                 key={a.id}
                 onClick={() => handleSelect(a.id)}
-                className={`text-left bg-white rounded-3xl shadow-sm hover:shadow-lg transition-all overflow-hidden border-2 ${
+                className={`w-full text-left bg-white rounded-3xl shadow-sm hover:shadow-lg transition-all overflow-hidden border-2 ${
                   isActive ? 'border-rfpaf-blue' : 'border-gray-200 hover:border-gray-300'
                 }`}
               >
                 {/* Header badge */}
-                <div className="px-5 pt-4 pb-3">
-                  <p className="text-xs font-bold text-gray-400 tracking-widest uppercase">Análisis</p>
+                <div className="px-5 pt-4 pb-1">
+                  <p className="text-[11px] font-bold text-gray-400 tracking-widest uppercase">Análisis</p>
                 </div>
 
-                {/* Team shields with VS */}
-                <div className="px-5 py-6 flex items-center justify-between gap-3">
-                  {/* Local team */}
-                  <div className="flex flex-col items-center gap-2 flex-1">
-                    <div className="w-16 h-16 rounded-2xl bg-gray-100 border border-gray-200 flex items-center justify-center flex-shrink-0 overflow-hidden">
-                      {a.equipoLocal.escudo ? (
-                        <img src={a.equipoLocal.escudo} alt={a.equipoLocal.nombre} className="w-full h-full object-cover" />
-                      ) : (
-                        <Users className="w-8 h-8 text-gray-400" />
-                      )}
+                {/* Shields — 3-column grid: shield | VS | shield, each column equal width */}
+                <div className="grid grid-cols-3 items-center px-4 pt-4 pb-2 gap-2">
+                  {/* Local */}
+                  <div className="flex flex-col items-center gap-3">
+                    <div className="w-20 h-20 rounded-2xl bg-gray-50 border border-gray-200 shadow-sm flex items-center justify-center overflow-hidden p-2">
+                      {a.equipoLocal.escudo
+                        ? <img src={a.equipoLocal.escudo} alt={a.equipoLocal.nombre} className="w-full h-full object-contain" />
+                        : <Users className="w-9 h-9 text-gray-300" />}
                     </div>
-                    <p className="text-xs font-bold text-gray-700 text-center truncate w-full px-1">{a.equipoLocal.nombre}</p>
+                    <p className="text-[11px] font-extrabold text-gray-800 uppercase tracking-wide text-center leading-tight w-full">
+                      {a.equipoLocal.nombre}
+                    </p>
                   </div>
 
-                  {/* VS */}
-                  <div className="px-2">
-                    <p className="text-lg text-gray-300 font-light">vs</p>
+                  {/* VS — perfectly centered */}
+                  <div className="flex items-center justify-center pb-6">
+                    <p className="text-2xl font-light text-gray-300 tracking-wider">VS</p>
                   </div>
 
-                  {/* Visiting team */}
-                  <div className="flex flex-col items-center gap-2 flex-1">
-                    <div className="w-16 h-16 rounded-2xl bg-gray-100 border border-gray-200 flex items-center justify-center flex-shrink-0 overflow-hidden">
-                      {a.equipoVisitante.escudo ? (
-                        <img src={a.equipoVisitante.escudo} alt={a.equipoVisitante.nombre} className="w-full h-full object-cover" />
-                      ) : (
-                        <Users className="w-8 h-8 text-gray-400" />
-                      )}
+                  {/* Visitante */}
+                  <div className="flex flex-col items-center gap-3">
+                    <div className="w-20 h-20 rounded-2xl bg-gray-50 border border-gray-200 shadow-sm flex items-center justify-center overflow-hidden p-2">
+                      {a.equipoVisitante.escudo
+                        ? <img src={a.equipoVisitante.escudo} alt={a.equipoVisitante.nombre} className="w-full h-full object-contain" />
+                        : <Users className="w-9 h-9 text-gray-300" />}
                     </div>
-                    <p className="text-xs font-bold text-gray-700 text-center truncate w-full px-1">{a.equipoVisitante.nombre}</p>
+                    <p className="text-[11px] font-extrabold text-gray-800 uppercase tracking-wide text-center leading-tight w-full">
+                      {a.equipoVisitante.nombre}
+                    </p>
                   </div>
                 </div>
 
                 {/* Date and status */}
-                <div className="px-5 py-4 border-t border-gray-100 space-y-2 text-sm text-gray-500">
+                <div className="px-5 py-3 border-t border-gray-100 space-y-1.5 text-sm text-gray-500 mt-2">
                   <div className="flex items-center gap-2">
                     <CalendarDays className="w-4 h-4 flex-shrink-0" />
                     <span>{a.fecha || '—'}</span>
@@ -250,9 +250,9 @@ export default function AnalisisGlobal() {
                   </div>
                 </div>
 
-                {/* Action button and delete */}
+                {/* Action row */}
                 <div className="px-5 pb-4 pt-3 border-t border-gray-100 flex items-center justify-between gap-2">
-                  <p className="text-xs font-bold text-rfpaf-blue cursor-pointer hover:text-blue-700">Abrir detalle →</p>
+                  <p className="text-xs font-bold text-rfpaf-blue">Abrir detalle →</p>
                   <button
                     onClick={(e) => handleDelete(e, a.id)}
                     className="text-gray-400 hover:text-rfpaf-red p-1 rounded-lg hover:bg-red-50 transition-colors flex-shrink-0"
