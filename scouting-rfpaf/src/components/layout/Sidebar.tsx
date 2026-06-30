@@ -35,7 +35,6 @@ const desarrolloItems = [
 const analisisGlobalItems = [
   { to: '/analisis-global', icon: BarChart2, label: 'Mis Análisis' },
   { to: '/analisis-global/pizarra', icon: Target, label: 'Pizarra Táctica' },
-  { to: '/analisis-global/plan', icon: ClipboardList, label: 'Plan de Partido' },
   { to: '/analisis-global/abp', icon: Shield, label: 'ABP' },
   { to: '/analisis-global/eventos', icon: Play, label: 'Eventos' },
 ]
