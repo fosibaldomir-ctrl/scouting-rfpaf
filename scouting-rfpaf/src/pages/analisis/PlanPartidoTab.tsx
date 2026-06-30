@@ -138,7 +138,8 @@ export default function PlanPartidoTab({ analisis }: Props) {
 
   const toggleChar = (key: keyof CaracteristicasRival, value: string) => {
     const current = analisis.caracteristicasRival[key]
-    const next = current.includes(value) ? current.filter((v) => v !== value) : [...current, value]
+    // Single-select: clicking the active option deselects it, clicking another selects only that one
+    const next = current.includes(value) ? [] : [value]
     updateAnalisis(analisis.id, { caracteristicasRival: { ...analisis.caracteristicasRival, [key]: next } })
   }
 
@@ -156,23 +157,11 @@ export default function PlanPartidoTab({ analisis }: Props) {
         </p>
         <div className="flex flex-wrap gap-2 items-center">
           {RIVAL_OPTS.map(({ key, label, opts }) => {
-            const allSelected = opts.every((o) => analisis.caracteristicasRival[key].includes(o))
-            const toggleAll = () => {
-              const next = allSelected ? [] : [...opts]
-              updateAnalisis(analisis.id, { caracteristicasRival: { ...analisis.caracteristicasRival, [key]: next } })
-            }
             return (
               <div key={key} className="flex flex-wrap gap-1.5 items-center">
-                <button
-                  onClick={toggleAll}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${
-                    allSelected
-                      ? 'bg-rfpaf-blue border-rfpaf-blue text-white shadow-sm'
-                      : 'border-gray-300 text-gray-600 hover:border-gray-400 hover:bg-gray-50'
-                  }`}
-                >
+                <span className="px-3 py-1.5 rounded-lg text-xs font-bold border border-gray-300 text-gray-600 select-none">
                   {label.toUpperCase()}
-                </button>
+                </span>
                 {opts.map((opt) => {
                   const active = analisis.caracteristicasRival[key].includes(opt)
                   return (
