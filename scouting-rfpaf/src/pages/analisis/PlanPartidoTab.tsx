@@ -157,9 +157,14 @@ export default function PlanPartidoTab({ analisis }: Props) {
         </p>
         <div className="flex flex-wrap gap-2 items-center">
           {RIVAL_OPTS.map(({ key, label, opts }) => {
+            const hasSelection = analisis.caracteristicasRival[key].length > 0
             return (
               <div key={key} className="flex flex-wrap gap-1.5 items-center">
-                <span className="px-3 py-1.5 rounded-lg text-xs font-bold border border-gray-300 text-gray-600 select-none">
+                <span className={`px-3 py-1.5 rounded-lg text-xs font-bold border select-none ${
+                  hasSelection
+                    ? 'bg-rfpaf-blue border-rfpaf-blue text-white shadow-sm'
+                    : 'border-gray-300 text-gray-600'
+                }`}>
                   {label.toUpperCase()}
                 </span>
                 {opts.map((opt) => {
