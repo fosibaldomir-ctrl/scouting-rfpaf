@@ -604,7 +604,9 @@ export default function PizarraTacticaTab({ analisis }: Props) {
   // ── Toolbar helpers
   const inDrawMode = editorMode === 'freehand' || editorMode === 'arrow' || editorMode === 'curve'
   const svgActive = inDrawMode // SVG captures pointer events only when drawing
-  const tokensInteractive = editorMode === 'move' || editorMode === 'anim' || editorMode === 'ball' || editorMode === 'connect'
+  // Tokens are NOT interactive in 'ball' mode: the ball drag must own the touch gesture without
+  // players underneath capturing/diverting it (and avoids overlapping interactive layers on iOS)
+  const tokensInteractive = editorMode === 'move' || editorMode === 'anim' || editorMode === 'connect'
 
   const modeBtn = (mode: EditorMode, label: string, icon: React.ReactNode) => (
     <button
@@ -977,7 +979,9 @@ export default function PizarraTacticaTab({ analisis }: Props) {
                 style={{
                   position: 'absolute', left: `${b.posX}%`, top: `${b.posY}%`, transform: 'translate(-50%, -50%)',
                   zIndex: 18, cursor: editorMode === 'ball' ? 'grab' : 'default', fontSize: 22, lineHeight: 1,
-                  filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.6))',
+                  // text-shadow (NOT filter: drop-shadow): a GPU filter layer that is repositioned every
+                  // frame while dragging causes iOS Safari to blank the view white when it overlaps players
+                  textShadow: '0 2px 4px rgba(0,0,0,0.6)',
                   pointerEvents: editorMode === 'ball' ? 'all' : 'none',
                   userSelect: 'none',
                   touchAction: 'none', // required: without this the browser steals touch as scroll and touchmove never fires
