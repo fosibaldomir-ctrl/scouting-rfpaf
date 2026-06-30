@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { v4 as uuidv4 } from 'uuid'
-import { BarChart2, Plus, Trash2, CalendarDays, Users, Target, ChevronRight } from 'lucide-react'
+import { BarChart2, Plus, Trash2, CalendarDays, Users, Target } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import type { AnalisisPartido } from '../types'
 export { buildTeamJugadoras } from '../utils/tactics'
@@ -72,7 +72,7 @@ export default function AnalisisGlobal() {
   }
 
   return (
-    <div className="p-4 md:p-6 max-w-4xl mx-auto">
+    <div className="p-4 md:p-6 max-w-6xl mx-auto">
       {/* Header */}
       <div className="flex items-center justify-between mb-6 gap-4 flex-wrap">
         <div className="flex items-center gap-3">
@@ -86,7 +86,7 @@ export default function AnalisisGlobal() {
         </div>
         <button
           onClick={() => setShowForm(true)}
-          className="flex items-center gap-2 bg-rfpaf-blue text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-rfpaf-blue-light transition-colors"
+          className="flex items-center gap-2 bg-rfpaf-blue text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-blue-700 transition-colors"
         >
           <Plus className="w-4 h-4" />
           Nuevo Análisis
@@ -130,7 +130,7 @@ export default function AnalisisGlobal() {
             <button
               onClick={handleCreate}
               disabled={!form.nombre.trim()}
-              className="bg-rfpaf-blue text-white px-5 py-2 rounded-xl text-sm font-medium hover:bg-rfpaf-blue-light transition-colors disabled:opacity-50"
+              className="bg-rfpaf-blue text-white px-5 py-2 rounded-xl text-sm font-medium hover:bg-blue-700 transition-colors disabled:opacity-50"
             >
               Crear y abrir
             </button>
@@ -152,70 +152,75 @@ export default function AnalisisGlobal() {
           <p className="text-sm mt-1">Crea el primero con el botón de arriba</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {analisis.map((a) => {
             const isActive = a.id === activeAnalisisId
             return (
               <button
                 key={a.id}
                 onClick={() => handleSelect(a.id)}
-                className={`text-left bg-white rounded-2xl border-2 shadow-sm hover:shadow-md transition-all overflow-hidden ${
-                  isActive ? 'border-rfpaf-blue' : 'border-gray-200 hover:border-rfpaf-blue/40'
+                className={`text-left bg-white rounded-3xl shadow-sm hover:shadow-lg transition-all overflow-hidden border-2 ${
+                  isActive ? 'border-rfpaf-blue' : 'border-gray-200 hover:border-gray-300'
                 }`}
               >
-                <div className={`h-1.5 ${isActive ? 'bg-rfpaf-blue' : 'bg-gray-100'}`} />
-                <div className="p-4">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2">
-                        {isActive && (
-                          <span className="text-xs bg-rfpaf-blue text-white px-2 py-0.5 rounded-full font-bold">Activo</span>
-                        )}
-                        <p className="font-bold text-rfpaf-blue truncate">{a.nombre}</p>
-                      </div>
-                      <div className="flex items-center gap-3 mt-1 text-sm text-gray-500">
-                        <span className="flex items-center gap-1">
-                          <Users className="w-3.5 h-3.5" />
-                          vs {a.rival || '—'}
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <CalendarDays className="w-3.5 h-3.5" />
-                          {a.fecha}
-                        </span>
-                      </div>
+                {/* Header badge */}
+                <div className="px-5 pt-4 pb-3">
+                  <p className="text-xs font-bold text-gray-400 tracking-widest uppercase">Análisis</p>
+                </div>
+
+                {/* Team shields with VS */}
+                <div className="px-5 py-6 flex items-center justify-between gap-3">
+                  {/* Local team */}
+                  <div className="flex flex-col items-center gap-2 flex-1">
+                    <div className="w-16 h-16 rounded-2xl bg-gray-100 border border-gray-200 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                      {a.equipoLocal.escudo ? (
+                        <img src={a.equipoLocal.escudo} alt={a.equipoLocal.nombre} className="w-full h-full object-cover" />
+                      ) : (
+                        <Users className="w-8 h-8 text-gray-400" />
+                      )}
                     </div>
-                    <div className="flex items-center gap-1 flex-shrink-0">
-                      <button
-                        onClick={(e) => handleDelete(e, a.id)}
-                        className="text-gray-400 hover:text-rfpaf-red p-1 rounded-lg hover:bg-red-50 transition-colors"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                      <ChevronRight className="w-4 h-4 text-gray-300" />
-                    </div>
+                    <p className="text-xs font-bold text-gray-700 text-center truncate w-full px-1">{a.equipoLocal.nombre}</p>
                   </div>
 
-                  <div className="flex gap-2 mt-3 flex-wrap">
-                    <span className="text-xs bg-rfpaf-blue/10 text-rfpaf-blue px-2 py-0.5 rounded-full font-medium">
-                      {a.equipoLocal.formacion}
-                    </span>
-                    <span className="text-xs text-gray-400">vs</span>
-                    <span className="text-xs bg-rfpaf-red/10 text-rfpaf-red px-2 py-0.5 rounded-full font-medium">
-                      {a.equipoVisitante.formacion}
-                    </span>
-                    {a.eventosPartido.length > 0 && (
-                      <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
-                        {a.eventosPartido.length} eventos
-                      </span>
-                    )}
+                  {/* VS */}
+                  <div className="px-2">
+                    <p className="text-lg text-gray-300 font-light">vs</p>
                   </div>
 
-                  {isActive && (
-                    <div className="mt-3 flex items-center gap-1 text-xs font-semibold text-rfpaf-blue">
-                      <Target className="w-3.5 h-3.5" />
-                      Pulsa para ir a la Pizarra Táctica
+                  {/* Visiting team */}
+                  <div className="flex flex-col items-center gap-2 flex-1">
+                    <div className="w-16 h-16 rounded-2xl bg-gray-100 border border-gray-200 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                      {a.equipoVisitante.escudo ? (
+                        <img src={a.equipoVisitante.escudo} alt={a.equipoVisitante.nombre} className="w-full h-full object-cover" />
+                      ) : (
+                        <Users className="w-8 h-8 text-gray-400" />
+                      )}
                     </div>
-                  )}
+                    <p className="text-xs font-bold text-gray-700 text-center truncate w-full px-1">{a.equipoVisitante.nombre}</p>
+                  </div>
+                </div>
+
+                {/* Date and status */}
+                <div className="px-5 py-4 border-t border-gray-100 space-y-2 text-sm text-gray-500">
+                  <div className="flex items-center gap-2">
+                    <CalendarDays className="w-4 h-4 flex-shrink-0" />
+                    <span>{a.fecha || '—'}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Target className="w-4 h-4 flex-shrink-0" />
+                    <span>Planificado</span>
+                  </div>
+                </div>
+
+                {/* Action button and delete */}
+                <div className="px-5 pb-4 pt-3 border-t border-gray-100 flex items-center justify-between gap-2">
+                  <p className="text-xs font-bold text-rfpaf-blue cursor-pointer hover:text-blue-700">Abrir detalle →</p>
+                  <button
+                    onClick={(e) => handleDelete(e, a.id)}
+                    className="text-gray-400 hover:text-rfpaf-red p-1 rounded-lg hover:bg-red-50 transition-colors flex-shrink-0"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
                 </div>
               </button>
             )

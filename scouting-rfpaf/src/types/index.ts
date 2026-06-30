@@ -319,6 +319,7 @@ export interface EquipoTactico {
   formacion: FormacionFutbol
   color: string
   jugadoras: JugadoraTactica[]
+  escudo?: string | null
 }
 
 export interface BloquePlan {
