@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { v4 as uuidv4 } from 'uuid'
-import { Play, Clock, Trash2, PlayCircle } from 'lucide-react'
+import { Play, Clock, Trash2, PlayCircle, BarChart2, List, Users, Download, FileDown, EyeOff, Eye } from 'lucide-react'
 import { useStore } from '../../store/useStore'
 import type { AnalisisPartido, EventoAnalisis, TipoEventoAnalisis } from '../../types'
 
@@ -35,38 +35,174 @@ function calcMatchMinute(videoSecs: number, tiempos: AnalisisPartido['tiempos'])
   const i1 = mmssToSeconds(tiempos.inicio1)
   const f1 = mmssToSeconds(tiempos.fin1)
   const i2 = mmssToSeconds(tiempos.inicio2)
-
   if (tiempos.inicio1 && videoSecs >= i1) {
-    if (!tiempos.fin1 || videoSecs <= f1) {
-      return Math.floor((videoSecs - i1) / 60)
-    }
-    if (tiempos.inicio2 && videoSecs >= i2) {
-      return 45 + Math.floor((videoSecs - i2) / 60)
-    }
+    if (!tiempos.fin1 || videoSecs <= f1) return Math.floor((videoSecs - i1) / 60)
+    if (tiempos.inicio2 && videoSecs >= i2) return 45 + Math.floor((videoSecs - i2) / 60)
   }
   return Math.floor(videoSecs / 60)
 }
 
 const EVENT_CONFIG: Record<TipoEventoAnalisis, { label: string; color: string; bg: string; emoji: string }> = {
-  GOL: { label: 'GOL', color: '#dc2626', bg: '#fef2f2', emoji: '⚽' },
-  OCASION: { label: 'OCASIÓN', color: '#d97706', bg: '#fffbeb', emoji: '🎯' },
-  DUELO: { label: 'DUELO', color: '#7c3aed', bg: '#f5f3ff', emoji: '⚔️' },
-  NOTA: { label: 'NOTA', color: '#0369a1', bg: '#f0f9ff', emoji: '📝' },
+  GOL:            { label: 'GOL',           color: '#dc2626', bg: '#fef2f2', emoji: '⚽' },
+  OCASION:        { label: 'OCASIÓN',       color: '#d97706', bg: '#fffbeb', emoji: '🎯' },
+  DUELO:          { label: 'DUELO',         color: '#7c3aed', bg: '#f5f3ff', emoji: '⚔️' },
+  NOTA:           { label: 'NOTA',          color: '#64748b', bg: '#f8fafc', emoji: '📝' },
+  TRANSICION_DEF: { label: 'TR. DEF.',      color: '#0d9488', bg: '#f0fdfa', emoji: '🛡️' },
+  TRANSICION_OF:  { label: 'TR. OFENS.',    color: '#16a34a', bg: '#f0fdf4', emoji: '⚡' },
+  SALIDA_BALON:   { label: 'SALIDA BALÓN',  color: '#4f46e5', bg: '#eef2ff', emoji: '🔵' },
+  ABP:            { label: 'ABP',           color: '#b45309', bg: '#fefce8', emoji: '🎯' },
+  PRESION:        { label: 'PRESIÓN',       color: '#db2777', bg: '#fdf2f8', emoji: '💪' },
 }
 
+const EVENT_TYPES = Object.keys(EVENT_CONFIG) as TipoEventoAnalisis[]
+
+/* ── Football Pitch SVG (portrait) ── */
+function FootballPitch({
+  events, onPositionClick, onEventClick, selectMode = false, pendingPosition,
+}: {
+  events: EventoAnalisis[]
+  onPositionClick?: (x: number, y: number) => void
+  onEventClick?: (ev: EventoAnalisis) => void
+  selectMode?: boolean
+  pendingPosition?: { x: number; y: number } | null
+}) {
+  const eventsWithPos = events.filter(e => e.posicion)
+
+  const handleClick = (e: React.MouseEvent<SVGSVGElement>) => {
+    if (!onPositionClick) return
+    const rect = e.currentTarget.getBoundingClientRect()
+    const x = Math.round(((e.clientX - rect.left) / rect.width) * 100)
+    const y = Math.round(((e.clientY - rect.top) / rect.height) * 100)
+    onPositionClick(x, y)
+  }
+
+  return (
+    <svg
+      viewBox="0 0 400 580"
+      className={`w-full rounded-xl ${selectMode ? 'cursor-crosshair' : ''}`}
+      style={{ background: '#2d7a3d' }}
+      onClick={handleClick}
+    >
+      {/* Grass stripes */}
+      {[0,1,2,3,4,5,6].map(i => (
+        <rect key={i} x="0" y={i * 83} width="400" height="41"
+          fill={i % 2 === 0 ? 'rgba(0,0,0,0.06)' : 'transparent'} />
+      ))}
+      {/* Outer */}
+      <rect x="20" y="20" width="360" height="540" fill="none" stroke="white" strokeWidth="2" opacity="0.8" />
+      {/* Halfway line */}
+      <line x1="20" y1="290" x2="380" y2="290" stroke="white" strokeWidth="2" opacity="0.8" />
+      {/* Center circle */}
+      <circle cx="200" cy="290" r="55" fill="none" stroke="white" strokeWidth="2" opacity="0.8" />
+      <circle cx="200" cy="290" r="3" fill="white" opacity="0.8" />
+      {/* Top penalty area */}
+      <rect x="80" y="20" width="240" height="110" fill="none" stroke="white" strokeWidth="2" opacity="0.8" />
+      {/* Top goal area */}
+      <rect x="130" y="20" width="140" height="45" fill="none" stroke="white" strokeWidth="2" opacity="0.8" />
+      {/* Top goal */}
+      <rect x="150" y="8" width="100" height="15" fill="none" stroke="white" strokeWidth="2" opacity="0.8" />
+      {/* Top penalty spot */}
+      <circle cx="200" cy="97" r="2.5" fill="white" opacity="0.8" />
+      {/* Bottom penalty area */}
+      <rect x="80" y="450" width="240" height="110" fill="none" stroke="white" strokeWidth="2" opacity="0.8" />
+      {/* Bottom goal area */}
+      <rect x="130" y="515" width="140" height="45" fill="none" stroke="white" strokeWidth="2" opacity="0.8" />
+      {/* Bottom goal */}
+      <rect x="150" y="557" width="100" height="15" fill="none" stroke="white" strokeWidth="2" opacity="0.8" />
+      {/* Bottom penalty spot */}
+      <circle cx="200" cy="483" r="2.5" fill="white" opacity="0.8" />
+
+      {/* Event dots */}
+      {eventsWithPos.map((ev) => {
+        const cfg = EVENT_CONFIG[ev.tipo]
+        const cx = (ev.posicion!.x / 100) * 400
+        const cy = (ev.posicion!.y / 100) * 580
+        return (
+          <g key={ev.id} onClick={(e) => { e.stopPropagation(); onEventClick?.(ev) }} style={{ cursor: 'pointer' }}>
+            <circle cx={cx} cy={cy} r="13" fill={cfg.color} stroke="white" strokeWidth="2" opacity="0.92" />
+            <text x={cx} y={cy + 1} textAnchor="middle" dominantBaseline="middle"
+              fontSize="7.5" fill="white" fontWeight="bold">
+              {ev.minutoPartido}'
+            </text>
+          </g>
+        )
+      })}
+
+      {/* Pending position marker */}
+      {pendingPosition && (
+        <g>
+          <circle cx={(pendingPosition.x / 100) * 400} cy={(pendingPosition.y / 100) * 580}
+            r="14" fill="white" opacity="0.4" />
+          <circle cx={(pendingPosition.x / 100) * 400} cy={(pendingPosition.y / 100) * 580}
+            r="6" fill="white" opacity="0.95" />
+        </g>
+      )}
+    </svg>
+  )
+}
+
+/* ── Bar chart ── */
+function BarChart({
+  data, maxVal, colorFn,
+}: {
+  data: { label: string; count: number }[]
+  maxVal: number
+  colorFn?: (label: string) => string
+}) {
+  return (
+    <div className="space-y-2">
+      {data.map(({ label, count }) => (
+        <div key={label} className="flex items-center gap-2">
+          <span className="text-xs text-gray-600 w-24 shrink-0 truncate font-medium">{label}</span>
+          <div className="flex-1 bg-gray-100 rounded-full h-4 overflow-hidden">
+            <div
+              className="h-4 rounded-full transition-all duration-500"
+              style={{
+                width: maxVal > 0 ? `${(count / maxVal) * 100}%` : '0%',
+                background: colorFn ? colorFn(label) : '#5b21b6',
+                minWidth: count > 0 ? '16px' : '0',
+              }}
+            />
+          </div>
+          <span className="text-xs font-bold text-gray-800 w-5 text-right">{count}</span>
+        </div>
+      ))}
+      {data.length === 0 && <p className="text-xs text-gray-400">Sin datos</p>}
+    </div>
+  )
+}
+
+/* ══════════════════════════════════════════════════════════════
+   MAIN COMPONENT
+══════════════════════════════════════════════════════════════ */
 export default function EventosTab({ analisis }: Props) {
-  const { updateAnalisis } = useStore()
+  const { updateAnalisis, convocatorias } = useStore()
+
   const [videoUrl, setVideoUrl] = useState(analisis.videoPartidoUrl)
   const [tiempos, setTiempos] = useState(analisis.tiempos)
+  const [tiemposVisible, setTiemposVisible] = useState(true)
+  const [ytReady, setYtReady] = useState(false)
+  const [currentVideoTime, setCurrentVideoTime] = useState(0)
+
+  // Modal
   const [modal, setModal] = useState<{ tipo: TipoEventoAnalisis; videoSeconds: number; minuto: number } | null>(null)
   const [modalDesc, setModalDesc] = useState('')
-  const [ytReady, setYtReady] = useState(false)
+  const [modalJugadora, setModalJugadora] = useState('')
+  const [modalPosition, setModalPosition] = useState<{ x: number; y: number } | null>(null)
+
+  // History
+  const [historialTab, setHistorialTab] = useState<'lista' | 'campo' | 'graficas'>('lista')
+  const [filterTipo, setFilterTipo] = useState<string>('TODOS')
+  const [filterJugadora, setFilterJugadora] = useState<string>('TODOS')
+  const [convocatoriaId, setConvocatoriaId] = useState<string>('')
+
   const playerRef = useRef<ReturnType<typeof window.YT.Player> | null>(null)
   const playerDivId = useRef(`yt-${uuidv4()}`)
+  const tickRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const videoId = extractYoutubeId(videoUrl)
 
-  // Load YouTube IFrame API once
+  /* ── YouTube IFrame API ── */
   useEffect(() => {
     if (window.YT && window.YT.Player) { setYtReady(true); return }
     if (!document.getElementById('yt-api-script')) {
@@ -76,32 +212,33 @@ export default function EventosTab({ analisis }: Props) {
       document.head.appendChild(script)
     }
     const prev = window.onYouTubeIframeAPIReady
-    window.onYouTubeIframeAPIReady = () => {
-      if (prev) prev()
-      setYtReady(true)
-    }
+    window.onYouTubeIframeAPIReady = () => { if (prev) prev(); setYtReady(true) }
   }, [])
 
-  // Create/destroy player when videoId or YT ready changes
   useEffect(() => {
     if (!ytReady || !videoId) return
     const el = document.getElementById(playerDivId.current)
     if (!el) return
-
-    if (playerRef.current) {
-      try { playerRef.current.destroy() } catch {}
-      playerRef.current = null
-    }
-
+    if (playerRef.current) { try { playerRef.current.destroy() } catch { /* ignore */ } ; playerRef.current = null }
     playerRef.current = new window.YT.Player(playerDivId.current, {
       videoId,
       playerVars: { rel: 0, modestbranding: 1 },
     })
-    return () => {
-      if (playerRef.current) { try { playerRef.current.destroy() } catch {} ; playerRef.current = null }
-    }
+    return () => { if (playerRef.current) { try { playerRef.current.destroy() } catch { /* ignore */ } ; playerRef.current = null } }
   }, [ytReady, videoId])
 
+  /* Poll current video time */
+  useEffect(() => {
+    tickRef.current = setInterval(() => {
+      const t = playerRef.current?.getCurrentTime?.() ?? 0
+      setCurrentVideoTime(Math.floor(t))
+    }, 500)
+    return () => { if (tickRef.current) clearInterval(tickRef.current) }
+  }, [])
+
+  const currentMatchMinute = calcMatchMinute(currentVideoTime, tiempos)
+
+  /* ── Handlers ── */
   const syncVideoUrl = useCallback(() => {
     updateAnalisis(analisis.id, { videoPartidoUrl: videoUrl })
   }, [analisis.id, videoUrl, updateAnalisis])
@@ -119,9 +256,8 @@ export default function EventosTab({ analisis }: Props) {
 
   const handleEventButton = (tipo: TipoEventoAnalisis) => {
     const secs = playerRef.current?.getCurrentTime() ?? 0
-    const minuto = calcMatchMinute(secs, tiempos)
-    setModalDesc('')
-    setModal({ tipo, videoSeconds: secs, minuto })
+    setModalDesc(''); setModalJugadora(''); setModalPosition(null)
+    setModal({ tipo, videoSeconds: secs, minuto: calcMatchMinute(secs, tiempos) })
   }
 
   const confirmEvent = () => {
@@ -132,221 +268,522 @@ export default function EventosTab({ analisis }: Props) {
       minutoPartido: modal.minuto,
       descripcion: modalDesc,
       videoSeconds: modal.videoSeconds,
+      jugadora: modalJugadora || undefined,
+      posicion: modalPosition || undefined,
     }
     updateAnalisis(analisis.id, { eventosPartido: [...analisis.eventosPartido, evento] })
     setModal(null)
   }
 
   const deleteEvento = (id: string) => {
-    updateAnalisis(analisis.id, { eventosPartido: analisis.eventosPartido.filter((e) => e.id !== id) })
+    updateAnalisis(analisis.id, { eventosPartido: analisis.eventosPartido.filter(e => e.id !== id) })
   }
 
-  const sortedEvents = [...analisis.eventosPartido].sort((a, b) => a.videoSeconds - b.videoSeconds)
+  const jumpToEvent = (ev: EventoAnalisis) => {
+    playerRef.current?.seekTo(ev.videoSeconds, true)
+  }
 
+  /* ── Convocatoria players ── */
+  const selectedConv = convocatorias.find(c => c.id === convocatoriaId)
+  const convPlayers = selectedConv
+    ? selectedConv.jugadoras.map(j => `${j.nombre} ${j.primerApellido}`.trim())
+    : []
+
+  /* ── Filters ── */
+  const allEventPlayers = [...new Set(analisis.eventosPartido.filter(e => e.jugadora).map(e => e.jugadora!))]
+
+  const filteredEvents = analisis.eventosPartido
+    .filter(ev => {
+      if (filterTipo !== 'TODOS' && ev.tipo !== filterTipo) return false
+      if (filterJugadora !== 'TODOS' && ev.jugadora !== filterJugadora) return false
+      return true
+    })
+    .sort((a, b) => a.videoSeconds - b.videoSeconds)
+
+  const eventsWithPos = filteredEvents.filter(e => e.posicion)
+  const eventsWithoutPos = filteredEvents.filter(e => !e.posicion)
+
+  /* ── Export ── */
+  const exportCSV = () => {
+    const header = 'Minuto,Tipo,Jugadora,Descripción,Tiempo Video,X,Y'
+    const rows = filteredEvents.map(ev =>
+      [ev.minutoPartido, EVENT_CONFIG[ev.tipo].label, ev.jugadora || '', ev.descripcion,
+        secondsToMmss(ev.videoSeconds), ev.posicion?.x ?? '', ev.posicion?.y ?? ''].join(',')
+    )
+    const blob = new Blob([[header, ...rows].join('\n')], { type: 'text/csv' })
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(blob); a.download = `eventos-${analisis.nombre}.csv`; a.click()
+  }
+
+  const exportJSON = () => {
+    const blob = new Blob([JSON.stringify(filteredEvents, null, 2)], { type: 'application/json' })
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(blob); a.download = `eventos-${analisis.nombre}.json`; a.click()
+  }
+
+  /* ── Charts data ── */
+  const chartTipo = EVENT_TYPES
+    .map(t => ({ label: EVENT_CONFIG[t].label, count: analisis.eventosPartido.filter(e => e.tipo === t).length }))
+    .filter(d => d.count > 0)
+
+  const PERIODOS = ["0-15'", "16-30'", "31-45'", "46-60'", "61-75'", "76-90+'"]
+  const chartPeriodo = PERIODOS.map((label, i) => {
+    const min = i * 15; const max = i === 5 ? Infinity : (i + 1) * 15
+    return { label, count: analisis.eventosPartido.filter(e => e.minutoPartido >= min && e.minutoPartido < max).length }
+  })
+
+  const chartJugadora = allEventPlayers.map(j => ({
+    label: j, count: analisis.eventosPartido.filter(e => e.jugadora === j).length,
+  }))
+
+  const maxTipo = Math.max(...chartTipo.map(d => d.count), 1)
+  const maxPeriodo = Math.max(...chartPeriodo.map(d => d.count), 1)
+  const maxJugadora = Math.max(...chartJugadora.map(d => d.count), 1)
+
+  /* ═══════════════════════ RENDER ═══════════════════════ */
   return (
-    <div className="p-3 md:p-5 space-y-5">
+    <div className="flex flex-col lg:flex-row gap-4 p-3 md:p-5 min-h-0">
 
-      {/* YouTube URL */}
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-        <div className="px-4 py-3 bg-rfpaf-blue flex items-center gap-2">
-          <PlayCircle className="w-4 h-4 text-white" />
-          <h2 className="text-white font-bold text-sm">Vídeo del Partido (YouTube)</h2>
-        </div>
-        <div className="p-4">
-          <div className="flex gap-2">
+      {/* ─────────────── LEFT PANEL ─────────────── */}
+      <div className="w-full lg:w-[370px] shrink-0 space-y-3">
+
+        {/* URL del Partido */}
+        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+          <div className="px-4 py-2.5 bg-rfpaf-blue flex items-center gap-2">
+            <PlayCircle className="w-4 h-4 text-white" />
+            <h2 className="text-white font-bold text-sm">URL del Partido</h2>
+          </div>
+          <div className="p-3 flex gap-2">
             <input
               value={videoUrl}
               onChange={(e) => setVideoUrl(e.target.value)}
+              onBlur={syncVideoUrl}
               placeholder="https://www.youtube.com/watch?v=..."
               className="flex-1 border border-gray-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-rfpaf-blue outline-none"
             />
-            <button
-              onClick={syncVideoUrl}
-              className="bg-rfpaf-blue text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-rfpaf-blue-light transition-colors flex items-center gap-1.5"
-            >
-              <Play className="w-3.5 h-3.5" /> Cargar
+            <button onClick={syncVideoUrl} className="bg-rfpaf-blue text-white px-3 py-2 rounded-xl hover:bg-rfpaf-blue-light transition-colors">
+              <Play className="w-4 h-4" />
             </button>
           </div>
         </div>
-      </div>
 
-      {/* Player */}
-      {videoId && (
-        <div className="bg-black rounded-2xl overflow-hidden shadow-lg">
-          <div id={playerDivId.current} className="w-full aspect-video" />
-        </div>
-      )}
-
-      {/* Time markers */}
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-        <div className="px-4 py-3 bg-rfpaf-blue">
-          <h2 className="text-white font-bold text-sm flex items-center gap-2">
-            <Clock className="w-4 h-4" /> Tiempos de Partido
-          </h2>
-          {!videoId && <p className="text-white/60 text-xs mt-0.5">Carga el vídeo y pulsa SET en el momento correcto</p>}
-        </div>
-        <div className="p-4 grid grid-cols-2 md:grid-cols-4 gap-3">
-          {([
-            ['inicio1', 'Inicio 1ª Parte'],
-            ['fin1', 'Fin 1ª Parte'],
-            ['inicio2', 'Inicio 2ª Parte'],
-            ['fin2', 'Fin 2ª Parte'],
-          ] as const).map(([key, label]) => (
-            <div key={key}>
-              <label className="block text-xs font-semibold text-gray-500 mb-1">{label}</label>
-              <div className="flex gap-1">
-                <input
-                  value={tiempos[key]}
-                  onChange={(e) => syncTiempos(key, e.target.value)}
-                  placeholder="MM:SS"
-                  className="flex-1 min-w-0 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:ring-2 focus:ring-rfpaf-blue outline-none font-mono"
-                />
-                <button
-                  onClick={() => handleSetTime(key)}
-                  disabled={!videoId}
-                  className="bg-rfpaf-blue text-white px-2 py-1.5 rounded-lg text-xs font-bold hover:bg-rfpaf-blue-light transition-colors disabled:opacity-40"
-                >
-                  SET
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Event registration */}
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-        <div className="px-4 py-3 bg-rfpaf-blue">
-          <h2 className="text-white font-bold text-sm">Registrar Evento</h2>
-          {!videoId && <p className="text-white/60 text-xs mt-0.5">Carga el vídeo para activar el registro de eventos</p>}
-        </div>
-        <div className="p-4 grid grid-cols-2 sm:grid-cols-4 gap-3">
-          {(Object.entries(EVENT_CONFIG) as [TipoEventoAnalisis, typeof EVENT_CONFIG[TipoEventoAnalisis]][]).map(([tipo, cfg]) => (
-            <button
-              key={tipo}
-              onClick={() => handleEventButton(tipo)}
-              disabled={!videoId}
-              className="flex flex-col items-center justify-center gap-1.5 py-4 rounded-xl font-bold text-sm transition-all border-2 hover:scale-105 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
-              style={{ borderColor: cfg.color, color: cfg.color, background: cfg.bg }}
-            >
-              <span className="text-2xl">{cfg.emoji}</span>
-              {cfg.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Events list + timeline */}
-      {sortedEvents.length > 0 && (
+        {/* Tiempos de Partido */}
         <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-          <div className="px-4 py-3 bg-rfpaf-blue">
-            <h2 className="text-white font-bold text-sm">{sortedEvents.length} Eventos Registrados</h2>
+          <div className="px-4 py-2.5 flex items-center justify-between border-b border-gray-100">
+            <div className="flex items-center gap-2">
+              <Clock className="w-4 h-4 text-rfpaf-blue" />
+              <h2 className="font-bold text-sm text-gray-800">Tiempos de Partido</h2>
+            </div>
+            <button onClick={() => setTiemposVisible(v => !v)} className="text-gray-400 hover:text-gray-600 transition-colors">
+              {tiemposVisible ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+            </button>
           </div>
-
-          {/* Timeline bar */}
-          <div className="px-4 py-3 border-b border-gray-100">
-            <div className="relative h-6 bg-gray-100 rounded-full overflow-hidden">
-              {sortedEvents.map((ev) => {
-                const maxSecs = playerRef.current?.getDuration() || 5400
-                const pct = Math.min(100, (ev.videoSeconds / maxSecs) * 100)
-                const cfg = EVENT_CONFIG[ev.tipo]
+          {tiemposVisible && (
+            <div className="p-3 space-y-2">
+              {(['inicio1', 'fin1', 'inicio2', 'fin2'] as const).map((key, i) => {
+                const labels = ['Inicio 1ª Parte', 'Fin 1ª Parte', 'Inicio 2ª Parte', 'Fin 2ª Parte']
                 return (
-                  <div
-                    key={ev.id}
-                    title={`${ev.tipo} — ${ev.minutoPartido}'`}
-                    style={{
-                      position: 'absolute', left: `${pct}%`, top: '50%',
-                      transform: 'translate(-50%, -50%)',
-                      width: 16, height: 16, borderRadius: '50%',
-                      background: cfg.color, border: '2px solid white',
-                      cursor: 'pointer', fontSize: 8, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      color: 'white', fontWeight: 'bold', zIndex: 10,
-                    }}
-                  >
-                    {ev.minutoPartido}'
+                  <div key={key} className="flex items-center gap-2">
+                    <label className="text-xs text-gray-500 w-28 shrink-0">{labels[i]}</label>
+                    <input
+                      value={tiempos[key]}
+                      onChange={(e) => syncTiempos(key, e.target.value)}
+                      placeholder="MM:SS"
+                      className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:ring-2 focus:ring-rfpaf-blue outline-none font-mono"
+                    />
+                    <button
+                      onClick={() => handleSetTime(key)}
+                      disabled={!videoId}
+                      className="bg-rfpaf-blue text-white px-2.5 py-1.5 rounded-lg text-xs font-bold hover:bg-rfpaf-blue-light disabled:opacity-40"
+                    >
+                      SET
+                    </button>
                   </div>
                 )
               })}
+              <p className="text-[10px] text-gray-400 pt-1">
+                Pulsa <strong>SET</strong> mientras el video está en el instante correcto para sincronizar con el minuto de partido.
+              </p>
             </div>
-            <div className="flex justify-between text-xs text-gray-400 mt-1">
-              <span>0'</span>
-              <span>45'</span>
-              <span>90'</span>
+          )}
+        </div>
+
+        {/* Registrar Evento */}
+        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+          <div className="px-4 py-2.5 bg-rfpaf-blue">
+            <h2 className="text-white font-bold text-sm">Registrar Evento</h2>
+          </div>
+          <div className="p-3">
+            <div className="grid grid-cols-3 gap-2">
+              {EVENT_TYPES.map((tipo) => {
+                const cfg = EVENT_CONFIG[tipo]
+                return (
+                  <button
+                    key={tipo}
+                    onClick={() => handleEventButton(tipo)}
+                    className="flex flex-col items-center justify-center gap-1 py-3 rounded-xl font-bold text-[11px] transition-all border-2 hover:scale-105 active:scale-95 leading-tight text-center"
+                    style={{ borderColor: cfg.color, color: cfg.color, background: cfg.bg }}
+                  >
+                    <span className="text-xl leading-none">{cfg.emoji}</span>
+                    {cfg.label}
+                  </button>
+                )
+              })}
+            </div>
+            <div className="mt-3 text-center text-xs text-gray-400 font-mono bg-gray-50 rounded-xl py-2">
+              Tiempo video: <strong className="text-rfpaf-blue">{secondsToMmss(currentVideoTime)}</strong>
+              {' · '}
+              Partido: <strong className="text-rfpaf-blue">{currentMatchMinute}'</strong>
             </div>
           </div>
+        </div>
 
-          {/* Events list */}
-          <div className="divide-y divide-gray-50">
-            {sortedEvents.map((ev) => {
+        {/* Jugadoras del Partido */}
+        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+          <div className="px-4 py-2.5 border-b border-gray-100 flex items-center gap-2">
+            <Users className="w-4 h-4 text-rfpaf-blue" />
+            <h2 className="font-bold text-sm text-gray-800">Jugadoras del Partido</h2>
+          </div>
+          <div className="p-3">
+            <select
+              value={convocatoriaId}
+              onChange={(e) => setConvocatoriaId(e.target.value)}
+              className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-rfpaf-blue outline-none"
+            >
+              <option value="">Enlazar convocatoria...</option>
+              {convocatorias.map(c => (
+                <option key={c.id} value={c.id}>{c.nombre} — {c.fecha}</option>
+              ))}
+            </select>
+            {convPlayers.length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-1">
+                {convPlayers.map(p => (
+                  <span key={p} className="px-2 py-0.5 bg-blue-50 rounded-lg text-xs text-blue-700 font-medium">{p}</span>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Historial compact */}
+        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+          <div className="px-4 py-2.5 border-b border-gray-100 space-y-2">
+            <h2 className="font-bold text-sm text-gray-800">Historial</h2>
+            {/* Type filters */}
+            <div className="flex flex-wrap gap-1">
+              {['TODOS', ...EVENT_TYPES].map(t => (
+                <button
+                  key={t}
+                  onClick={() => setFilterTipo(t)}
+                  className={`px-2 py-0.5 rounded-lg text-[10px] font-bold border transition-all ${filterTipo === t ? 'bg-rfpaf-blue text-white border-rfpaf-blue' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}
+                >
+                  {t === 'TODOS' ? 'Todos' : EVENT_CONFIG[t as TipoEventoAnalisis].label}
+                </button>
+              ))}
+            </div>
+            {/* Export */}
+            <div className="flex gap-1.5">
+              <button onClick={exportCSV} className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] border border-gray-200 text-gray-500 hover:bg-gray-50">
+                <Download className="w-3 h-3" /> Exportar CSV
+              </button>
+              <button onClick={exportJSON} className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] border border-gray-200 text-gray-500 hover:bg-gray-50">
+                <FileDown className="w-3 h-3" /> Descargar JSON
+              </button>
+            </div>
+            {/* Player filter */}
+            {allEventPlayers.length > 0 && (
+              <div>
+                <p className="text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1">Jugador</p>
+                <div className="flex flex-wrap gap-1">
+                  {['TODOS', ...allEventPlayers].map(j => (
+                    <button
+                      key={j}
+                      onClick={() => setFilterJugadora(j)}
+                      className={`px-2 py-0.5 rounded-lg text-[10px] font-bold border transition-all ${filterJugadora === j ? 'bg-gray-800 text-white border-gray-800' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}
+                    >
+                      {j === 'TODOS' ? 'Todos' : j}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+          {/* Compact event list */}
+          <div className="divide-y divide-gray-50 max-h-60 overflow-y-auto">
+            {filteredEvents.length === 0 ? (
+              <p className="px-4 py-6 text-xs text-gray-400 text-center">Sin eventos registrados</p>
+            ) : filteredEvents.map((ev) => {
               const cfg = EVENT_CONFIG[ev.tipo]
               return (
-                <div key={ev.id} className="flex items-start gap-3 px-4 py-3">
-                  <div
-                    className="w-8 h-8 rounded-full flex items-center justify-center text-sm flex-shrink-0 font-bold"
-                    style={{ background: cfg.bg, color: cfg.color }}
-                  >
-                    {cfg.emoji}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-bold" style={{ color: cfg.color }}>{cfg.label}</span>
-                      <span className="text-xs text-gray-400">{ev.minutoPartido}'</span>
-                      <span className="text-xs text-gray-300">({secondsToMmss(ev.videoSeconds)} vídeo)</span>
-                    </div>
-                    {ev.descripcion && <p className="text-sm text-gray-700 mt-0.5 truncate">{ev.descripcion}</p>}
-                  </div>
-                  <button
-                    onClick={() => deleteEvento(ev.id)}
-                    className="text-gray-300 hover:text-rfpaf-red p-1 rounded-lg transition-colors"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
+                <div key={ev.id} className="flex items-center gap-2 px-3 py-2">
+                  <span className="text-[10px] font-bold text-gray-400 w-6 shrink-0">{ev.minutoPartido}'</span>
+                  <span className="px-1.5 py-0.5 rounded text-[9px] font-bold whitespace-nowrap shrink-0" style={{ color: cfg.color, background: cfg.bg }}>{cfg.label}</span>
+                  <span className="text-xs text-gray-700 truncate flex-1">{ev.jugadora || ev.descripcion || <em className="text-gray-400 not-italic">—</em>}</span>
+                  <button onClick={() => jumpToEvent(ev)} className="text-rfpaf-blue hover:text-rfpaf-blue-light shrink-0 transition-colors">
+                    <Play className="w-3 h-3" />
+                  </button>
+                  <button onClick={() => deleteEvento(ev.id)} className="text-gray-300 hover:text-red-500 shrink-0 transition-colors">
+                    <Trash2 className="w-3 h-3" />
                   </button>
                 </div>
               )
             })}
           </div>
         </div>
-      )}
+      </div>
 
-      {/* Event modal */}
+      {/* ─────────────── RIGHT PANEL ─────────────── */}
+      <div className="flex-1 min-w-0 space-y-4">
+
+        {/* YouTube player */}
+        {videoId && (
+          <div className="bg-black rounded-2xl overflow-hidden shadow-lg">
+            <div id={playerDivId.current} className="w-full aspect-video" />
+          </div>
+        )}
+
+        {/* History visualization */}
+        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+          {/* Tabs header */}
+          <div className="flex items-center border-b border-gray-100">
+            {([
+              { id: 'lista' as const,    label: 'Lista',    icon: <List className="w-3.5 h-3.5" /> },
+              { id: 'campo' as const,    label: 'Campo',    icon: <span className="text-sm leading-none">⚽</span> },
+              { id: 'graficas' as const, label: 'Gráficas', icon: <BarChart2 className="w-3.5 h-3.5" /> },
+            ]).map(tab => (
+              <button
+                key={tab.id}
+                onClick={() => setHistorialTab(tab.id)}
+                className={`flex items-center gap-1.5 px-5 py-3 text-xs font-bold border-b-2 transition-colors ${historialTab === tab.id ? 'border-rfpaf-blue text-rfpaf-blue' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+              >
+                {tab.icon} {tab.label}
+              </button>
+            ))}
+            <span className="ml-auto pr-4 text-xs text-gray-400">{analisis.eventosPartido.length} eventos en total</span>
+          </div>
+
+          {/* ── LISTA ── */}
+          {historialTab === 'lista' && (
+            <div className="p-4">
+              <p className="text-sm font-bold text-gray-700 mb-3">
+                Vista del listado
+                <span className="ml-2 text-xs font-normal text-gray-400">{eventsWithPos.length} eventos con posición registrada</span>
+              </p>
+              {filteredEvents.length === 0 ? (
+                <p className="text-center text-sm text-gray-400 py-10">Sin eventos para mostrar</p>
+              ) : (
+                <>
+                  <div className="divide-y divide-gray-50">
+                    {eventsWithPos.map(ev => {
+                      const cfg = EVENT_CONFIG[ev.tipo]
+                      return (
+                        <div key={ev.id} className="flex items-center gap-3 py-2.5">
+                          <div className="w-2 h-2 rounded-full shrink-0" style={{ background: cfg.color }} />
+                          <span className="text-xs font-bold text-gray-500 w-8 shrink-0">{ev.minutoPartido}'</span>
+                          <span className="px-2 py-0.5 rounded text-[10px] font-bold whitespace-nowrap shrink-0" style={{ color: cfg.color, background: cfg.bg }}>{cfg.label}</span>
+                          {ev.jugadora && <span className="text-sm font-semibold text-gray-800">{ev.jugadora}</span>}
+                          {ev.descripcion
+                            ? <span className="text-sm text-gray-500 italic flex-1 truncate">{ev.descripcion}</span>
+                            : !ev.jugadora && <span className="text-sm text-gray-300 italic flex-1">Sin descripción</span>
+                          }
+                          {ev.posicion && <span className="text-[10px] text-gray-300 shrink-0">({ev.posicion.x},{ev.posicion.y})</span>}
+                          <button onClick={() => jumpToEvent(ev)} className="text-rfpaf-blue hover:text-rfpaf-blue-light shrink-0">
+                            <Play className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      )
+                    })}
+                  </div>
+                  {eventsWithoutPos.length > 0 && (
+                    <>
+                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mt-5 mb-2">Sin Posición Registrada</p>
+                      <div className="divide-y divide-gray-50">
+                        {eventsWithoutPos.map(ev => {
+                          const cfg = EVENT_CONFIG[ev.tipo]
+                          return (
+                            <div key={ev.id} className="flex items-center gap-3 py-2.5 opacity-70">
+                              <span className="text-xs font-bold text-gray-500 w-8 shrink-0">{ev.minutoPartido}'</span>
+                              <span className="px-2 py-0.5 rounded text-[10px] font-bold whitespace-nowrap shrink-0" style={{ color: cfg.color, background: cfg.bg }}>{cfg.label}</span>
+                              {ev.jugadora && <span className="text-sm font-semibold text-gray-800">{ev.jugadora}</span>}
+                              {ev.descripcion
+                                ? <span className="text-sm text-gray-500 italic flex-1 truncate">{ev.descripcion}</span>
+                                : !ev.jugadora && <span className="text-sm text-gray-300 italic flex-1">Sin descripción</span>
+                              }
+                              <button onClick={() => jumpToEvent(ev)} className="text-rfpaf-blue hover:text-rfpaf-blue-light shrink-0">
+                                <Play className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </>
+                  )}
+                </>
+              )}
+            </div>
+          )}
+
+          {/* ── CAMPO ── */}
+          {historialTab === 'campo' && (
+            <div className="p-4">
+              <p className="text-sm font-bold text-gray-700 mb-3">
+                Vista del campo
+                <span className="ml-2 text-xs font-normal text-gray-400">{eventsWithPos.length} eventos con posición registrada</span>
+              </p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <FootballPitch events={filteredEvents} onEventClick={jumpToEvent} />
+                <div>
+                  {/* Legend */}
+                  <div className="flex flex-wrap gap-2 mb-3">
+                    {EVENT_TYPES.filter(t => filteredEvents.some(e => e.tipo === t)).map(t => (
+                      <div key={t} className="flex items-center gap-1">
+                        <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: EVENT_CONFIG[t].color }} />
+                        <span className="text-xs text-gray-600">{EVENT_CONFIG[t].label}</span>
+                      </div>
+                    ))}
+                  </div>
+                  {/* Events with position */}
+                  <div className="divide-y divide-gray-50 max-h-64 overflow-y-auto">
+                    {eventsWithPos.map(ev => {
+                      const cfg = EVENT_CONFIG[ev.tipo]
+                      return (
+                        <div key={ev.id} className="flex items-center gap-2 py-2 cursor-pointer hover:bg-gray-50 rounded px-1" onClick={() => jumpToEvent(ev)}>
+                          <div className="w-2 h-2 rounded-full shrink-0" style={{ background: cfg.color }} />
+                          <span className="text-xs font-bold text-gray-500 w-6 shrink-0">{ev.minutoPartido}'</span>
+                          <span className="px-1.5 py-0.5 rounded text-[9px] font-bold shrink-0" style={{ color: cfg.color, background: cfg.bg }}>{cfg.label}</span>
+                          <span className="text-xs text-gray-700 truncate flex-1">{ev.jugadora || ev.descripcion || 'Sin descripción'}</span>
+                          <span className="text-[9px] text-gray-300 shrink-0">({ev.posicion!.x},{ev.posicion!.y})</span>
+                        </div>
+                      )
+                    })}
+                    {eventsWithPos.length === 0 && (
+                      <p className="text-xs text-gray-400 text-center py-6">Los eventos con posición aparecerán en el campo</p>
+                    )}
+                  </div>
+                  {eventsWithoutPos.length > 0 && (
+                    <>
+                      <p className="text-[9px] font-bold text-gray-400 uppercase tracking-wider mt-3 mb-1">Sin Posición Registrada</p>
+                      {eventsWithoutPos.map(ev => {
+                        const cfg = EVENT_CONFIG[ev.tipo]
+                        return (
+                          <div key={ev.id} className="flex items-center gap-2 py-1.5 opacity-60">
+                            <span className="text-xs font-bold text-gray-500 w-6 shrink-0">{ev.minutoPartido}'</span>
+                            <span className="px-1.5 py-0.5 rounded text-[9px] font-bold shrink-0" style={{ color: cfg.color, background: cfg.bg }}>{cfg.label}</span>
+                            <span className="text-xs text-gray-700 truncate">{ev.jugadora || ev.descripcion || 'Sin descripción'}</span>
+                          </div>
+                        )
+                      })}
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ── GRÁFICAS ── */}
+          {historialTab === 'graficas' && (
+            <div className="p-4">
+              <p className="text-sm font-bold text-gray-700 mb-4">
+                Gráficas
+                <span className="ml-2 text-xs font-normal text-gray-400">{analisis.eventosPartido.length} eventos en total</span>
+              </p>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div>
+                  <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-3">Por Tipo</p>
+                  <BarChart
+                    data={chartTipo}
+                    maxVal={maxTipo}
+                    colorFn={(label) => {
+                      const t = EVENT_TYPES.find(k => EVENT_CONFIG[k].label === label)
+                      return t ? EVENT_CONFIG[t].color : '#6b7280'
+                    }}
+                  />
+                </div>
+                <div>
+                  <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-3">Por Periodo (Min)</p>
+                  <BarChart data={chartPeriodo} maxVal={maxPeriodo} colorFn={() => '#7c3aed'} />
+                </div>
+                <div>
+                  <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-3">Por Jugador</p>
+                  {chartJugadora.length > 0
+                    ? <BarChart data={chartJugadora} maxVal={maxJugadora} colorFn={() => '#059669'} />
+                    : <p className="text-xs text-gray-400 pt-1">Registra eventos con jugadora asignada para ver estadísticas</p>
+                  }
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ─────────────── MODAL ─────────────── */}
       {modal && (
-        <div
-          className="fixed inset-0 bg-black/60 z-50 flex items-end sm:items-center justify-center p-4"
-          onClick={() => setModal(null)}
-        >
-          <div
-            className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div
-              className="px-5 py-4 font-bold text-white flex items-center gap-2"
-              style={{ background: EVENT_CONFIG[modal.tipo].color }}
-            >
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-end sm:items-center justify-center p-4" onClick={() => setModal(null)}>
+          <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="px-5 py-4 font-bold text-white flex items-center gap-2" style={{ background: EVENT_CONFIG[modal.tipo].color }}>
               <span className="text-xl">{EVENT_CONFIG[modal.tipo].emoji}</span>
               {EVENT_CONFIG[modal.tipo].label} — min. {modal.minuto}'
             </div>
-            <div className="p-5 space-y-4">
+            <div className="p-5 space-y-4 max-h-[80vh] overflow-y-auto">
+
+              {/* Player */}
               <div>
-                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Descripción (opcional)</label>
-                <textarea
-                  autoFocus
-                  rows={3}
-                  value={modalDesc}
-                  onChange={(e) => setModalDesc(e.target.value)}
+                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Jugadora</label>
+                {convPlayers.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 mb-2">
+                    {convPlayers.map(p => (
+                      <button key={p}
+                        onClick={() => setModalJugadora(p === modalJugadora ? '' : p)}
+                        className={`px-2.5 py-1 rounded-lg text-xs font-semibold border transition-all ${modalJugadora === p ? 'bg-rfpaf-blue text-white border-rfpaf-blue' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}
+                      >
+                        {p}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                <input
+                  value={modalJugadora}
+                  onChange={e => setModalJugadora(e.target.value)}
+                  placeholder={convPlayers.length > 0 ? 'O escribe el nombre...' : 'Nombre de la jugadora (opcional)'}
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-rfpaf-blue outline-none"
+                />
+              </div>
+
+              {/* Description */}
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Descripción</label>
+                <textarea rows={2} value={modalDesc} onChange={e => setModalDesc(e.target.value)}
                   placeholder="Describe el evento…"
                   className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-rfpaf-blue outline-none resize-none"
                 />
               </div>
-              <div className="flex gap-3">
-                <button
-                  onClick={confirmEvent}
+
+              {/* Position on pitch */}
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
+                  Posición en el campo
+                  <span className="text-gray-400 font-normal ml-1">(pulsa para marcar)</span>
+                  {modalPosition && <span className="text-rfpaf-blue ml-2">({modalPosition.x}, {modalPosition.y})</span>}
+                </label>
+                <div className="rounded-xl overflow-hidden border border-gray-200 max-h-64">
+                  <FootballPitch events={[]} onPositionClick={(x, y) => setModalPosition({ x, y })} selectMode pendingPosition={modalPosition} />
+                </div>
+                {modalPosition && (
+                  <button onClick={() => setModalPosition(null)} className="mt-1 text-[10px] text-gray-400 hover:text-red-500 transition-colors">
+                    ✕ Quitar posición
+                  </button>
+                )}
+              </div>
+
+              {/* Actions */}
+              <div className="flex gap-3 pt-1">
+                <button onClick={confirmEvent}
                   className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white transition-colors"
                   style={{ background: EVENT_CONFIG[modal.tipo].color }}
                 >
                   Guardar evento
                 </button>
-                <button
-                  onClick={() => setModal(null)}
+                <button onClick={() => setModal(null)}
                   className="px-5 py-2.5 rounded-xl text-sm font-medium text-gray-600 border border-gray-200 hover:bg-gray-50 transition-colors"
                 >
                   Cancelar

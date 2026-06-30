@@ -344,7 +344,10 @@ export interface AccionBalonParado {
   imagenUrl: string
 }
 
-export type TipoEventoAnalisis = 'GOL' | 'OCASION' | 'DUELO' | 'NOTA'
+export type TipoEventoAnalisis =
+  | 'GOL' | 'OCASION' | 'DUELO' | 'NOTA'
+  | 'TRANSICION_DEF' | 'TRANSICION_OF'
+  | 'SALIDA_BALON' | 'ABP' | 'PRESION'
 
 export interface EventoAnalisis {
   id: string
@@ -352,6 +355,8 @@ export interface EventoAnalisis {
   minutoPartido: number
   descripcion: string
   videoSeconds: number
+  jugadora?: string
+  posicion?: { x: number; y: number }
 }
 
 export interface AnalisisPartido {
