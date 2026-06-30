@@ -45,18 +45,32 @@ function createEmptyAnalisis(nombre: string, rival: string, fecha: string): Anal
 }
 
 export default function AnalisisGlobal() {
-  const { analisis, activeAnalisisId, addAnalisis, deleteAnalisis, setActiveAnalisisId } = useStore()
+  const { analisis, activeAnalisisId, addAnalisis, deleteAnalisis, setActiveAnalisisId, clubes } = useStore()
   const navigate = useNavigate()
   const [showForm, setShowForm] = useState(false)
-  const [form, setForm] = useState({ nombre: '', rival: '', fecha: new Date().toISOString().slice(0, 10) })
+  const [form, setForm] = useState({
+    nombre: '', rival: '', fecha: new Date().toISOString().slice(0, 10),
+    clubLocalId: '', clubVisitanteId: ''
+  })
 
   const handleCreate = () => {
     if (!form.nombre.trim()) return
     const a = createEmptyAnalisis(form.nombre, form.rival, form.fecha)
+    // Set club shields if selected
+    const localClub = form.clubLocalId ? clubes.find(c => c.id === form.clubLocalId) : null
+    const visitClub = form.clubVisitanteId ? clubes.find(c => c.id === form.clubVisitanteId) : null
+    if (localClub) {
+      a.equipoLocal.nombre = localClub.nombre
+      a.equipoLocal.escudo = localClub.escudo || null
+    }
+    if (visitClub) {
+      a.equipoVisitante.nombre = visitClub.nombre
+      a.equipoVisitante.escudo = visitClub.escudo || null
+    }
     addAnalisis(a)
     setActiveAnalisisId(a.id)
     setShowForm(false)
-    setForm({ nombre: '', rival: '', fecha: new Date().toISOString().slice(0, 10) })
+    setForm({ nombre: '', rival: '', fecha: new Date().toISOString().slice(0, 10), clubLocalId: '', clubVisitanteId: '' })
     navigate('/analisis-global/pizarra')
   }
 
@@ -97,22 +111,13 @@ export default function AnalisisGlobal() {
       {showForm && (
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-5 mb-6">
           <h2 className="font-bold text-rfpaf-blue mb-4">Nuevo Análisis de Partido</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
             <div>
               <label className="block text-xs font-semibold text-gray-600 mb-1">Nombre</label>
               <input
                 value={form.nombre}
                 onChange={(e) => setForm((f) => ({ ...f, nombre: e.target.value }))}
-                placeholder="Ej: Jornada 5 vs Sporting"
-                className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-rfpaf-blue outline-none"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1">Rival</label>
-              <input
-                value={form.rival}
-                onChange={(e) => setForm((f) => ({ ...f, rival: e.target.value }))}
-                placeholder="Nombre del rival"
+                placeholder="Ej: Jornada 5"
                 className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-rfpaf-blue outline-none"
               />
             </div>
@@ -124,6 +129,39 @@ export default function AnalisisGlobal() {
                 onChange={(e) => setForm((f) => ({ ...f, fecha: e.target.value }))}
                 className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-rfpaf-blue outline-none"
               />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-gray-600 mb-1">Equipo Local</label>
+              <select
+                value={form.clubLocalId}
+                onChange={(e) => setForm((f) => ({ ...f, clubLocalId: e.target.value }))}
+                className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-rfpaf-blue outline-none"
+              >
+                <option value="">— Seleccionar club —</option>
+                {clubes.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.nombre}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-600 mb-1">Equipo Visitante</label>
+              <select
+                value={form.clubVisitanteId}
+                onChange={(e) => setForm((f) => ({ ...f, clubVisitanteId: e.target.value }))}
+                className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-rfpaf-blue outline-none"
+              >
+                <option value="">— Seleccionar club —</option>
+                {clubes.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.nombre}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
           <div className="flex gap-3 mt-4">
