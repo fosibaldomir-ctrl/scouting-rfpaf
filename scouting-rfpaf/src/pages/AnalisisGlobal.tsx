@@ -1,18 +1,28 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { v4 as uuidv4 } from 'uuid'
-import { BarChart2, Plus, Trash2, CalendarDays, Users, Target } from 'lucide-react'
+import { BarChart2, Plus, Trash2, CalendarDays, Users, Target, ClipboardList } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import type { AnalisisPartido } from '../types'
 export { buildTeamJugadoras } from '../utils/tactics'
 import { buildTeamJugadoras } from '../utils/tactics'
 
-function createEmptyAnalisis(nombre: string, rival: string, fecha: string): AnalisisPartido {
+const CATEGORIAS_ANALISIS = ['Sub 12', 'Sub 14', 'Sub 16', 'Selección'] as const
+
+const CATEGORIA_COLORS: Record<string, string> = {
+  'Sub 12': 'bg-emerald-100 text-emerald-700',
+  'Sub 14': 'bg-blue-100 text-blue-700',
+  'Sub 16': 'bg-purple-100 text-purple-700',
+  'Selección': 'bg-amber-100 text-amber-700',
+}
+
+function createEmptyAnalisis(nombre: string, fecha: string, categoria: string): AnalisisPartido {
   return {
     id: uuidv4(),
     nombre,
-    rival,
+    rival: '',
     fecha,
+    categoria,
     equipoLocal: {
       nombre: 'Equipo Local',
       formacion: '4-3-3',
@@ -20,7 +30,7 @@ function createEmptyAnalisis(nombre: string, rival: string, fecha: string): Anal
       jugadoras: buildTeamJugadoras('4-3-3', 'local'),
     },
     equipoVisitante: {
-      nombre: rival || 'Rival',
+      nombre: 'Rival',
       formacion: '4-4-2',
       color: '#c0392b',
       jugadoras: buildTeamJugadoras('4-4-2', 'visit'),
@@ -49,16 +59,18 @@ export default function AnalisisGlobal() {
   const navigate = useNavigate()
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState({
-    nombre: '', rival: '', fecha: new Date().toISOString().slice(0, 10),
-    clubLocalId: '', clubVisitanteId: ''
+    nombre: '',
+    fecha: new Date().toISOString().slice(0, 10),
+    categoria: '',
+    clubLocalId: '',
+    clubVisitanteId: '',
   })
 
   const handleCreate = () => {
     if (!form.nombre.trim()) return
-    const a = createEmptyAnalisis(form.nombre, form.rival, form.fecha)
-    // Set club shields if selected
-    const localClub = form.clubLocalId ? clubes.find(c => c.id === form.clubLocalId) : null
-    const visitClub = form.clubVisitanteId ? clubes.find(c => c.id === form.clubVisitanteId) : null
+    const a = createEmptyAnalisis(form.nombre, form.fecha, form.categoria)
+    const localClub = form.clubLocalId ? clubes.find((c) => c.id === form.clubLocalId) : null
+    const visitClub = form.clubVisitanteId ? clubes.find((c) => c.id === form.clubVisitanteId) : null
     if (localClub) {
       a.equipoLocal.nombre = localClub.nombre
       a.equipoLocal.escudo = localClub.escudo || null
@@ -70,13 +82,13 @@ export default function AnalisisGlobal() {
     addAnalisis(a)
     setActiveAnalisisId(a.id)
     setShowForm(false)
-    setForm({ nombre: '', rival: '', fecha: new Date().toISOString().slice(0, 10), clubLocalId: '', clubVisitanteId: '' })
+    setForm({ nombre: '', fecha: new Date().toISOString().slice(0, 10), categoria: '', clubLocalId: '', clubVisitanteId: '' })
     navigate('/analisis-global/pizarra')
   }
 
-  const handleSelect = (id: string) => {
+  const handleGoTo = (id: string, path: string) => {
     setActiveAnalisisId(id)
-    navigate('/analisis-global/pizarra')
+    navigate(path)
   }
 
   const handleDelete = (e: React.MouseEvent, id: string) => {
@@ -111,7 +123,8 @@ export default function AnalisisGlobal() {
       {showForm && (
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-5 mb-6">
           <h2 className="font-bold text-rfpaf-blue mb-4">Nuevo Análisis de Partido</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
             <div>
               <label className="block text-xs font-semibold text-gray-600 mb-1">Nombre</label>
               <input
@@ -130,9 +143,22 @@ export default function AnalisisGlobal() {
                 className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-rfpaf-blue outline-none"
               />
             </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-600 mb-1">Categoría</label>
+              <select
+                value={form.categoria}
+                onChange={(e) => setForm((f) => ({ ...f, categoria: e.target.value }))}
+                className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-rfpaf-blue outline-none"
+              >
+                <option value="">— Seleccionar —</option>
+                {CATEGORIAS_ANALISIS.map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
+            </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
             <div>
               <label className="block text-xs font-semibold text-gray-600 mb-1">Equipo Local</label>
               <select
@@ -142,9 +168,7 @@ export default function AnalisisGlobal() {
               >
                 <option value="">— Seleccionar club —</option>
                 {clubes.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.nombre}
-                  </option>
+                  <option key={c.id} value={c.id}>{c.nombre}</option>
                 ))}
               </select>
             </div>
@@ -157,14 +181,13 @@ export default function AnalisisGlobal() {
               >
                 <option value="">— Seleccionar club —</option>
                 {clubes.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.nombre}
-                  </option>
+                  <option key={c.id} value={c.id}>{c.nombre}</option>
                 ))}
               </select>
             </div>
           </div>
-          <div className="flex gap-3 mt-4">
+
+          <div className="flex gap-3">
             <button
               onClick={handleCreate}
               disabled={!form.nombre.trim()}
@@ -182,7 +205,7 @@ export default function AnalisisGlobal() {
         </div>
       )}
 
-      {/* List */}
+      {/* Cards */}
       {analisis.length === 0 ? (
         <div className="text-center py-16 text-gray-400">
           <BarChart2 className="w-12 h-12 mx-auto mb-3 opacity-30" />
@@ -193,74 +216,95 @@ export default function AnalisisGlobal() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {analisis.map((a) => {
             const isActive = a.id === activeAnalisisId
+            const catColor = a.categoria
+              ? (CATEGORIA_COLORS[a.categoria] ?? 'bg-gray-100 text-gray-600')
+              : 'bg-gray-100 text-gray-400'
             return (
-              <button
+              <div
                 key={a.id}
-                onClick={() => handleSelect(a.id)}
-                className={`w-full text-left bg-white rounded-3xl shadow-sm hover:shadow-lg transition-all overflow-hidden border-2 ${
-                  isActive ? 'border-rfpaf-blue' : 'border-gray-200 hover:border-gray-300'
+                className={`relative bg-white rounded-3xl shadow-sm overflow-hidden border-2 transition-all ${
+                  isActive ? 'border-rfpaf-blue shadow-md' : 'border-gray-200'
                 }`}
               >
-                {/* Header badge */}
-                <div className="px-5 pt-4 pb-1">
-                  <p className="text-[11px] font-bold text-gray-400 tracking-widest uppercase">Análisis</p>
-                </div>
+                {/* Delete — absolute top-right */}
+                <button
+                  onClick={(e) => handleDelete(e, a.id)}
+                  className="absolute top-3 right-3 z-10 text-gray-300 hover:text-rfpaf-red p-1.5 rounded-lg hover:bg-red-50 transition-colors"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
 
-                {/* Shields — 3-column grid: shield | VS | shield, each column equal width */}
-                <div className="grid grid-cols-3 items-center px-4 pt-4 pb-2 gap-2">
-                  {/* Local */}
-                  <div className="flex flex-col items-center gap-3">
-                    <div className="w-20 h-20 rounded-2xl bg-gray-50 border border-gray-200 shadow-sm flex items-center justify-center overflow-hidden p-2">
-                      {a.equipoLocal.escudo
-                        ? <img src={a.equipoLocal.escudo} alt={a.equipoLocal.nombre} className="w-full h-full object-contain" />
-                        : <Users className="w-9 h-9 text-gray-300" />}
+                {/* Clickable header + shields → opens Pizarra */}
+                <div
+                  onClick={() => handleGoTo(a.id, '/analisis-global/pizarra')}
+                  className="cursor-pointer"
+                >
+                  {/* Category badge */}
+                  <div className="px-5 pt-4 pb-2 pr-10">
+                    <span className={`inline-block text-[11px] font-bold tracking-widest uppercase px-2.5 py-1 rounded-full ${catColor}`}>
+                      {a.categoria || 'Análisis'}
+                    </span>
+                  </div>
+
+                  {/* Shields — 3 equal columns */}
+                  <div className="grid grid-cols-3 items-center px-4 pt-3 pb-2 gap-2">
+                    <div className="flex flex-col items-center gap-2">
+                      <div className="w-20 h-20 rounded-2xl bg-gray-50 border border-gray-200 shadow-sm flex items-center justify-center overflow-hidden p-2">
+                        {a.equipoLocal.escudo
+                          ? <img src={a.equipoLocal.escudo} alt={a.equipoLocal.nombre} className="w-full h-full object-contain" />
+                          : <Users className="w-9 h-9 text-gray-300" />}
+                      </div>
+                      <p className="text-[11px] font-extrabold text-gray-800 uppercase tracking-wide text-center leading-tight w-full">
+                        {a.equipoLocal.nombre}
+                      </p>
                     </div>
-                    <p className="text-[11px] font-extrabold text-gray-800 uppercase tracking-wide text-center leading-tight w-full">
-                      {a.equipoLocal.nombre}
-                    </p>
-                  </div>
 
-                  {/* VS — perfectly centered */}
-                  <div className="flex items-center justify-center pb-6">
-                    <p className="text-2xl font-light text-gray-300 tracking-wider">VS</p>
-                  </div>
-
-                  {/* Visitante */}
-                  <div className="flex flex-col items-center gap-3">
-                    <div className="w-20 h-20 rounded-2xl bg-gray-50 border border-gray-200 shadow-sm flex items-center justify-center overflow-hidden p-2">
-                      {a.equipoVisitante.escudo
-                        ? <img src={a.equipoVisitante.escudo} alt={a.equipoVisitante.nombre} className="w-full h-full object-contain" />
-                        : <Users className="w-9 h-9 text-gray-300" />}
+                    <div className="flex items-center justify-center pb-5">
+                      <p className="text-2xl font-light text-gray-300 tracking-wider">VS</p>
                     </div>
-                    <p className="text-[11px] font-extrabold text-gray-800 uppercase tracking-wide text-center leading-tight w-full">
-                      {a.equipoVisitante.nombre}
-                    </p>
-                  </div>
-                </div>
 
-                {/* Date and status */}
-                <div className="px-5 py-3 border-t border-gray-100 space-y-1.5 text-sm text-gray-500 mt-2">
-                  <div className="flex items-center gap-2">
+                    <div className="flex flex-col items-center gap-2">
+                      <div className="w-20 h-20 rounded-2xl bg-gray-50 border border-gray-200 shadow-sm flex items-center justify-center overflow-hidden p-2">
+                        {a.equipoVisitante.escudo
+                          ? <img src={a.equipoVisitante.escudo} alt={a.equipoVisitante.nombre} className="w-full h-full object-contain" />
+                          : <Users className="w-9 h-9 text-gray-300" />}
+                      </div>
+                      <p className="text-[11px] font-extrabold text-gray-800 uppercase tracking-wide text-center leading-tight w-full">
+                        {a.equipoVisitante.nombre}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Date row */}
+                  <div className="px-5 py-3 border-t border-gray-100 flex items-center gap-2 text-sm text-gray-500">
                     <CalendarDays className="w-4 h-4 flex-shrink-0" />
                     <span>{a.fecha || '—'}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Target className="w-4 h-4 flex-shrink-0" />
-                    <span>Planificado</span>
+                    {isActive && (
+                      <span className="ml-auto text-[10px] font-bold bg-rfpaf-blue text-white px-2 py-0.5 rounded-full">
+                        Activo
+                      </span>
+                    )}
                   </div>
                 </div>
 
-                {/* Action row */}
-                <div className="px-5 pb-4 pt-3 border-t border-gray-100 flex items-center justify-between gap-2">
-                  <p className="text-xs font-bold text-rfpaf-blue">Abrir detalle →</p>
+                {/* Action tabs */}
+                <div className="grid grid-cols-2 border-t-2 border-gray-100">
                   <button
-                    onClick={(e) => handleDelete(e, a.id)}
-                    className="text-gray-400 hover:text-rfpaf-red p-1 rounded-lg hover:bg-red-50 transition-colors flex-shrink-0"
+                    onClick={() => handleGoTo(a.id, '/analisis-global/pizarra')}
+                    className="flex items-center justify-center gap-1.5 py-3 text-xs font-bold text-rfpaf-blue hover:bg-rfpaf-blue/5 transition-colors border-r border-gray-100"
                   >
-                    <Trash2 className="w-4 h-4" />
+                    <Target className="w-3.5 h-3.5" />
+                    Pizarra
+                  </button>
+                  <button
+                    onClick={() => handleGoTo(a.id, '/analisis-global/plan')}
+                    className="flex items-center justify-center gap-1.5 py-3 text-xs font-bold text-gray-600 hover:bg-gray-50 transition-colors"
+                  >
+                    <ClipboardList className="w-3.5 h-3.5" />
+                    Plan de Partido
                   </button>
                 </div>
-              </button>
+              </div>
             )
           })}
         </div>

@@ -359,6 +359,7 @@ export interface AnalisisPartido {
   nombre: string
   rival: string
   fecha: string
+  categoria?: string
   equipoLocal: EquipoTactico
   equipoVisitante: EquipoTactico
   analisisIA: string
