@@ -1,5 +1,4 @@
-import { useState } from 'react'
-import { PlayCircle, Image, FileText, Presentation } from 'lucide-react'
+import { FileText, Presentation } from 'lucide-react'
 import { useStore } from '../../store/useStore'
 import type { AnalisisPartido, CaracteristicasRival, BloquePlan } from '../../types'
 
@@ -14,11 +13,16 @@ const RIVAL_OPTS: { key: keyof CaracteristicasRival; label: string; opts: string
   { key: 'transicionDefensiva', label: 'Transición Defensiva',  opts: ['PRESIÓN INMEDIATA', 'REPLIEGUE'] },
 ]
 
-const BLOQUES = [
-  { key: 'bloqueAtaque'     as const, label: 'Ataque',       emoji: '⚡', color: '#dc2626', bg: '#fef2f2' },
-  { key: 'bloqueDefensa'    as const, label: 'Defensa',      emoji: '🛡️', color: '#1d4ed8', bg: '#eff6ff' },
-  { key: 'bloqueTransicion' as const, label: 'Transiciones', emoji: '🔄', color: '#7c3aed', bg: '#f5f3ff' },
+const BLOQUES: { key: 'bloqueAtaque' | 'bloqueDefensa' | 'bloqueTransicion'; label: string; icon: string }[] = [
+  { key: 'bloqueAtaque',      label: 'ATAQUE',       icon: '⚽' },
+  { key: 'bloqueDefensa',     label: 'DEFENSA',      icon: '🛡️' },
+  { key: 'bloqueTransicion',  label: 'TRANSICIONES', icon: '⚡' },
 ]
+
+function extractVimeoId(url: string): string | null {
+  const m = url.match(/vimeo\.com\/(?:video\/|channels\/\w+\/)?(\d+)/)
+  return m ? m[1] : null
+}
 
 function extractYoutubeId(url: string): string | null {
   const patterns = [/youtube\.com\/watch\?v=([^&]+)/, /youtu\.be\/([^?]+)/, /youtube\.com\/embed\/([^?]+)/]
@@ -26,34 +30,111 @@ function extractYoutubeId(url: string): string | null {
   return null
 }
 
-function YoutubeEmbed({ url }: { url: string }) {
-  const id = extractYoutubeId(url)
-  if (!id) return (
-    <div className="flex items-center justify-center aspect-video bg-gray-100 rounded-xl text-gray-400 text-sm">
-      URL de YouTube inválida
-    </div>
-  )
+function VideoEmbed({ url }: { url: string }) {
+  const vimeoId = extractVimeoId(url)
+  if (vimeoId) {
+    return (
+      <iframe
+        src={`https://player.vimeo.com/video/${vimeoId}`}
+        allow="autoplay; fullscreen; picture-in-picture"
+        allowFullScreen
+        className="w-full aspect-video rounded-xl"
+      />
+    )
+  }
+  const ytId = extractYoutubeId(url)
+  if (ytId) {
+    return (
+      <iframe
+        src={`https://www.youtube.com/embed/${ytId}`}
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+        allowFullScreen
+        className="w-full aspect-video rounded-xl"
+      />
+    )
+  }
   return (
-    <iframe
-      src={`https://www.youtube.com/embed/${id}`}
-      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-      allowFullScreen
-      className="w-full aspect-video rounded-xl"
-    />
+    <div className="flex items-center justify-center aspect-video bg-gray-100 rounded-xl text-gray-400 text-sm">
+      URL de vídeo inválida
+    </div>
   )
 }
 
 function EmptyPreview({ text }: { text: string }) {
   return (
-    <div className="flex items-center justify-center rounded-xl bg-gray-50 border border-gray-200 h-48 text-gray-400 text-sm text-center px-4">
+    <div className="flex items-center justify-center rounded-xl bg-gray-50 border border-gray-200 h-44 text-gray-400 text-sm text-center px-4">
       {text}
+    </div>
+  )
+}
+
+function BloqueCard({
+  bloque: b,
+  data,
+  onChange,
+}: {
+  bloque: typeof BLOQUES[number]
+  data: BloquePlan
+  onChange: (patch: Partial<BloquePlan>) => void
+}) {
+  return (
+    <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-4 flex flex-col gap-4">
+      {/* Header */}
+      <div className="flex items-center gap-3">
+        <span className="text-2xl leading-none">{b.icon}</span>
+        <div>
+          <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest leading-none mb-0.5">Bloque</p>
+          <p className="text-base font-extrabold text-gray-800 tracking-wide leading-none">{b.label}</p>
+        </div>
+      </div>
+
+      {/* Notas */}
+      <div>
+        <p className="text-xs text-gray-500 mb-1.5">Notas abiertas</p>
+        <textarea
+          rows={6}
+          value={data.notas}
+          onChange={(e) => onChange({ notas: e.target.value })}
+          placeholder={`Descripción del bloque de ${b.label.toLowerCase()}…`}
+          className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-rfpaf-blue outline-none resize-none"
+        />
+      </div>
+
+      {/* Vídeo Vimeo / YouTube */}
+      <div>
+        <p className="text-xs text-gray-500 mb-1.5">Vídeo específico (Vimeo)</p>
+        <input
+          value={data.videoUrl}
+          onChange={(e) => onChange({ videoUrl: e.target.value })}
+          placeholder="https://vimeo.com/123456789"
+          className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-rfpaf-blue outline-none mb-2"
+        />
+        {data.videoUrl
+          ? <VideoEmbed url={data.videoUrl} />
+          : <EmptyPreview text="Introduce el enlace de Vimeo para previsualizarlo aquí" />
+        }
+      </div>
+
+      {/* Imagen */}
+      <div>
+        <p className="text-xs text-gray-500 mb-1.5">Imagen 1</p>
+        <input
+          value={data.imagenUrl}
+          onChange={(e) => onChange({ imagenUrl: e.target.value })}
+          placeholder="https://... (imagen o captura táctica)"
+          className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-rfpaf-blue outline-none mb-2"
+        />
+        {data.imagenUrl
+          ? <img src={data.imagenUrl} alt="Táctica" className="w-full rounded-xl border border-gray-100 object-contain max-h-64" />
+          : <EmptyPreview text="Introduce la URL de la imagen para previsualizarla aquí" />
+        }
+      </div>
     </div>
   )
 }
 
 export default function PlanPartidoTab({ analisis }: Props) {
   const { updateAnalisis } = useStore()
-  const [activeBloque, setActiveBloque] = useState<'bloqueAtaque' | 'bloqueDefensa' | 'bloqueTransicion'>('bloqueAtaque')
 
   const toggleChar = (key: keyof CaracteristicasRival, value: string) => {
     const current = analisis.caracteristicasRival[key]
@@ -61,12 +142,9 @@ export default function PlanPartidoTab({ analisis }: Props) {
     updateAnalisis(analisis.id, { caracteristicasRival: { ...analisis.caracteristicasRival, [key]: next } })
   }
 
-  const updateBloque = (key: typeof activeBloque, patch: Partial<BloquePlan>) => {
+  const updateBloque = (key: 'bloqueAtaque' | 'bloqueDefensa' | 'bloqueTransicion', patch: Partial<BloquePlan>) => {
     updateAnalisis(analisis.id, { [key]: { ...analisis[key], ...patch } })
   }
-
-  const bloque = analisis[activeBloque]
-  const bloqueInfo = BLOQUES.find((b) => b.key === activeBloque)!
 
   return (
     <div className="p-3 md:p-5 space-y-5">
@@ -76,8 +154,6 @@ export default function PlanPartidoTab({ analisis }: Props) {
         <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3">
           Características del Rival
         </p>
-
-        {/* All groups flow inline: label pill (same style) + option pills */}
         <div className="flex flex-wrap gap-2 items-center">
           {RIVAL_OPTS.map(({ key, label, opts }) => {
             const allSelected = opts.every((o) => analisis.caracteristicasRival[key].includes(o))
@@ -87,7 +163,6 @@ export default function PlanPartidoTab({ analisis }: Props) {
             }
             return (
               <div key={key} className="flex flex-wrap gap-1.5 items-center">
-                {/* Category label — same pill style, toggles all options */}
                 <button
                   onClick={toggleAll}
                   className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${
@@ -98,7 +173,6 @@ export default function PlanPartidoTab({ analisis }: Props) {
                 >
                   {label.toUpperCase()}
                 </button>
-                {/* Option pills */}
                 {opts.map((opt) => {
                   const active = analisis.caracteristicasRival[key].includes(opt)
                   return (
@@ -121,10 +195,8 @@ export default function PlanPartidoTab({ analisis }: Props) {
         </div>
       </section>
 
-      {/* ── PRESENTACIÓN + VÍDEO (2 col) ── */}
+      {/* ── PRESENTACIÓN + VÍDEO RIVAL (2 col) ── */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-
-        {/* Presentación Google Slides */}
         <section className="bg-white rounded-2xl border border-gray-200 shadow-sm p-4 flex flex-col gap-3">
           <div className="flex items-center gap-2">
             <Presentation className="w-5 h-5 text-rfpaf-blue" />
@@ -137,123 +209,50 @@ export default function PlanPartidoTab({ analisis }: Props) {
             className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-rfpaf-blue outline-none"
           />
           {analisis.presentacionUrl ? (
-            <iframe
-              src={analisis.presentacionUrl}
-              className="w-full h-48 rounded-xl border border-gray-100"
-              allowFullScreen
-            />
+            <iframe src={analisis.presentacionUrl} className="w-full h-48 rounded-xl border border-gray-100" allowFullScreen />
           ) : (
             <EmptyPreview text="Introduce el enlace de Google Slides para previsualizarlo aquí" />
           )}
           {analisis.presentacionUrl && (
-            <a
-              href={analisis.presentacionUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-xs text-rfpaf-blue font-semibold hover:underline flex items-center gap-1"
-            >
+            <a href={analisis.presentacionUrl} target="_blank" rel="noopener noreferrer"
+              className="text-xs text-rfpaf-blue font-semibold hover:underline flex items-center gap-1">
               <FileText className="w-3.5 h-3.5" /> Abrir presentación
             </a>
           )}
         </section>
 
-        {/* Vídeo del Rival */}
         <section className="bg-white rounded-2xl border border-gray-200 shadow-sm p-4 flex flex-col gap-3">
           <div className="flex items-center gap-2">
-            <PlayCircle className="w-5 h-5 text-rfpaf-blue" />
-            <h3 className="font-bold text-sm text-gray-800">Vídeo del Rival</h3>
+            <span className="text-lg">🎬</span>
+            <h3 className="font-bold text-sm text-gray-800">Vídeo Vimeo del Rival</h3>
           </div>
           <input
             value={analisis.videoRivalUrl}
             onChange={(e) => updateAnalisis(analisis.id, { videoRivalUrl: e.target.value })}
-            placeholder="Pega el enlace de YouTube (ej. https://youtube.com/watch?v=...)..."
+            placeholder="Pega el enlace de Vimeo (ej. https://vimeo.com/123456789)..."
             className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-rfpaf-blue outline-none"
           />
           {analisis.videoRivalUrl
-            ? <YoutubeEmbed url={analisis.videoRivalUrl} />
-            : <EmptyPreview text="Introduce el enlace de YouTube para previsualizarlo aquí" />
+            ? <VideoEmbed url={analisis.videoRivalUrl} />
+            : <EmptyPreview text="Introduce el enlace de Vimeo para previsualizarlo aquí" />
           }
         </section>
       </div>
 
-      {/* ── PLAN DE PARTIDO (bloques tácticos) ── */}
-      <section className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-        <div className="px-4 py-3 bg-rfpaf-blue">
-          <h2 className="text-white font-bold text-sm">Plan de Partido</h2>
-        </div>
-
-        {/* Tab selector */}
-        <div className="flex border-b border-gray-100">
+      {/* ── PLAN DE PARTIDO — 3 bloques en paralelo ── */}
+      <div>
+        <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3 px-1">Plan de Partido</p>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           {BLOQUES.map((b) => (
-            <button
+            <BloqueCard
               key={b.key}
-              onClick={() => setActiveBloque(b.key)}
-              className={`flex-1 flex items-center justify-center gap-1.5 py-3 text-sm font-semibold transition-colors border-b-2 ${
-                activeBloque === b.key
-                  ? 'border-rfpaf-blue text-rfpaf-blue'
-                  : 'border-transparent text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              <span>{b.emoji}</span>
-              <span className="hidden sm:inline">{b.label}</span>
-            </button>
+              bloque={b}
+              data={analisis[b.key]}
+              onChange={(patch) => updateBloque(b.key, patch)}
+            />
           ))}
         </div>
-
-        <div className="p-4 space-y-4">
-          <div
-            className="rounded-xl p-3 font-bold text-sm flex items-center gap-2"
-            style={{ background: bloqueInfo.bg, color: bloqueInfo.color }}
-          >
-            {bloqueInfo.emoji} {bloqueInfo.label}
-          </div>
-
-          <div>
-            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Notas</label>
-            <textarea
-              rows={5}
-              value={bloque.notas}
-              onChange={(e) => updateBloque(activeBloque, { notas: e.target.value })}
-              placeholder={`Descripción del bloque de ${bloqueInfo.label.toLowerCase()}…`}
-              className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-rfpaf-blue outline-none resize-none"
-            />
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
-                <PlayCircle className="w-3.5 h-3.5" /> Vídeo YouTube
-              </label>
-              <input
-                value={bloque.videoUrl}
-                onChange={(e) => updateBloque(activeBloque, { videoUrl: e.target.value })}
-                placeholder="https://www.youtube.com/watch?v=..."
-                className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-rfpaf-blue outline-none"
-              />
-              {bloque.videoUrl
-                ? <div className="mt-3"><YoutubeEmbed url={bloque.videoUrl} /></div>
-                : <div className="mt-3"><EmptyPreview text="Vídeo del bloque" /></div>
-              }
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
-                <Image className="w-3.5 h-3.5" /> Imagen táctica
-              </label>
-              <input
-                value={bloque.imagenUrl}
-                onChange={(e) => updateBloque(activeBloque, { imagenUrl: e.target.value })}
-                placeholder="https://... (imagen o captura táctica)"
-                className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-rfpaf-blue outline-none"
-              />
-              {bloque.imagenUrl
-                ? <img src={bloque.imagenUrl} alt="Táctica" className="mt-3 w-full rounded-xl border border-gray-100 object-contain max-h-48" />
-                : <div className="mt-3"><EmptyPreview text="Imagen táctica del bloque" /></div>
-              }
-            </div>
-          </div>
-        </div>
-      </section>
+      </div>
     </div>
   )
 }
