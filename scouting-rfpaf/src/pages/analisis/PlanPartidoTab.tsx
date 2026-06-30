@@ -77,33 +77,47 @@ export default function PlanPartidoTab({ analisis }: Props) {
           Características del Rival
         </p>
 
-        {/* All groups flow inline: red label pill + option pills */}
+        {/* All groups flow inline: label pill (same style) + option pills */}
         <div className="flex flex-wrap gap-2 items-center">
-          {RIVAL_OPTS.map(({ key, label, opts }) => (
-            <div key={key} className="flex flex-wrap gap-1.5 items-center">
-              {/* Category label — always red */}
-              <span className="px-3 py-1.5 rounded-lg text-xs font-bold bg-rfpaf-red text-white select-none">
-                {label.toUpperCase()}
-              </span>
-              {/* Option pills */}
-              {opts.map((opt) => {
-                const active = analisis.caracteristicasRival[key].includes(opt)
-                return (
-                  <button
-                    key={opt}
-                    onClick={() => toggleChar(key, opt)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${
-                      active
-                        ? 'bg-rfpaf-blue border-rfpaf-blue text-white shadow-sm'
-                        : 'border-gray-300 text-gray-600 hover:border-gray-400 hover:bg-gray-50'
-                    }`}
-                  >
-                    {opt}
-                  </button>
-                )
-              })}
-            </div>
-          ))}
+          {RIVAL_OPTS.map(({ key, label, opts }) => {
+            const allSelected = opts.every((o) => analisis.caracteristicasRival[key].includes(o))
+            const toggleAll = () => {
+              const next = allSelected ? [] : [...opts]
+              updateAnalisis(analisis.id, { caracteristicasRival: { ...analisis.caracteristicasRival, [key]: next } })
+            }
+            return (
+              <div key={key} className="flex flex-wrap gap-1.5 items-center">
+                {/* Category label — same pill style, toggles all options */}
+                <button
+                  onClick={toggleAll}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${
+                    allSelected
+                      ? 'bg-rfpaf-blue border-rfpaf-blue text-white shadow-sm'
+                      : 'border-gray-300 text-gray-600 hover:border-gray-400 hover:bg-gray-50'
+                  }`}
+                >
+                  {label.toUpperCase()}
+                </button>
+                {/* Option pills */}
+                {opts.map((opt) => {
+                  const active = analisis.caracteristicasRival[key].includes(opt)
+                  return (
+                    <button
+                      key={opt}
+                      onClick={() => toggleChar(key, opt)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${
+                        active
+                          ? 'bg-rfpaf-blue border-rfpaf-blue text-white shadow-sm'
+                          : 'border-gray-300 text-gray-600 hover:border-gray-400 hover:bg-gray-50'
+                      }`}
+                    >
+                      {opt}
+                    </button>
+                  )
+                })}
+              </div>
+            )
+          })}
         </div>
       </section>
 
