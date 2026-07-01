@@ -1,8 +1,9 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { v4 as uuidv4 } from 'uuid'
-import { Play, Clock, Trash2, PlayCircle, BarChart2, List, Users, Download, FileDown, EyeOff, Eye } from 'lucide-react'
+import { Play, Clock, Trash2, PlayCircle, BarChart2, List, Users, Download, FileDown, EyeOff, Eye, PenLine } from 'lucide-react'
 import { useStore } from '../../store/useStore'
 import type { AnalisisPartido, EventoAnalisis, TipoEventoAnalisis } from '../../types'
+import PizarraTacticaTab from './PizarraTacticaTab'
 
 interface Props { analisis: AnalisisPartido }
 
@@ -191,7 +192,7 @@ export default function EventosTab({ analisis }: Props) {
   const [modalPosition, setModalPosition] = useState<{ x: number; y: number } | null>(null)
 
   // History
-  const [historialTab, setHistorialTab] = useState<'lista' | 'campo' | 'graficas'>('lista')
+  const [historialTab, setHistorialTab] = useState<'lista' | 'campo' | 'graficas' | 'pizarra'>('lista')
   const [filterTipo, setFilterTipo] = useState<string>('TODOS')
   const [filterJugadora, setFilterJugadora] = useState<string>('TODOS')
   const [convocatoriaId, setConvocatoriaId] = useState<string>('')
@@ -550,6 +551,7 @@ export default function EventosTab({ analisis }: Props) {
               { id: 'lista' as const,    label: 'Lista',    icon: <List className="w-3.5 h-3.5" /> },
               { id: 'campo' as const,    label: 'Campo',    icon: <span className="text-sm leading-none">⚽</span> },
               { id: 'graficas' as const, label: 'Gráficas', icon: <BarChart2 className="w-3.5 h-3.5" /> },
+              { id: 'pizarra' as const,  label: 'Pizarra',  icon: <PenLine className="w-3.5 h-3.5" /> },
             ]).map(tab => (
               <button
                 key={tab.id}
@@ -677,6 +679,13 @@ export default function EventosTab({ analisis }: Props) {
                   )}
                 </div>
               </div>
+            </div>
+          )}
+
+          {/* ── PIZARRA ── */}
+          {historialTab === 'pizarra' && (
+            <div className="min-h-[600px]">
+              <PizarraTacticaTab analisis={analisis} />
             </div>
           )}
 
