@@ -506,26 +506,26 @@ export default function EventosTab({ analisis }: Props) {
                 <Play className="w-4 h-4" />
               </button>
             </div>
-            <div className="flex gap-2 items-center">
+            <div className="flex flex-wrap gap-2 items-center">
               <button
                 onClick={() => localFileInputRef.current?.click()}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-bold rounded-lg transition-colors"
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-bold rounded-lg transition-colors shrink-0"
               >
                 <Upload className="w-3.5 h-3.5" />
                 Cargar vídeo local
               </button>
               {localVideoUrl && (
-                <button
-                  onClick={closeLocalVideo}
-                  className="flex items-center gap-1 px-2.5 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 text-xs font-bold rounded-lg border border-red-200 transition-colors"
-                >
-                  ✕ Cerrar vídeo local
-                </button>
-              )}
-              {localVideoUrl && (
-                <span className="flex items-center gap-1 text-xs text-green-700 font-semibold">
-                  <Video className="w-3.5 h-3.5" /> Vídeo local cargado
-                </span>
+                <>
+                  <span className="flex items-center gap-1 text-xs text-green-700 font-semibold">
+                    <Video className="w-3.5 h-3.5" /> Cargado
+                  </span>
+                  <button
+                    onClick={closeLocalVideo}
+                    className="flex items-center gap-1 px-2.5 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 text-xs font-bold rounded-lg border border-red-200 transition-colors"
+                  >
+                    ✕ Cerrar
+                  </button>
+                </>
               )}
             </div>
             <input ref={localFileInputRef} type="file" accept="video/*" onChange={handleLocalVideoUpload} className="sr-only" />
@@ -737,32 +737,38 @@ export default function EventosTab({ analisis }: Props) {
               }}
             />
             {/* Clip config bar */}
-            <div className="flex items-center gap-3 px-4 py-2 bg-gray-900/90 flex-wrap">
-              <Scissors className="w-3.5 h-3.5 text-gray-400 shrink-0" />
-              <span className="text-[11px] text-gray-400 font-semibold whitespace-nowrap">Corte:</span>
-              <label className="flex items-center gap-1 text-[11px] text-gray-300">
-                Antes
-                <input
-                  type="number" min={0} max={60} step={1} value={clipPre}
-                  onChange={e => setClipPre(Math.max(0, Math.min(60, +e.target.value || 0)))}
-                  className="w-10 text-center bg-gray-800 text-white rounded px-1 py-0.5 text-xs border border-gray-600 outline-none"
-                />s
-              </label>
-              <label className="flex items-center gap-1 text-[11px] text-gray-300">
-                Después
-                <input
-                  type="number" min={0} max={60} step={1} value={clipPost}
-                  onChange={e => setClipPost(Math.max(0, Math.min(60, +e.target.value || 0)))}
-                  className="w-10 text-center bg-gray-800 text-white rounded px-1 py-0.5 text-xs border border-gray-600 outline-none"
-                />s
-              </label>
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2 px-3 py-2.5 bg-gray-900/90">
+              <div className="flex items-center gap-2 flex-wrap">
+                <Scissors className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                <span className="text-[11px] text-gray-400 font-semibold whitespace-nowrap">Corte:</span>
+                <label className="flex items-center gap-1 text-[11px] text-gray-300">
+                  Antes
+                  <input
+                    type="number" min={0} max={60} step={1} value={clipPre}
+                    onChange={e => setClipPre(Math.max(0, Math.min(60, +e.target.value || 0)))}
+                    className="w-10 text-center bg-gray-800 text-white rounded px-1 py-0.5 text-xs border border-gray-600 outline-none"
+                  />s
+                </label>
+                <label className="flex items-center gap-1 text-[11px] text-gray-300">
+                  Después
+                  <input
+                    type="number" min={0} max={60} step={1} value={clipPost}
+                    onChange={e => setClipPost(Math.max(0, Math.min(60, +e.target.value || 0)))}
+                    className="w-10 text-center bg-gray-800 text-white rounded px-1 py-0.5 text-xs border border-gray-600 outline-none"
+                  />s
+                </label>
+              </div>
               <button
                 onClick={downloadAllClips}
                 disabled={downloadAllActive || filteredEvents.length === 0}
-                className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-700 disabled:opacity-40 text-white text-xs font-bold transition-colors whitespace-nowrap"
+                className="sm:ml-auto flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-purple-600 hover:bg-purple-700 disabled:opacity-40 text-white text-xs font-bold transition-colors w-full sm:w-auto"
               >
-                <Download className="w-3.5 h-3.5" />
-                {downloadAllActive ? `Generando… ${Math.round(downloadAllProgress * 100)}%` : `Descargar ${filteredEvents.length} cortes`}
+                <Download className="w-3.5 h-3.5 shrink-0" />
+                <span className="truncate">
+                  {downloadAllActive
+                    ? `Generando… ${Math.round(downloadAllProgress * 100)}%`
+                    : `Descargar ${filteredEvents.length} corte${filteredEvents.length !== 1 ? 's' : ''}`}
+                </span>
               </button>
             </div>
             {/* Progress bar */}
@@ -942,7 +948,7 @@ export default function EventosTab({ analisis }: Props) {
 
           {/* ── PIZARRA / ANÁLISIS LAB ── */}
           {historialTab === 'pizarra' && (
-            <div className="min-h-[700px] h-[700px]">
+            <div className="h-[calc(100svh-200px)] min-h-[480px] lg:h-[700px]">
               <PintadoAcciones embedded initialYtUrl={analisis.videoPartidoUrl} />
             </div>
           )}

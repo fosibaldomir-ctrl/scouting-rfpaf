@@ -1284,36 +1284,36 @@ export default function PintadoAcciones({ embedded = false, initialYtUrl }: Pint
       {/* Content */}
       <div className="p-2 sm:p-6 space-y-2 sm:space-y-5 flex-1 flex flex-col overflow-hidden min-h-0">
         {/* Top bar */}
-        <div className="flex items-center gap-2 sm:gap-3 bg-white rounded-xl shadow-sm p-2.5 sm:p-4 flex-shrink-0 flex-wrap">
-          <span className="text-gray-600 text-sm font-semibold whitespace-nowrap">Fondo:</span>
+        <div className="flex flex-wrap items-center gap-2 bg-white rounded-xl shadow-sm p-2 sm:p-3 flex-shrink-0">
+          <span className="text-gray-600 text-xs sm:text-sm font-semibold whitespace-nowrap">Fondo:</span>
           <button
             onClick={() => videoInputRef.current?.click()}
-            className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-bold rounded-lg whitespace-nowrap transition-colors flex items-center gap-2"
+            className="px-3 py-1.5 sm:px-4 sm:py-2 bg-green-600 hover:bg-green-700 text-white text-xs sm:text-sm font-bold rounded-lg whitespace-nowrap transition-colors flex items-center gap-1.5"
           >
-            <Play className="w-4 h-4" />
-            Cargar vídeo
+            <Play className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+            <span className="hidden xs:inline">Cargar </span>Vídeo
           </button>
           <input ref={videoInputRef} type="file" accept="video/*" onChange={handleVideoUpload} className="sr-only" />
           <input
             type="text"
-            placeholder="Pega URL de YouTube"
+            placeholder="URL de YouTube…"
             value={ytUrl}
             onChange={(e: ChangeEvent<HTMLInputElement>) => setYtUrl(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && handleLoadVideo()}
-            className="flex-1 min-w-[200px] border border-gray-300 rounded-lg px-3 py-2 text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-rfpaf-blue"
+            className="flex-1 min-w-0 w-full sm:w-auto border border-gray-300 rounded-lg px-2.5 py-1.5 sm:px-3 sm:py-2 text-xs sm:text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-rfpaf-blue order-last sm:order-none"
           />
           <button
             onClick={handleLoadVideo}
-            className="px-4 py-2 bg-rfpaf-blue hover:bg-blue-700 text-white text-sm font-bold rounded-lg whitespace-nowrap transition-colors flex items-center gap-2"
+            className="px-3 py-1.5 sm:px-4 sm:py-2 bg-rfpaf-blue hover:bg-blue-700 text-white text-xs sm:text-sm font-bold rounded-lg whitespace-nowrap transition-colors flex items-center gap-1.5"
           >
-            <Play className="w-4 h-4" />
-            YouTube
+            <Play className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+            <span className="hidden xs:inline">Cargar </span>YT
           </button>
           <button
             onClick={() => fileInputRef.current?.click()}
-            className="px-4 py-2 bg-rfpaf-red hover:bg-red-700 text-white text-sm font-bold rounded-lg whitespace-nowrap transition-colors flex items-center gap-2"
+            className="px-3 py-1.5 sm:px-4 sm:py-2 bg-rfpaf-red hover:bg-red-700 text-white text-xs sm:text-sm font-bold rounded-lg whitespace-nowrap transition-colors flex items-center gap-1.5"
           >
-            <Upload className="w-4 h-4" />
+            <Upload className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             Imagen
           </button>
           <input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageUpload} className="sr-only" />
