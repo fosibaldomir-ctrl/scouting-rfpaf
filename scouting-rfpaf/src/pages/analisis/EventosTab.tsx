@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { v4 as uuidv4 } from 'uuid'
-import { Play, Clock, Trash2, PlayCircle, BarChart2, List, Users, Download, FileDown, EyeOff, Eye, PenLine } from 'lucide-react'
+import { Play, Clock, Trash2, PlayCircle, BarChart2, List, Users, Download, FileDown, EyeOff, Eye, PenLine, Upload, Scissors, Video } from 'lucide-react'
 import { useStore } from '../../store/useStore'
 import type { AnalisisPartido, EventoAnalisis, TipoEventoAnalisis } from '../../types'
 import PintadoAcciones from '../PintadoAcciones'
@@ -197,6 +197,17 @@ export default function EventosTab({ analisis }: Props) {
   const [filterJugadora, setFilterJugadora] = useState<string>('TODOS')
   const [convocatoriaId, setConvocatoriaId] = useState<string>('')
 
+  // Local video state
+  const [localVideoUrl, setLocalVideoUrl] = useState<string | null>(null)
+  const [downloadingClip, setDownloadingClip] = useState<string | null>(null)
+  const [downloadAllActive, setDownloadAllActive] = useState(false)
+  const [downloadAllProgress, setDownloadAllProgress] = useState(0)
+  const [clipPre, setClipPre] = useState(5)
+  const [clipPost, setClipPost] = useState(5)
+  const localVideoRef = useRef<HTMLVideoElement>(null)
+  const localFileInputRef = useRef<HTMLInputElement>(null)
+  const localDurationProbingRef = useRef(false)
+
   const playerRef = useRef<ReturnType<typeof window.YT.Player> | null>(null)
   const playerDivId = useRef(`yt-${uuidv4()}`)
   const tickRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -228,10 +239,10 @@ export default function EventosTab({ analisis }: Props) {
     return () => { if (playerRef.current) { try { playerRef.current.destroy() } catch { /* ignore */ } ; playerRef.current = null } }
   }, [ytReady, videoId])
 
-  /* Poll current video time */
+  /* Poll current video time — works for both YouTube and local video */
   useEffect(() => {
     tickRef.current = setInterval(() => {
-      const t = playerRef.current?.getCurrentTime?.() ?? 0
+      const t = localVideoRef.current?.currentTime ?? playerRef.current?.getCurrentTime?.() ?? 0
       setCurrentVideoTime(Math.floor(t))
     }, 500)
     return () => { if (tickRef.current) clearInterval(tickRef.current) }
@@ -250,13 +261,16 @@ export default function EventosTab({ analisis }: Props) {
     updateAnalisis(analisis.id, { tiempos: next })
   }, [analisis.id, tiempos, updateAnalisis])
 
+  const getVideoSecs = useCallback(() =>
+    localVideoRef.current?.currentTime ?? playerRef.current?.getCurrentTime?.() ?? 0
+  , [])
+
   const handleSetTime = (key: keyof typeof tiempos) => {
-    const secs = playerRef.current?.getCurrentTime() ?? 0
-    syncTiempos(key, secondsToMmss(secs))
+    syncTiempos(key, secondsToMmss(getVideoSecs()))
   }
 
   const handleEventButton = (tipo: TipoEventoAnalisis) => {
-    const secs = playerRef.current?.getCurrentTime() ?? 0
+    const secs = getVideoSecs()
     setModalDesc(''); setModalJugadora(''); setModalPosition(null)
     setModal({ tipo, videoSeconds: secs, minuto: calcMatchMinute(secs, tiempos) })
   }
@@ -281,7 +295,12 @@ export default function EventosTab({ analisis }: Props) {
   }
 
   const jumpToEvent = (ev: EventoAnalisis) => {
-    playerRef.current?.seekTo(ev.videoSeconds, true)
+    if (localVideoRef.current) {
+      localVideoRef.current.currentTime = ev.videoSeconds
+      localVideoRef.current.pause()
+    } else {
+      playerRef.current?.seekTo(ev.videoSeconds, true)
+    }
   }
 
   /* ── Convocatoria players ── */
@@ -303,6 +322,126 @@ export default function EventosTab({ analisis }: Props) {
 
   const eventsWithPos = filteredEvents.filter(e => e.posicion)
   const eventsWithoutPos = filteredEvents.filter(e => !e.posicion)
+
+  /* ── Local video upload ── */
+  const handleLocalVideoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const url = URL.createObjectURL(file)
+    setLocalVideoUrl(url)
+    e.target.value = ''
+  }
+
+  const closeLocalVideo = () => {
+    if (localVideoRef.current) localVideoRef.current.pause()
+    setLocalVideoUrl(null)
+  }
+
+  /* ── Clip download ── */
+  const pickMime = () => {
+    const cands = ['video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm']
+    for (const c of cands) if (MediaRecorder.isTypeSupported(c)) return c
+    return 'video/webm'
+  }
+
+  const seekLocalTo = (t: number) => new Promise<void>(resolve => {
+    const v = localVideoRef.current!
+    const h = () => { v.removeEventListener('seeked', h); resolve() }
+    v.addEventListener('seeked', h)
+    v.currentTime = t
+  })
+
+  const recordClip = async (startT: number, endT: number): Promise<Blob> => {
+    const v = localVideoRef.current!
+    const W = v.videoWidth || 1280, H = v.videoHeight || 720
+    const canvas = document.createElement('canvas')
+    canvas.width = W; canvas.height = H
+    const ctx = canvas.getContext('2d')!
+    const stream = canvas.captureStream(30)
+    const rec = new MediaRecorder(stream, { mimeType: pickMime() })
+    const chunks: BlobPart[] = []
+    rec.ondataavailable = ev => { if (ev.data?.size) chunks.push(ev.data) }
+    const stopped = new Promise<void>(r => { rec.onstop = () => r() })
+    v.muted = true
+    await seekLocalTo(Math.max(0, startT))
+    rec.start(100)
+    await new Promise<void>(resolve => {
+      v.play().catch(() => {})
+      const loop = () => {
+        ctx.drawImage(v, 0, 0, W, H)
+        if (v.currentTime >= endT || v.ended) { resolve(); return }
+        requestAnimationFrame(loop)
+      }
+      requestAnimationFrame(loop)
+    })
+    v.pause()
+    rec.stop()
+    await stopped
+    return new Blob(chunks, { type: 'video/webm' })
+  }
+
+  const downloadClip = async (ev: EventoAnalisis) => {
+    if (!localVideoRef.current) return
+    setDownloadingClip(ev.id)
+    try {
+      const blob = await recordClip(ev.videoSeconds - clipPre, ev.videoSeconds + clipPost)
+      const a = document.createElement('a')
+      a.download = `${ev.minutoPartido}min-${EVENT_CONFIG[ev.tipo].label}${ev.jugadora ? '-' + ev.jugadora.replace(/\s+/g, '_') : ''}.webm`
+      a.href = URL.createObjectURL(blob)
+      a.click()
+      setTimeout(() => URL.revokeObjectURL(a.href), 5000)
+    } finally {
+      setDownloadingClip(null)
+    }
+  }
+
+  const downloadAllClips = async () => {
+    if (!localVideoRef.current || filteredEvents.length === 0) return
+    setDownloadAllActive(true)
+    setDownloadAllProgress(0)
+    const v = localVideoRef.current
+    const sorted = [...filteredEvents].sort((a, b) => a.videoSeconds - b.videoSeconds)
+    const W = v.videoWidth || 1280, H = v.videoHeight || 720
+    const canvas = document.createElement('canvas')
+    canvas.width = W; canvas.height = H
+    const ctx = canvas.getContext('2d')!
+    const stream = canvas.captureStream(30)
+    const rec = new MediaRecorder(stream, { mimeType: pickMime() })
+    const chunks: BlobPart[] = []
+    rec.ondataavailable = e => { if (e.data?.size) chunks.push(e.data) }
+    const stopped = new Promise<void>(r => { rec.onstop = () => r() })
+    v.muted = true
+    rec.start(100)
+    try {
+      for (let i = 0; i < sorted.length; i++) {
+        const ev = sorted[i]
+        await seekLocalTo(Math.max(0, ev.videoSeconds - clipPre))
+        await new Promise<void>(resolve => {
+          v.play().catch(() => {})
+          const endT = ev.videoSeconds + clipPost
+          const loop = () => {
+            ctx.drawImage(v, 0, 0, W, H)
+            if (v.currentTime >= endT || v.ended) { resolve(); return }
+            requestAnimationFrame(loop)
+          }
+          requestAnimationFrame(loop)
+        })
+        v.pause()
+        setDownloadAllProgress((i + 1) / sorted.length)
+      }
+    } finally {
+      rec.stop()
+      await stopped
+      const blob = new Blob(chunks, { type: 'video/webm' })
+      const a = document.createElement('a')
+      a.download = `todos-los-cortes-${analisis.nombre.replace(/\s+/g, '_')}.webm`
+      a.href = URL.createObjectURL(blob)
+      a.click()
+      setTimeout(() => URL.revokeObjectURL(a.href), 5000)
+      setDownloadAllActive(false)
+      setDownloadAllProgress(0)
+    }
+  }
 
   /* ── Export ── */
   const exportCSV = () => {
@@ -352,19 +491,44 @@ export default function EventosTab({ analisis }: Props) {
         <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
           <div className="px-4 py-2.5 bg-rfpaf-blue flex items-center gap-2">
             <PlayCircle className="w-4 h-4 text-white" />
-            <h2 className="text-white font-bold text-sm">URL del Partido</h2>
+            <h2 className="text-white font-bold text-sm">Vídeo del Partido</h2>
           </div>
-          <div className="p-3 flex gap-2">
-            <input
-              value={videoUrl}
-              onChange={(e) => setVideoUrl(e.target.value)}
-              onBlur={syncVideoUrl}
-              placeholder="https://www.youtube.com/watch?v=..."
-              className="flex-1 border border-gray-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-rfpaf-blue outline-none"
-            />
-            <button onClick={syncVideoUrl} className="bg-rfpaf-blue text-white px-3 py-2 rounded-xl hover:bg-rfpaf-blue-light transition-colors">
-              <Play className="w-4 h-4" />
-            </button>
+          <div className="p-3 space-y-2">
+            <div className="flex gap-2">
+              <input
+                value={videoUrl}
+                onChange={(e) => setVideoUrl(e.target.value)}
+                onBlur={syncVideoUrl}
+                placeholder="https://www.youtube.com/watch?v=..."
+                className="flex-1 border border-gray-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-rfpaf-blue outline-none"
+              />
+              <button onClick={syncVideoUrl} className="bg-rfpaf-blue text-white px-3 py-2 rounded-xl hover:bg-rfpaf-blue-light transition-colors" title="Cargar YouTube">
+                <Play className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="flex gap-2 items-center">
+              <button
+                onClick={() => localFileInputRef.current?.click()}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-bold rounded-lg transition-colors"
+              >
+                <Upload className="w-3.5 h-3.5" />
+                Cargar vídeo local
+              </button>
+              {localVideoUrl && (
+                <button
+                  onClick={closeLocalVideo}
+                  className="flex items-center gap-1 px-2.5 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 text-xs font-bold rounded-lg border border-red-200 transition-colors"
+                >
+                  ✕ Cerrar vídeo local
+                </button>
+              )}
+              {localVideoUrl && (
+                <span className="flex items-center gap-1 text-xs text-green-700 font-semibold">
+                  <Video className="w-3.5 h-3.5" /> Vídeo local cargado
+                </span>
+              )}
+            </div>
+            <input ref={localFileInputRef} type="file" accept="video/*" onChange={handleLocalVideoUpload} className="sr-only" />
           </div>
         </div>
 
@@ -394,7 +558,7 @@ export default function EventosTab({ analisis }: Props) {
                     />
                     <button
                       onClick={() => handleSetTime(key)}
-                      disabled={!videoId}
+                      disabled={!videoId && !localVideoUrl}
                       className="bg-rfpaf-blue text-white px-2.5 py-1.5 rounded-lg text-xs font-bold hover:bg-rfpaf-blue-light disabled:opacity-40"
                     >
                       SET
@@ -523,6 +687,18 @@ export default function EventosTab({ analisis }: Props) {
                   <button onClick={() => jumpToEvent(ev)} className="text-rfpaf-blue hover:text-rfpaf-blue-light shrink-0 transition-colors">
                     <Play className="w-3 h-3" />
                   </button>
+                  {localVideoUrl && (
+                    <button
+                      onClick={() => downloadClip(ev)}
+                      disabled={downloadingClip === ev.id || downloadAllActive}
+                      title="Descargar corte de este evento"
+                      className="text-gray-300 hover:text-purple-600 shrink-0 disabled:opacity-40 transition-colors"
+                    >
+                      {downloadingClip === ev.id
+                        ? <span className="text-[9px] animate-pulse">…</span>
+                        : <Scissors className="w-3 h-3" />}
+                    </button>
+                  )}
                   <button onClick={() => deleteEvento(ev.id)} className="text-gray-300 hover:text-red-500 shrink-0 transition-colors">
                     <Trash2 className="w-3 h-3" />
                   </button>
@@ -536,8 +712,70 @@ export default function EventosTab({ analisis }: Props) {
       {/* ─────────────── RIGHT PANEL ─────────────── */}
       <div className="flex-1 min-w-0 space-y-4">
 
+        {/* Local video player */}
+        {localVideoUrl && (
+          <div className="bg-black rounded-2xl overflow-hidden shadow-lg relative">
+            <video
+              ref={localVideoRef}
+              src={localVideoUrl}
+              className="w-full aspect-video"
+              controls
+              playsInline
+              onLoadedMetadata={() => {
+                const v = localVideoRef.current
+                if (!v) return
+                if (v.duration === Infinity || isNaN(v.duration)) {
+                  localDurationProbingRef.current = true
+                  v.currentTime = 1e101
+                }
+              }}
+              onSeeked={() => {
+                if (localDurationProbingRef.current && localVideoRef.current) {
+                  localDurationProbingRef.current = false
+                  localVideoRef.current.currentTime = 0
+                }
+              }}
+            />
+            {/* Clip config bar */}
+            <div className="flex items-center gap-3 px-4 py-2 bg-gray-900/90 flex-wrap">
+              <Scissors className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+              <span className="text-[11px] text-gray-400 font-semibold whitespace-nowrap">Corte:</span>
+              <label className="flex items-center gap-1 text-[11px] text-gray-300">
+                Antes
+                <input
+                  type="number" min={0} max={60} step={1} value={clipPre}
+                  onChange={e => setClipPre(Math.max(0, Math.min(60, +e.target.value || 0)))}
+                  className="w-10 text-center bg-gray-800 text-white rounded px-1 py-0.5 text-xs border border-gray-600 outline-none"
+                />s
+              </label>
+              <label className="flex items-center gap-1 text-[11px] text-gray-300">
+                Después
+                <input
+                  type="number" min={0} max={60} step={1} value={clipPost}
+                  onChange={e => setClipPost(Math.max(0, Math.min(60, +e.target.value || 0)))}
+                  className="w-10 text-center bg-gray-800 text-white rounded px-1 py-0.5 text-xs border border-gray-600 outline-none"
+                />s
+              </label>
+              <button
+                onClick={downloadAllClips}
+                disabled={downloadAllActive || filteredEvents.length === 0}
+                className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-700 disabled:opacity-40 text-white text-xs font-bold transition-colors whitespace-nowrap"
+              >
+                <Download className="w-3.5 h-3.5" />
+                {downloadAllActive ? `Generando… ${Math.round(downloadAllProgress * 100)}%` : `Descargar ${filteredEvents.length} cortes`}
+              </button>
+            </div>
+            {/* Progress bar */}
+            {downloadAllActive && (
+              <div className="w-full h-1.5 bg-gray-700">
+                <div className="h-full bg-purple-500 transition-all" style={{ width: `${Math.round(downloadAllProgress * 100)}%` }} />
+              </div>
+            )}
+          </div>
+        )}
+
         {/* YouTube player */}
-        {videoId && (
+        {videoId && !localVideoUrl && (
           <div className="bg-black rounded-2xl overflow-hidden shadow-lg">
             <div id={playerDivId.current} className="w-full aspect-video" />
           </div>
@@ -592,6 +830,16 @@ export default function EventosTab({ analisis }: Props) {
                           <button onClick={() => jumpToEvent(ev)} className="text-rfpaf-blue hover:text-rfpaf-blue-light shrink-0">
                             <Play className="w-3.5 h-3.5" />
                           </button>
+                          {localVideoUrl && (
+                            <button
+                              onClick={() => downloadClip(ev)}
+                              disabled={downloadingClip === ev.id || downloadAllActive}
+                              title="Descargar corte"
+                              className="text-gray-300 hover:text-purple-600 disabled:opacity-40 shrink-0 transition-colors"
+                            >
+                              {downloadingClip === ev.id ? <span className="text-[9px] animate-pulse">…</span> : <Scissors className="w-3.5 h-3.5" />}
+                            </button>
+                          )}
                         </div>
                       )
                     })}
@@ -614,6 +862,16 @@ export default function EventosTab({ analisis }: Props) {
                               <button onClick={() => jumpToEvent(ev)} className="text-rfpaf-blue hover:text-rfpaf-blue-light shrink-0">
                                 <Play className="w-3.5 h-3.5" />
                               </button>
+                              {localVideoUrl && (
+                                <button
+                                  onClick={() => downloadClip(ev)}
+                                  disabled={downloadingClip === ev.id || downloadAllActive}
+                                  title="Descargar corte"
+                                  className="text-gray-300 hover:text-purple-600 disabled:opacity-40 shrink-0 transition-colors"
+                                >
+                                  {downloadingClip === ev.id ? <span className="text-[9px] animate-pulse">…</span> : <Scissors className="w-3.5 h-3.5" />}
+                                </button>
+                              )}
                             </div>
                           )
                         })}
