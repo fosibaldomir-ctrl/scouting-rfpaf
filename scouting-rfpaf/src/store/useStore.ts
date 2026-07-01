@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { FichaJugadora, Observador, Club, CategoriaItem, PartidoCalendario, Convocatoria, JugadoraConvocada, Sesion, VideoSesion, Evento, AnalisisPartido } from '../types'
+import type { FichaJugadora, Observador, Club, CategoriaItem, PartidoCalendario, Convocatoria, JugadoraConvocada, Sesion, VideoSesion, Evento, AnalisisPartido, RegistroRPE, RegistroLesion } from '../types'
 import type { EjercicioDB } from '../lib/supabase'
 import { OBSERVADORES, CATEGORIAS, CLUBES } from '../data/masterData'
 import { supabaseService } from '../services/supabaseService'
@@ -69,6 +69,13 @@ interface AppState {
   setEventos: (eventos: Evento[]) => void
   addEvento: (evento: Evento) => void
   deleteEvento: (id: string) => void
+  registrosRPE: RegistroRPE[]
+  lesiones: RegistroLesion[]
+  addRegistroRPE: (r: RegistroRPE) => void
+  deleteRegistroRPE: (id: string) => void
+  addLesion: (l: RegistroLesion) => void
+  updateLesion: (id: string, patch: Partial<RegistroLesion>) => void
+  deleteLesion: (id: string) => void
   analisis: AnalisisPartido[]
   activeAnalisisId: string | null
   pizarraLibre: AnalisisPartido
@@ -115,6 +122,8 @@ export const useStore = create<AppState>()(
       ejercicios: [],
       videosSesiones: [],
       eventos: [],
+      registrosRPE: [],
+      lesiones: [],
       analisis: [],
       activeAnalisisId: null,
       pizarraLibre: DEFAULT_PIZARRA_LIBRE,
@@ -139,6 +148,11 @@ export const useStore = create<AppState>()(
       setEventos: (eventos) => set({ eventos }),
       addEvento: (evento) => set((s) => ({ eventos: [...s.eventos, evento] })),
       deleteEvento: (id) => set((s) => ({ eventos: s.eventos.filter((e) => e.id !== id) })),
+      addRegistroRPE: (r) => set((s) => ({ registrosRPE: [r, ...s.registrosRPE] })),
+      deleteRegistroRPE: (id) => set((s) => ({ registrosRPE: s.registrosRPE.filter((r) => r.id !== id) })),
+      addLesion: (l) => set((s) => ({ lesiones: [l, ...s.lesiones] })),
+      updateLesion: (id, patch) => set((s) => ({ lesiones: s.lesiones.map((l) => l.id === id ? { ...l, ...patch } : l) })),
+      deleteLesion: (id) => set((s) => ({ lesiones: s.lesiones.filter((l) => l.id !== id) })),
       addAnalisis: (a) => {
         set((s) => ({ analisis: [a, ...s.analisis] }))
         saveAnalisis(a).catch(console.error)
@@ -298,6 +312,8 @@ export const useStore = create<AppState>()(
         ejercicios: state.ejercicios,
         videosSesiones: state.videosSesiones,
         eventos: state.eventos,
+        registrosRPE: state.registrosRPE,
+        lesiones: state.lesiones,
         analisis: state.analisis,
         activeAnalisisId: state.activeAnalisisId,
         pizarraLibre: state.pizarraLibre,

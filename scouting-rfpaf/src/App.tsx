@@ -23,6 +23,7 @@ import PizarraPage from './pages/analisis/PizarraPage'
 import PlanPage from './pages/analisis/PlanPage'
 import ABPPage from './pages/analisis/ABPPage'
 import EventosPage from './pages/analisis/EventosPage'
+import Wellness from './pages/Wellness'
 
 function AppContent() {
   useSupabaseSync()
@@ -59,6 +60,7 @@ function AppContent() {
           <Route path="/analisis-global/plan" element={<PlanPage />} />
           <Route path="/analisis-global/abp" element={<ABPPage />} />
           <Route path="/analisis-global/eventos" element={<EventosPage />} />
+          <Route path="/wellness" element={<Wellness />} />
         </Route>
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>

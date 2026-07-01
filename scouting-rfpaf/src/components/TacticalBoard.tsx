@@ -472,7 +472,7 @@ function drawPlacedPlayer(ctx: CanvasRenderingContext2D, p: PlacedPlayer, draggi
 
 function drawFullPitch(ctx: CanvasRenderingContext2D, w: number, h: number) {
   const lc='rgba(255,255,255,0.88)'; ctx.strokeStyle=lc; ctx.fillStyle=lc; ctx.lineWidth=1.8
-  const px=22,py=20,fw=w-2*px,fh=h-2*py
+  const px=10,py=10,fw=w-2*px,fh=h-2*py
   ctx.strokeRect(px,py,fw,fh)
   ctx.beginPath(); ctx.moveTo(px,h/2); ctx.lineTo(w-px,h/2); ctx.stroke()
   ctx.beginPath(); ctx.arc(w/2,h/2,fh*0.115,0,Math.PI*2); ctx.stroke()
@@ -494,7 +494,7 @@ function drawFullPitch(ctx: CanvasRenderingContext2D, w: number, h: number) {
 
 function drawHalfPitch(ctx: CanvasRenderingContext2D, w: number, h: number) {
   const lc='rgba(255,255,255,0.88)'; ctx.strokeStyle=lc; ctx.fillStyle=lc; ctx.lineWidth=1.8
-  const px=22,py=15,fw=w-2*px,fh=h-2*py
+  const px=10,py=10,fw=w-2*px,fh=h-2*py
   ctx.strokeRect(px,py,fw,fh)
   ctx.beginPath(); ctx.arc(w/2,py,fh*0.14,0,Math.PI); ctx.stroke()
   ctx.beginPath(); ctx.arc(w/2,py,2.5,0,Math.PI*2); ctx.fill()
@@ -994,7 +994,7 @@ export default function TacticalBoard({ onCapture, onRegisterCapture }: Tactical
       </div>
 
       {/* Layout: 3 columnas en desktop, 1 panel visible en móvil según tab */}
-      <div className="flex gap-3 items-start">
+      <div className="flex gap-3 items-stretch">
 
         {/* LEFT */}
         <div className={`flex w-36 flex-shrink-0 flex-col gap-3 ${mobilePanel === 'left' ? '' : 'hidden'} lg:!flex`}>
@@ -1126,12 +1126,12 @@ export default function TacticalBoard({ onCapture, onRegisterCapture }: Tactical
 
         {/* CENTER — canvas único, siempre en DOM */}
         <div className={`flex flex-1 flex-col gap-3 min-w-0 ${mobilePanel === 'canvas' ? '' : 'hidden'} lg:!flex`} style={{touchAction:'none'}}>
-          <canvas ref={canvasRef} width={900} height={600}
+          <canvas ref={canvasRef} width={1000} height={750}
             onMouseDown={onMouseDown} onMouseMove={onMouseMove} onMouseUp={onMouseUp} onMouseLeave={onMouseUp}
             onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}
             onContextMenu={e=>{e.preventDefault();onMouseDown(e)}}
             className={`w-full h-auto rounded-lg border border-white/10 select-none ${seqPlaying ? 'cursor-default' : cursorClass}`}
-            style={{touchAction:'none', aspectRatio:'3/2'}}/>
+            style={{touchAction:'none', aspectRatio:'4/3'}}/>
 
           {/* ── Panel de animación ─────────────────────────── */}
           {seqMode && (

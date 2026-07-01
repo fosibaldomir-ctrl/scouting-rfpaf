@@ -381,3 +381,52 @@ export interface AnalisisPartido {
   eventosPartido: EventoAnalisis[]
   creadoEn: string
 }
+
+/* ═══════════════════════════════════════
+   WELLNESS TYPES
+═══════════════════════════════════════ */
+
+export type ZonaCuerpo =
+  | 'cabeza' | 'cuello'
+  | 'hombro_izq' | 'hombro_der'
+  | 'pecho' | 'abdomen'
+  | 'espalda_alta' | 'espalda_baja'
+  | 'brazo_izq' | 'brazo_der'
+  | 'antebrazo_izq' | 'antebrazo_der'
+  | 'mano_izq' | 'mano_der'
+  | 'cadera_izq' | 'cadera_der'
+  | 'gluteo_izq' | 'gluteo_der'
+  | 'muslo_izq' | 'muslo_der'
+  | 'rodilla_izq' | 'rodilla_der'
+  | 'gemelo_izq' | 'gemelo_der'
+  | 'tobillo_izq' | 'tobillo_der'
+  | 'pie_izq' | 'pie_der'
+  | 'talon_izq' | 'talon_der'
+
+export type GravedadLesion = 'leve' | 'moderada' | 'grave'
+export type EstadoLesion = 'activa' | 'recuperandose' | 'alta'
+
+export interface RegistroLesion {
+  id: string
+  jugadoraNombre: string
+  fechaInicio: string
+  fechaAlta?: string
+  zonas: ZonaCuerpo[]
+  tipo: string
+  gravedad: GravedadLesion
+  estado: EstadoLesion
+  descripcion: string
+  diasBaja: number
+  creadoEn: string
+}
+
+export interface RegistroRPE {
+  id: string
+  jugadoraNombre: string
+  fecha: string
+  rpe: number
+  minutos: number
+  cargaTotal: number
+  notas: string
+  creadoEn: string
+}

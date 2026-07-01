@@ -511,7 +511,7 @@ function drawPlacedPlayer(ctx: CanvasRenderingContext2D, p: PlacedPlayer, draggi
 
 function drawFullPitch(ctx: CanvasRenderingContext2D, w: number, h: number) {
   const lc='rgba(255,255,255,0.88)'; ctx.strokeStyle=lc; ctx.fillStyle=lc; ctx.lineWidth=1.8
-  const px=22,py=20,fw=w-2*px,fh=h-2*py
+  const px=10,py=10,fw=w-2*px,fh=h-2*py
   ctx.strokeRect(px,py,fw,fh)
   ctx.beginPath(); ctx.moveTo(px,h/2); ctx.lineTo(w-px,h/2); ctx.stroke()
   ctx.beginPath(); ctx.arc(w/2,h/2,fh*0.115,0,Math.PI*2); ctx.stroke()
@@ -533,7 +533,7 @@ function drawFullPitch(ctx: CanvasRenderingContext2D, w: number, h: number) {
 
 function drawHalfPitch(ctx: CanvasRenderingContext2D, w: number, h: number) {
   const lc='rgba(255,255,255,0.88)'; ctx.strokeStyle=lc; ctx.fillStyle=lc; ctx.lineWidth=1.8
-  const px=22,py=15,fw=w-2*px,fh=h-2*py
+  const px=10,py=10,fw=w-2*px,fh=h-2*py
   ctx.strokeRect(px,py,fw,fh)
   ctx.beginPath(); ctx.arc(w/2,py,fh*0.14,0,Math.PI); ctx.stroke()
   ctx.beginPath(); ctx.arc(w/2,py,2.5,0,Math.PI*2); ctx.fill()
@@ -842,7 +842,7 @@ function TacticalBoard({ onCapture, onRegisterCapture }: TacticalBoardProps) {
       <h3 className="text-white font-semibold text-sm tracking-wide">Pizarra Táctica</h3>
 
       {/* Desktop layout: 3 columns */}
-      <div className="hidden lg:flex gap-3 items-start">
+      <div className="hidden lg:flex gap-3 items-stretch">
         {/* LEFT PANEL: Players + Accessories */}
         <div className="w-36 flex-shrink-0 flex flex-col gap-3">
           {/* Player panel */}
@@ -974,12 +974,12 @@ function TacticalBoard({ onCapture, onRegisterCapture }: TacticalBoardProps) {
 
         {/* CENTER PANEL: Canvas + Text input */}
         <div className="flex-1 flex flex-col gap-3 min-w-0">
-          <canvas ref={canvasRef} width={900} height={600}
+          <canvas ref={canvasRef} width={1000} height={750}
             onMouseDown={onMouseDown} onMouseMove={onMouseMove} onMouseUp={onMouseUp} onMouseLeave={onMouseUp}
             onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}
             onContextMenu={e=>{e.preventDefault();onMouseDown(e)}}
             className={`w-full h-auto rounded-lg border border-white/10 select-none ${cursorClass}`}
-            style={{touchAction:'none', aspectRatio:'3/2'}}/>
+            style={{touchAction:'none', aspectRatio:'4/3'}}/>
 
           {tool==='text'&&!selPlayer&&(
             <div className="flex gap-2">
@@ -1161,12 +1161,12 @@ function TacticalBoard({ onCapture, onRegisterCapture }: TacticalBoardProps) {
 
         {mobilePanel === 'canvas' && (
           <div className="flex flex-col gap-2">
-            <canvas ref={canvasRef} width={900} height={600}
+            <canvas ref={canvasRef} width={1000} height={750}
               onMouseDown={onMouseDown} onMouseMove={onMouseMove} onMouseUp={onMouseUp} onMouseLeave={onMouseUp}
               onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}
               onContextMenu={e=>{e.preventDefault();onMouseDown(e)}}
               className={`w-full h-auto rounded-lg border border-white/10 select-none ${cursorClass}`}
-              style={{touchAction:'none', aspectRatio:'3/2'}}/>
+              style={{touchAction:'none', aspectRatio:'4/3'}}/>
             {tool==='text'&&!selPlayer&&(
               <div className="flex gap-2">
                 <input type="text" value={textInput} onChange={e=>setTextInput(e.target.value)}
