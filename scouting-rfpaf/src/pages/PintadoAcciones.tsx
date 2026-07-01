@@ -147,9 +147,14 @@ function curvedTip(e: Pt, c: Pt, size = 14): string {
   return arrowTip(pseudo, e, size)
 }
 
-export default function PintadoAcciones() {
+interface PintadoAccionesProps {
+  embedded?: boolean
+  initialYtUrl?: string
+}
+
+export default function PintadoAcciones({ embedded = false, initialYtUrl }: PintadoAccionesProps = {}) {
   const { currentObservador } = useStore()
-  if (!currentObservador) return <Navigate to="/login" replace />
+  if (!embedded && !currentObservador) return <Navigate to="/login" replace />
 
   const [strokeColor, setStrokeColor] = useState('#dc2626')
   const [fillColor, setFillColor] = useState('#dc2626')
@@ -182,7 +187,7 @@ export default function PintadoAcciones() {
   const editInputRef = useRef<HTMLInputElement>(null)
 
   const [bgImage, setBgImage] = useState<string | null>(null)
-  const [ytUrl, setYtUrl] = useState('')
+  const [ytUrl, setYtUrl] = useState(initialYtUrl ?? '')
   const [ytEmbedUrl, setYtEmbedUrl] = useState<string | null>(null)
   const [videoUrl, setVideoUrl] = useState<string | null>(null)
   const [videoFrameCanvas, setVideoFrameCanvas] = useState<string | null>(null)
@@ -524,6 +529,12 @@ export default function PintadoAcciones() {
       setVideoUrl(null)
     }
   }
+
+  // Auto-cargar vídeo cuando se usa en modo embedded con URL inicial
+  useEffect(() => {
+    if (initialYtUrl) handleLoadVideo()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // Cargar la API de YouTube IFrame una sola vez
   useEffect(() => {
@@ -1246,8 +1257,8 @@ export default function PintadoAcciones() {
 
   return (
     <div className="h-full flex flex-col overflow-hidden">
-      {/* Header Corporate Style */}
-      <div className="bg-slate-100 text-gray-800 px-4 sm:px-6 py-2 sm:py-3 flex-shrink-0 border-b-4 border-rfpaf-blue">
+      {/* Header Corporate Style — oculto en modo embedded */}
+      {!embedded && <div className="bg-slate-100 text-gray-800 px-4 sm:px-6 py-2 sm:py-3 flex-shrink-0 border-b-4 border-rfpaf-blue">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2 sm:gap-4">
             <div className="w-9 h-9 sm:w-12 sm:h-12 bg-rfpaf-blue rounded-lg flex items-center justify-center flex-shrink-0">
@@ -1268,7 +1279,7 @@ export default function PintadoAcciones() {
             </div>
           </div>
         </div>
-      </div>
+      </div>}
 
       {/* Content */}
       <div className="p-2 sm:p-6 space-y-2 sm:space-y-5 flex-1 flex flex-col overflow-hidden min-h-0">

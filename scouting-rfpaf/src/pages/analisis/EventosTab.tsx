@@ -3,7 +3,7 @@ import { v4 as uuidv4 } from 'uuid'
 import { Play, Clock, Trash2, PlayCircle, BarChart2, List, Users, Download, FileDown, EyeOff, Eye, PenLine } from 'lucide-react'
 import { useStore } from '../../store/useStore'
 import type { AnalisisPartido, EventoAnalisis, TipoEventoAnalisis } from '../../types'
-import PizarraTacticaTab from './PizarraTacticaTab'
+import PintadoAcciones from '../PintadoAcciones'
 
 interface Props { analisis: AnalisisPartido }
 
@@ -682,10 +682,10 @@ export default function EventosTab({ analisis }: Props) {
             </div>
           )}
 
-          {/* ── PIZARRA ── */}
+          {/* ── PIZARRA / ANÁLISIS LAB ── */}
           {historialTab === 'pizarra' && (
-            <div className="min-h-[600px]">
-              <PizarraTacticaTab analisis={analisis} />
+            <div className="min-h-[700px] h-[700px]">
+              <PintadoAcciones embedded initialYtUrl={analisis.videoPartidoUrl} />
             </div>
           )}
 
