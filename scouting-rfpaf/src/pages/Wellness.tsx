@@ -160,37 +160,116 @@ function BodySVG({
 }) {
   const [hovered, setHovered] = useState<string | null>(null)
   const zones = view === 'front' ? FRONT_ZONES : BACK_ZONES
+  const u = `bd-${view}`
 
   return (
-    <div className="relative select-none">
+    <div className="relative select-none flex flex-col items-center">
+      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">
+        {view === 'front' ? 'Frontal' : 'Posterior'}
+      </p>
       {hovered && (
-        <div className="absolute top-1 left-1/2 -translate-x-1/2 bg-gray-900 text-white text-xs px-2.5 py-1 rounded-lg z-10 whitespace-nowrap pointer-events-none shadow-lg">
-          {zones.find(z => z.id === hovered)?.label}
+        <div className="absolute top-7 left-1/2 -translate-x-1/2 bg-gray-900 text-white text-[10px] px-2.5 py-1 rounded-md z-20 whitespace-nowrap pointer-events-none shadow-xl border border-gray-700">
+          {zones.find(z => z.id === hovered)?.label ?? hovered}
         </div>
       )}
-      <svg viewBox="0 0 200 440" className="w-full max-w-[210px] mx-auto" style={{ height: 'auto' }}>
-        {/* Silhouette */}
-        <g fill="#cbd5e1" opacity="0.45">
-          <ellipse cx="100" cy="36" rx="28" ry="33" />
-          <rect x="90" y="66" width="20" height="18" rx="6" />
-          <rect x="63" y="82" width="74" height="130" rx="12" />
-          <ellipse cx="45" cy="88" rx="22" ry="16" />
-          <ellipse cx="155" cy="88" rx="22" ry="16" />
-          <rect x="28" y="80" width="32" height="84" rx="13" />
-          <rect x="140" y="80" width="32" height="84" rx="13" />
-          <rect x="22" y="162" width="26" height="72" rx="11" />
-          <rect x="152" y="162" width="26" height="72" rx="11" />
-          <ellipse cx="29" cy="248" rx="14" ry="18" />
-          <ellipse cx="171" cy="248" rx="14" ry="18" />
-          <rect x="63" y="210" width="34" height="94" rx="12" />
-          <rect x="103" y="210" width="34" height="94" rx="12" />
-          <rect x="65" y="302" width="29" height="100" rx="11" />
-          <rect x="106" y="302" width="29" height="100" rx="11" />
-          <ellipse cx="73" cy="415" rx="26" ry="15" />
-          <ellipse cx="127" cy="415" rx="26" ry="15" />
+
+      <svg viewBox="0 0 200 440" className="w-full" style={{ height: 'auto' }}>
+        <defs>
+          {/* Skin highlight — center */}
+          <radialGradient id={`${u}-sk`} cx="45%" cy="18%" r="72%">
+            <stop offset="0%"   stopColor="#fce5cc"/>
+            <stop offset="55%"  stopColor="#e8b888"/>
+            <stop offset="100%" stopColor="#c47848"/>
+          </radialGradient>
+          {/* Skin shadow — limbs/sides */}
+          <radialGradient id={`${u}-sd`} cx="50%" cy="30%" r="65%">
+            <stop offset="0%"   stopColor="#f0d0a8"/>
+            <stop offset="60%"  stopColor="#d4956a"/>
+            <stop offset="100%" stopColor="#a06030"/>
+          </radialGradient>
+          {/* Injury glow */}
+          <filter id={`${u}-gl`} x="-50%" y="-50%" width="200%" height="200%">
+            <feGaussianBlur in="SourceGraphic" stdDeviation="3.5" result="b"/>
+            <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+          </filter>
+        </defs>
+
+        {/* ─── ANATOMICAL SILHOUETTE ─── */}
+        <g stroke="#a86838" strokeWidth="0.55" strokeLinejoin="round">
+          {/* Head */}
+          <ellipse cx="100" cy="35" rx="27" ry="31" fill={`url(#${u}-sk)`}/>
+          {/* Ears */}
+          <ellipse cx="72"  cy="35" rx="5" ry="9" fill={`url(#${u}-sd)`}/>
+          <ellipse cx="128" cy="35" rx="5" ry="9" fill={`url(#${u}-sd)`}/>
+          {/* Neck */}
+          <path d="M89,64 C87,68 86,74 86,83 L114,83 C114,74 113,68 111,64 Z" fill={`url(#${u}-sk)`}/>
+          {/* Left shoulder/trapezius */}
+          <path d="M86,79 C74,79 56,85 40,95 C28,103 22,118 28,130 C32,138 44,140 54,136 L56,112 L70,100 L78,87 Z" fill={`url(#${u}-sd)`}/>
+          {/* Right shoulder/trapezius */}
+          <path d="M114,79 C126,79 144,85 160,95 C172,103 178,118 172,130 C168,138 156,140 146,136 L144,112 L130,100 L122,87 Z" fill={`url(#${u}-sd)`}/>
+          {/* Torso */}
+          <path d="M70,92 L130,92 C134,106 136,128 135,152 C134,172 130,192 128,206 L72,206 C70,192 66,172 65,152 C64,128 66,106 70,92 Z" fill={`url(#${u}-sk)`}/>
+          {/* Pelvis */}
+          <path d="M68,204 C62,216 60,230 64,240 L136,240 C140,230 138,216 132,204 Z" fill={`url(#${u}-sk)`}/>
+          {/* Left upper arm */}
+          <path d="M20,102 C14,112 10,130 10,152 C10,170 14,186 20,200 L48,196 C46,178 44,154 46,128 L54,114 Z" fill={`url(#${u}-sd)`}/>
+          {/* Right upper arm */}
+          <path d="M180,102 C186,112 190,130 190,152 C190,170 186,186 180,200 L152,196 C154,178 156,154 154,128 L146,114 Z" fill={`url(#${u}-sd)`}/>
+          {/* Left forearm */}
+          <path d="M18,198 C12,212 8,234 8,256 C8,272 12,286 16,298 L42,294 C40,276 40,250 42,224 L48,196 Z" fill={`url(#${u}-sd)`}/>
+          {/* Right forearm */}
+          <path d="M182,198 C188,212 192,234 192,256 C192,272 188,286 184,298 L158,294 C160,276 160,250 158,224 L152,196 Z" fill={`url(#${u}-sd)`}/>
+          {/* Left hand */}
+          <path d="M14,296 C10,308 8,322 10,340 L42,338 C42,318 42,302 42,292 Z" fill={`url(#${u}-sk)`}/>
+          {/* Right hand */}
+          <path d="M186,296 C190,308 192,322 190,340 L158,338 C158,318 158,302 158,292 Z" fill={`url(#${u}-sk)`}/>
+          {/* Left thigh */}
+          <path d="M64,238 C60,256 58,280 60,306 C62,324 66,338 70,350 L96,350 L96,238 Z" fill={`url(#${u}-sk)`}/>
+          {/* Right thigh */}
+          <path d="M104,238 L104,350 L130,350 C134,338 138,324 140,306 C142,280 140,256 136,238 Z" fill={`url(#${u}-sk)`}/>
+          {/* Left knee */}
+          <path d="M68,348 C62,356 60,366 62,376 L96,376 L96,348 Z" fill={`url(#${u}-sd)`}/>
+          {/* Right knee */}
+          <path d="M104,348 L104,376 L138,376 C140,366 138,356 132,348 Z" fill={`url(#${u}-sd)`}/>
+          {/* Left calf */}
+          <path d="M62,374 C58,390 56,412 58,428 L94,428 L96,374 Z" fill={`url(#${u}-sk)`}/>
+          {/* Right calf */}
+          <path d="M104,374 L106,428 L142,428 C144,412 142,390 138,374 Z" fill={`url(#${u}-sk)`}/>
+          {/* Left foot */}
+          <path d="M54,426 C48,432 44,438 48,440 L94,440 L92,426 Z" fill={`url(#${u}-sd)`}/>
+          {/* Right foot */}
+          <path d="M108,426 L110,440 L152,440 C156,438 152,432 146,426 Z" fill={`url(#${u}-sd)`}/>
         </g>
 
-        {/* Clickable zones */}
+        {/* ─── MUSCLE DEFINITION LINES ─── */}
+        {view === 'front' ? (
+          <g fill="none" stroke="#7a4820" strokeWidth="0.65" opacity="0.18">
+            <line x1="100" y1="90" x2="100" y2="152"/>
+            <path d="M70,94 C82,92 96,98 100,114 C96,132 78,138 68,128 C62,120 64,104 70,94 Z"/>
+            <path d="M130,94 C118,92 104,98 100,114 C104,132 122,138 132,128 C138,120 136,104 130,94 Z"/>
+            <line x1="83"  y1="154" x2="117" y2="154"/>
+            <line x1="82"  y1="170" x2="118" y2="170"/>
+            <line x1="82"  y1="186" x2="118" y2="186"/>
+            <line x1="100" y1="152" x2="100" y2="206"/>
+            <circle cx="100" cy="178" r="2.5" fill="#7a4820" stroke="none" opacity="0.25"/>
+            <line x1="100" y1="242" x2="100" y2="348"/>
+            <ellipse cx="30"  cy="152" rx="8" ry="16" opacity="0.5"/>
+            <ellipse cx="170" cy="152" rx="8" ry="16" opacity="0.5"/>
+          </g>
+        ) : (
+          <g fill="none" stroke="#7a4820" strokeWidth="0.65" opacity="0.18">
+            <line x1="100" y1="90" x2="100" y2="208"/>
+            <ellipse cx="80"  cy="120" rx="13" ry="20"/>
+            <ellipse cx="120" cy="120" rx="13" ry="20"/>
+            <line x1="100" y1="240" x2="100" y2="258"/>
+            <path d="M64,240 C68,252 78,258 100,258 C122,258 132,252 136,240"/>
+            <line x1="100" y1="260" x2="100" y2="348"/>
+            <ellipse cx="78"  cy="386" rx="9" ry="19" opacity="0.5"/>
+            <ellipse cx="122" cy="386" rx="9" ry="19" opacity="0.5"/>
+          </g>
+        )}
+
+        {/* ─── CLICKABLE ZONE OVERLAYS ─── */}
         {zones.map(zone => {
           const style = getZoneStyle(zone.id, lesiones)
           const isHov = hovered === zone.id
@@ -202,10 +281,11 @@ function BodySVG({
               cy={zone.cy}
               rx={zone.rx}
               ry={zone.ry}
-              fill={isHov && !hasInjury ? '#94a3b8' : style.fill}
-              fillOpacity={isHov && !hasInjury ? 0.3 : hasInjury ? style.opacity : 0}
-              stroke={hasInjury ? style.stroke : isHov ? '#64748b' : 'none'}
-              strokeWidth={hasInjury ? 1.5 : isHov ? 1 : 0}
+              fill={hasInjury ? style.fill : isHov ? '#60a5fa' : 'transparent'}
+              fillOpacity={hasInjury ? style.opacity : isHov ? 0.4 : 0}
+              stroke={hasInjury ? style.stroke : isHov ? '#2563eb' : 'none'}
+              strokeWidth={hasInjury ? 2 : isHov ? 1.5 : 0}
+              filter={hasInjury ? `url(#${u}-gl)` : undefined}
               className="cursor-pointer transition-all duration-100"
               onMouseEnter={() => setHovered(zone.id)}
               onMouseLeave={() => setHovered(null)}
@@ -497,7 +577,6 @@ const ESTADO_LABEL: Record<EstadoLesion, string> = {
 
 function LesionesTab() {
   const { fichas, lesiones, addLesion, updateLesion, deleteLesion } = useStore()
-  const [view, setView] = useState<'front' | 'back'>('front')
   const [modal, setModal] = useState<{ open: boolean; zoneId: ZonaCuerpo | null; zoneLabel: string }>({
     open: false, zoneId: null, zoneLabel: '',
   })
@@ -547,28 +626,14 @@ function LesionesTab() {
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-      {/* Body map */}
-      <div className="lg:col-span-1">
+      {/* Body maps — front + back simultaneously */}
+      <div className="lg:col-span-2">
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
-          <div className="flex items-center gap-2 mb-4">
-            <h3 className="font-semibold text-gray-800 text-sm flex-1">Mapa Corporal</h3>
-            <div className="flex rounded-lg overflow-hidden border border-gray-200">
-              {(['front', 'back'] as const).map(v => (
-                <button
-                  key={v}
-                  onClick={() => setView(v)}
-                  className={`px-3 py-1.5 text-xs font-medium transition-all ${
-                    view === v ? 'bg-rfpaf-blue text-white' : 'bg-white text-gray-600 hover:bg-gray-50'
-                  }`}
-                >
-                  {v === 'front' ? 'Frente' : 'Atrás'}
-                </button>
-              ))}
-            </div>
+          <h3 className="font-semibold text-gray-800 text-sm mb-4">Mapa Corporal</h3>
+          <div className="grid grid-cols-2 gap-3">
+            <BodySVG view="front" lesiones={lesiones} onZoneClick={handleZoneClick}/>
+            <BodySVG view="back"  lesiones={lesiones} onZoneClick={handleZoneClick}/>
           </div>
-
-          <BodySVG view={view} lesiones={lesiones} onZoneClick={handleZoneClick} />
-
           <div className="mt-4 space-y-2">
             <p className="text-xs text-gray-400 text-center">Toca una zona para registrar lesión</p>
             <div className="flex flex-wrap gap-x-3 gap-y-1 justify-center">
@@ -589,7 +654,7 @@ function LesionesTab() {
       </div>
 
       {/* Injury list */}
-      <div className="lg:col-span-2 space-y-4">
+      <div className="lg:col-span-1 space-y-4">
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
           <h3 className="font-semibold text-gray-800 text-sm mb-3 flex items-center gap-2">
             <AlertTriangle className="w-4 h-4 text-orange-500" />
