@@ -417,6 +417,7 @@ export interface RegistroLesion {
   estado: EstadoLesion
   descripcion: string
   diasBaja: number
+  partidosPerdidos?: number
   creadoEn: string
 }
 
