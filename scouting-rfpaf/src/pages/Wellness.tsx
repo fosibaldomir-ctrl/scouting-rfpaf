@@ -852,8 +852,22 @@ function RiskCard({ label, score }: { label: string; score: number }) {
   )
 }
 
+// Normaliza nombres para emparejar (minúsculas, sin acentos, espacios colapsados).
+function normName(s: string): string {
+  return s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, ' ').trim()
+}
+
+function findFichaByName(fichas: ReturnType<typeof useStore.getState>['fichas'], name: string) {
+  const target = normName(name)
+  return fichas.find(f => {
+    const a = normName(`${f.nombre} ${f.primerApellido}`)
+    const b = normName(`${f.nombre} ${f.primerApellido} ${f.segundoApellido ?? ''}`)
+    return a === target || b === target || (!!target && (a.includes(target) || target.includes(a)))
+  })
+}
+
 function HistorialTab() {
-  const { fichas, lesiones } = useStore()
+  const { fichas, lesiones, clubes } = useStore()
   const players = useMemo(
     () => Array.from(new Set(lesiones.map(l => l.jugadoraNombre))).sort(),
     [lesiones],
@@ -941,7 +955,7 @@ function HistorialTab() {
   }
 
   const risk = stats ? riskLabel(stats.riskTotal) : null
-  const ficha = fichas.find(f => `${f.nombre} ${f.primerApellido}` === selected)
+  const ficha = findFichaByName(fichas, selected)
 
   // Cronología: rango de años
   const years = stats ? stats.data.map(l => new Date(l.fechaInicio).getFullYear()) : []
@@ -963,7 +977,9 @@ function HistorialTab() {
         <div className="flex-1 min-w-0">
           <h2 className="text-lg font-bold text-gray-900 truncate">{selected}</h2>
           <p className="text-xs text-gray-500">
-            {ficha ? `${ficha.demarcacion ?? ''}${ficha.club ? ' · ' + ficha.club : ''}`.trim() : 'Análisis individual · Ficha médica'}
+            {ficha
+              ? `${ficha.demarcacion ?? ''}${ficha.club ? ' · ' + (clubes.find(c => c.id === ficha.club)?.nombre ?? ficha.club) : ''}`.trim()
+              : 'Análisis individual · Ficha médica'}
           </p>
         </div>
         <select
