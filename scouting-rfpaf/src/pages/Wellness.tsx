@@ -3,26 +3,12 @@ import { v4 as uuidv4 } from 'uuid'
 import { Heart, Activity, AlertTriangle, Trash2, X, Check, ChevronRight } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import type { ZonaCuerpo, GravedadLesion, EstadoLesion, RegistroLesion, RegistroRPE } from '../types'
-import frontMuscles from '../assets/anatomy/front-muscles.png'
-import backMuscles from '../assets/anatomy/back-muscles.png'
+import { bodyFront, bodyBack, type BodyPart, type BodySlug } from '../data/bodyPaths'
 
-// ─── Anatomical images (Gray's Anatomy 1918 · dominio público) ─────────────────
-// Cada imagen tiene su propio espacio de coordenadas (viewBox = píxeles reales).
-const FRONT_VB = { w: 791, h: 1342, img: frontMuscles }
-const BACK_VB  = { w: 978, h: 1297, img: backMuscles }
-
-// ─── Zone definitions ─────────────────────────────────────────────────────────
-// Nota anatómica: en vista FRONTAL el lado derecho del sujeto queda a la
-// izquierda del observador (imagen espejo); en vista POSTERIOR coincide.
-
-interface BodyZone {
-  id: ZonaCuerpo
-  label: string
-  cx: number
-  cy: number
-  rx: number
-  ry: number
-}
+// ─── Mapa muscular vectorial ────────────────────────────────────────────────────
+// Cuerpo muscular (react-native-body-highlighter, MIT). Cada músculo se rellena de
+// color cuando la zona correspondiente tiene una lesión activa.
+// viewBox frontal "0 0 724 1448" · posterior "724 0 724 1448".
 
 const ZONE_LABELS: Record<ZonaCuerpo, string> = {
   cabeza: 'Cabeza',
@@ -57,61 +43,68 @@ const ZONE_LABELS: Record<ZonaCuerpo, string> = {
   talon_der: 'Talón Der.',
 }
 
-// Coordenadas en píxeles sobre la imagen frontal (791 × 1342). Centro x ≈ 395.
-const FRONT_ZONES: BodyZone[] = [
-  { id: 'cabeza',        label: 'Cabeza',            cx: 395, cy: 100,  rx: 90, ry: 88 },
-  { id: 'cuello',        label: 'Cuello/Cervical',   cx: 395, cy: 185,  rx: 40, ry: 30 },
-  { id: 'pecho',         label: 'Pecho',             cx: 395, cy: 315,  rx: 120, ry: 92 },
-  { id: 'abdomen',       label: 'Abdomen',           cx: 395, cy: 545,  rx: 98, ry: 108 },
-  { id: 'hombro_der',    label: 'Hombro Der.',       cx: 200, cy: 258,  rx: 55, ry: 52 },
-  { id: 'hombro_izq',    label: 'Hombro Izq.',       cx: 591, cy: 258,  rx: 55, ry: 52 },
-  { id: 'brazo_der',     label: 'Brazo Der.',        cx: 170, cy: 392,  rx: 55, ry: 95 },
-  { id: 'brazo_izq',     label: 'Brazo Izq.',        cx: 621, cy: 392,  rx: 55, ry: 95 },
-  { id: 'antebrazo_der', label: 'Antebrazo Der.',    cx: 108, cy: 582,  rx: 54, ry: 108 },
-  { id: 'antebrazo_izq', label: 'Antebrazo Izq.',    cx: 683, cy: 582,  rx: 54, ry: 108 },
-  { id: 'mano_der',      label: 'Mano Der.',         cx: 62,  cy: 752,  rx: 60, ry: 74 },
-  { id: 'mano_izq',      label: 'Mano Izq.',         cx: 729, cy: 752,  rx: 60, ry: 74 },
-  { id: 'cadera_der',    label: 'Cadera/Ingle Der.', cx: 322, cy: 658,  rx: 55, ry: 50 },
-  { id: 'cadera_izq',    label: 'Cadera/Ingle Izq.', cx: 469, cy: 658,  rx: 55, ry: 50 },
-  { id: 'muslo_der',     label: 'Muslo Der.',        cx: 322, cy: 822,  rx: 68, ry: 140 },
-  { id: 'muslo_izq',     label: 'Muslo Izq.',        cx: 469, cy: 822,  rx: 68, ry: 140 },
-  { id: 'rodilla_der',   label: 'Rodilla Der.',      cx: 332, cy: 985,  rx: 52, ry: 46 },
-  { id: 'rodilla_izq',   label: 'Rodilla Izq.',      cx: 459, cy: 985,  rx: 52, ry: 46 },
-  { id: 'gemelo_der',    label: 'Gemelo/Pierna Der.',cx: 336, cy: 1130, rx: 52, ry: 110 },
-  { id: 'gemelo_izq',    label: 'Gemelo/Pierna Izq.',cx: 455, cy: 1130, rx: 52, ry: 110 },
-  { id: 'tobillo_der',   label: 'Tobillo Der.',      cx: 344, cy: 1262, rx: 36, ry: 30 },
-  { id: 'tobillo_izq',   label: 'Tobillo Izq.',      cx: 447, cy: 1262, rx: 36, ry: 30 },
-  { id: 'pie_der',       label: 'Pie Der.',          cx: 344, cy: 1315, rx: 52, ry: 32 },
-  { id: 'pie_izq',       label: 'Pie Izq.',          cx: 447, cy: 1315, rx: 52, ry: 32 },
-]
+// Lado anatómico del sujeto a partir del lado dibujado en el SVG.
+// FRONTAL: el lado dibujado a la izquierda es el lado DERECHO del sujeto (espejo).
+// POSTERIOR: coincide (izquierda dibujada = izquierda del sujeto).
+function subjSuffix(view: 'front' | 'back', side?: 'left' | 'right'): '' | '_izq' | '_der' {
+  if (!side) return ''
+  if (view === 'front') return side === 'left' ? '_der' : '_izq'
+  return side === 'left' ? '_izq' : '_der'
+}
 
-// Coordenadas en píxeles sobre la imagen posterior (978 × 1297). Centro x ≈ 489.
-const BACK_ZONES: BodyZone[] = [
-  { id: 'cabeza',        label: 'Nuca/Occipital',      cx: 489, cy: 55,   rx: 50, ry: 55 },
-  { id: 'cuello',        label: 'Cervical',            cx: 489, cy: 130,  rx: 32, ry: 30 },
-  { id: 'espalda_alta',  label: 'Espalda Alta',        cx: 489, cy: 235,  rx: 130, ry: 95 },
-  { id: 'espalda_baja',  label: 'Lumbar/Espalda Baja', cx: 489, cy: 400,  rx: 85, ry: 82 },
-  { id: 'hombro_izq',    label: 'Hombro Izq.',         cx: 300, cy: 190,  rx: 52, ry: 50 },
-  { id: 'hombro_der',    label: 'Hombro Der.',         cx: 678, cy: 190,  rx: 52, ry: 50 },
-  { id: 'brazo_izq',     label: 'Brazo Izq.',          cx: 258, cy: 278,  rx: 48, ry: 58 },
-  { id: 'brazo_der',     label: 'Brazo Der.',          cx: 698, cy: 300,  rx: 46, ry: 58 },
-  { id: 'antebrazo_izq', label: 'Antebrazo Izq.',      cx: 150, cy: 400,  rx: 68, ry: 95 },
-  { id: 'antebrazo_der', label: 'Antebrazo Der.',      cx: 768, cy: 445,  rx: 72, ry: 100 },
-  { id: 'mano_izq',      label: 'Mano Izq.',           cx: 88,  cy: 545,  rx: 62, ry: 58 },
-  { id: 'mano_der',      label: 'Mano Der.',           cx: 838, cy: 588,  rx: 60, ry: 58 },
-  { id: 'gluteo_izq',    label: 'Glúteo Izq.',         cx: 438, cy: 518,  rx: 55, ry: 52 },
-  { id: 'gluteo_der',    label: 'Glúteo Der.',         cx: 540, cy: 518,  rx: 55, ry: 52 },
-  { id: 'muslo_izq',     label: 'Isquios/Muslo Izq.',  cx: 418, cy: 680,  rx: 65, ry: 110 },
-  { id: 'muslo_der',     label: 'Isquios/Muslo Der.',  cx: 560, cy: 680,  rx: 65, ry: 110 },
-  { id: 'rodilla_izq',   label: 'Rodilla Izq. (post.)',cx: 420, cy: 825,  rx: 50, ry: 45 },
-  { id: 'rodilla_der',   label: 'Rodilla Der. (post.)',cx: 558, cy: 825,  rx: 50, ry: 45 },
-  { id: 'gemelo_izq',    label: 'Gemelo Izq.',         cx: 420, cy: 950,  rx: 52, ry: 95 },
-  { id: 'gemelo_der',    label: 'Gemelo Der.',         cx: 558, cy: 950,  rx: 52, ry: 95 },
-  { id: 'tobillo_izq',   label: 'Tobillo Izq.',        cx: 425, cy: 1085, rx: 34, ry: 35 },
-  { id: 'tobillo_der',   label: 'Tobillo Der.',        cx: 553, cy: 1085, rx: 34, ry: 35 },
-  { id: 'talon_izq',     label: 'Talón Izq.',          cx: 432, cy: 1205, rx: 52, ry: 58 },
-  { id: 'talon_der',     label: 'Talón Der.',          cx: 546, cy: 1205, rx: 52, ry: 58 },
-]
+// Mapea (vista, músculo, lado) → zona de lesión. Devuelve null si no aplica.
+function zoneFor(view: 'front' | 'back', slug: BodySlug | undefined, side?: 'left' | 'right'): ZonaCuerpo | null {
+  if (!slug) return null
+  const s = subjSuffix(view, side)
+  const paired = (base: string): ZonaCuerpo => (s ? `${base}${s}` : `${base}_izq`) as ZonaCuerpo
+  if (view === 'front') {
+    switch (slug) {
+      case 'head': case 'hair':   return 'cabeza'
+      case 'neck': case 'trapezius': return 'cuello'
+      case 'chest':               return 'pecho'
+      case 'abs': case 'obliques':return 'abdomen'
+      case 'deltoids':            return paired('hombro')
+      case 'biceps': case 'triceps': return paired('brazo')
+      case 'forearm':             return paired('antebrazo')
+      case 'hands':               return paired('mano')
+      case 'adductors':           return paired('cadera')
+      case 'quadriceps':          return paired('muslo')
+      case 'knees':               return paired('rodilla')
+      case 'tibialis': case 'calves': return paired('gemelo')
+      case 'ankles':              return paired('tobillo')
+      case 'feet':                return paired('pie')
+      default:                    return null
+    }
+  }
+  switch (slug) {
+    case 'head': case 'hair':     return 'cabeza'
+    case 'neck':                  return 'cuello'
+    case 'trapezius': case 'upper-back': return 'espalda_alta'
+    case 'lower-back':            return 'espalda_baja'
+    case 'deltoids':              return paired('hombro')
+    case 'triceps':               return paired('brazo')
+    case 'forearm':               return paired('antebrazo')
+    case 'hands':                 return paired('mano')
+    case 'gluteal':               return paired('gluteo')
+    case 'hamstring': case 'adductors': return paired('muslo')
+    case 'calves':                return paired('gemelo')
+    case 'ankles':                return paired('tobillo')
+    case 'feet':                  return paired('talon')
+    default:                      return null
+  }
+}
+
+// Color sólido del músculo según la peor lesión activa de la zona (null = sin lesión).
+function getZoneFill(zoneId: ZonaCuerpo, lesiones: RegistroLesion[]): string | null {
+  const active = lesiones.filter(l => l.zonas.includes(zoneId) && l.estado !== 'alta')
+  if (!active.length) return null
+  const rank: Record<GravedadLesion, number> = { grave: 3, moderada: 2, leve: 1 }
+  const worst = [...active].sort((a, b) => rank[b.gravedad] - rank[a.gravedad])[0]
+  if (worst.estado === 'recuperandose') return '#22c55e'
+  if (worst.gravedad === 'grave')       return '#ef4444'
+  if (worst.gravedad === 'moderada')    return '#f97316'
+  return '#eab308'
+}
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -144,23 +137,13 @@ function rpeTextClass(rpe: number) {
   return 'text-red-700'
 }
 
-function getZoneStyle(zoneId: ZonaCuerpo, lesiones: RegistroLesion[]) {
-  const active = lesiones.filter(l => l.zonas.includes(zoneId) && l.estado !== 'alta')
-  if (!active.length) return { fill: 'transparent', stroke: 'none', opacity: 0 }
-  const sorted = [...active].sort((a, b) => {
-    const g: Record<GravedadLesion, number> = { grave: 3, moderada: 2, leve: 1 }
-    return g[b.gravedad] - g[a.gravedad]
-  })
-  const worst = sorted[0]
-  if (worst.estado === 'recuperandose') return { fill: '#bbf7d0', stroke: '#16a34a', opacity: 0.8 }
-  if (worst.gravedad === 'grave')    return { fill: '#fecaca', stroke: '#dc2626', opacity: 0.85 }
-  if (worst.gravedad === 'moderada') return { fill: '#fed7aa', stroke: '#ea580c', opacity: 0.85 }
-  return { fill: '#fef08a', stroke: '#ca8a04', opacity: 0.85 }
-}
+// ─── Body muscular vectorial ────────────────────────────────────────────────────
 
-// ─── Body SVG ────────────────────────────────────────────────────────────────
+const BASE_MUSCLE = '#d6dae0'   // gris músculo en reposo
+const BASE_STROKE = '#9aa1ab'   // contorno
+const HOVER_FILL  = '#93c5fd'   // azul claro al pasar el ratón
 
-function BodySVG({
+function MuscleBody({
   view,
   lesiones,
   onZoneClick,
@@ -169,64 +152,48 @@ function BodySVG({
   lesiones: RegistroLesion[]
   onZoneClick: (zoneId: ZonaCuerpo, label: string) => void
 }) {
-  const [hovered, setHovered] = useState<string | null>(null)
-  const zones = view === 'front' ? FRONT_ZONES : BACK_ZONES
-  const vb = view === 'front' ? FRONT_VB : BACK_VB
-  const u = `bd-${view}`
+  const [hoverZone, setHoverZone] = useState<ZonaCuerpo | null>(null)
+  const parts: BodyPart[] = view === 'front' ? bodyFront : bodyBack
+  const viewBox = view === 'front' ? '0 0 724 1448' : '724 0 724 1448'
 
   return (
     <div className="relative select-none flex flex-col items-center">
       <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">
         {view === 'front' ? 'Frontal' : 'Posterior'}
       </p>
-      {hovered && (
-        <div className="absolute top-7 left-1/2 -translate-x-1/2 bg-gray-900 text-white text-[10px] px-2.5 py-1 rounded-md z-20 whitespace-nowrap pointer-events-none shadow-xl border border-gray-700">
-          {zones.find(z => z.id === hovered)?.label ?? hovered}
+      {hoverZone && (
+        <div className="absolute top-6 left-1/2 -translate-x-1/2 bg-gray-900 text-white text-[10px] px-2.5 py-1 rounded-md z-20 whitespace-nowrap pointer-events-none shadow-xl border border-gray-700">
+          {ZONE_LABELS[hoverZone]}
         </div>
       )}
 
-      <svg
-        viewBox={`0 0 ${vb.w} ${vb.h}`}
-        style={{ height: 460, maxHeight: '55vh', width: 'auto', maxWidth: '100%' }}
-      >
-        <defs>
-          {/* Injury glow */}
-          <filter id={`${u}-gl`} x="-50%" y="-50%" width="200%" height="200%">
-            <feGaussianBlur in="SourceGraphic" stdDeviation="7" result="b"/>
-            <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
-          </filter>
-        </defs>
-
-        {/* Imagen anatómica real (dominio público) */}
-        <image href={vb.img} x={0} y={0} width={vb.w} height={vb.h} preserveAspectRatio="xMidYMid meet" />
-
-        {/* ─── CLICKABLE ZONE OVERLAYS ─── */}
-        {zones.map(zone => {
-          const style = getZoneStyle(zone.id, lesiones)
-          const isHov = hovered === zone.id
-          const hasInjury = style.opacity > 0
-          return (
-            <ellipse
-              key={zone.id}
-              cx={zone.cx}
-              cy={zone.cy}
-              rx={zone.rx}
-              ry={zone.ry}
-              fill={hasInjury ? style.fill : isHov ? '#3b82f6' : 'transparent'}
-              fillOpacity={hasInjury ? 0.5 : isHov ? 0.35 : 0}
-              stroke={hasInjury ? style.stroke : isHov ? '#1d4ed8' : 'none'}
-              strokeWidth={hasInjury ? 5 : isHov ? 4 : 0}
-              filter={hasInjury ? `url(#${u}-gl)` : undefined}
-              className="cursor-pointer transition-all duration-100"
-              onMouseEnter={() => setHovered(zone.id)}
-              onMouseLeave={() => setHovered(null)}
-              onTouchStart={() => setHovered(zone.id)}
-              onTouchEnd={() => setHovered(null)}
-              onClick={() => onZoneClick(zone.id, zone.label)}
-            >
-              <title>{zone.label}</title>
-            </ellipse>
-          )
+      <svg viewBox={viewBox} style={{ height: 470, maxHeight: '58vh', width: 'auto', maxWidth: '100%' }}>
+        {parts.map((part, pi) => {
+          const segs: { d: string; side?: 'left' | 'right' }[] = []
+          part.path?.common?.forEach(d => segs.push({ d }))
+          part.path?.left?.forEach(d => segs.push({ d, side: 'left' }))
+          part.path?.right?.forEach(d => segs.push({ d, side: 'right' }))
+          return segs.map((seg, si) => {
+            const zone = zoneFor(view, part.slug, seg.side)
+            const injuryFill = zone ? getZoneFill(zone, lesiones) : null
+            const isHover = zone !== null && zone === hoverZone
+            const fill = injuryFill ?? (isHover ? HOVER_FILL : BASE_MUSCLE)
+            return (
+              <path
+                key={`${pi}-${si}`}
+                d={seg.d}
+                fill={fill}
+                stroke={BASE_STROKE}
+                strokeWidth={0.9}
+                style={{ cursor: zone ? 'pointer' : 'default', transition: 'fill .12s' }}
+                onMouseEnter={() => zone && setHoverZone(zone)}
+                onMouseLeave={() => setHoverZone(null)}
+                onClick={() => zone && onZoneClick(zone, ZONE_LABELS[zone])}
+              >
+                {zone && <title>{ZONE_LABELS[zone]}</title>}
+              </path>
+            )
+          })
         })}
       </svg>
     </div>
@@ -562,8 +529,8 @@ function LesionesTab() {
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
           <h3 className="font-semibold text-gray-800 text-sm mb-4">Mapa Corporal</h3>
           <div className="grid grid-cols-2 gap-3">
-            <BodySVG view="front" lesiones={lesiones} onZoneClick={handleZoneClick}/>
-            <BodySVG view="back"  lesiones={lesiones} onZoneClick={handleZoneClick}/>
+            <MuscleBody view="front" lesiones={lesiones} onZoneClick={handleZoneClick}/>
+            <MuscleBody view="back"  lesiones={lesiones} onZoneClick={handleZoneClick}/>
           </div>
           <div className="mt-4 space-y-2">
             <p className="text-xs text-gray-400 text-center">Toca una zona para registrar lesión</p>
