@@ -59,13 +59,14 @@ const EVENT_TYPES = Object.keys(EVENT_CONFIG) as TipoEventoAnalisis[]
 
 /* ── Football Pitch SVG (portrait) ── */
 function FootballPitch({
-  events, onPositionClick, onEventClick, selectMode = false, pendingPosition,
+  events, onPositionClick, onEventClick, selectMode = false, pendingPosition, heightPx,
 }: {
   events: EventoAnalisis[]
   onPositionClick?: (x: number, y: number) => void
   onEventClick?: (ev: EventoAnalisis) => void
   selectMode?: boolean
   pendingPosition?: { x: number; y: number } | null
+  heightPx?: number
 }) {
   const eventsWithPos = events.filter(e => e.posicion)
 
@@ -80,8 +81,10 @@ function FootballPitch({
   return (
     <svg
       viewBox="0 0 400 580"
-      className={`w-full rounded-xl ${selectMode ? 'cursor-crosshair' : ''}`}
-      style={{ background: '#2d7a3d' }}
+      className={`rounded-xl ${heightPx ? '' : 'w-full'} ${selectMode ? 'cursor-crosshair' : ''}`}
+      style={heightPx
+        ? { background: '#2d7a3d', height: heightPx, width: 'auto', maxWidth: '100%', display: 'block', margin: '0 auto' }
+        : { background: '#2d7a3d' }}
       onClick={handleClick}
     >
       {/* Grass stripes */}
@@ -190,6 +193,7 @@ export default function EventosTab({ analisis }: Props) {
   const [modalDesc, setModalDesc] = useState('')
   const [modalJugadora, setModalJugadora] = useState('')
   const [modalPosition, setModalPosition] = useState<{ x: number; y: number } | null>(null)
+  const [modalEquipo, setModalEquipo] = useState<'propio' | 'rival'>('propio')
 
   // History
   const [historialTab, setHistorialTab] = useState<'lista' | 'campo' | 'graficas' | 'pizarra'>('lista')
@@ -271,7 +275,7 @@ export default function EventosTab({ analisis }: Props) {
 
   const handleEventButton = (tipo: TipoEventoAnalisis) => {
     const secs = getVideoSecs()
-    setModalDesc(''); setModalJugadora(''); setModalPosition(null)
+    setModalDesc(''); setModalJugadora(''); setModalPosition(null); setModalEquipo('propio')
     setModal({ tipo, videoSeconds: secs, minuto: calcMatchMinute(secs, tiempos) })
   }
 
@@ -308,6 +312,10 @@ export default function EventosTab({ analisis }: Props) {
   const convPlayers = selectedConv
     ? selectedConv.jugadoras.map(j => `${j.nombre} ${j.primerApellido}`.trim())
     : []
+
+  /* ── Rival ── */
+  const rivalNombre = analisis.equipoVisitante?.nombre || analisis.rival || 'Rival'
+  const rivalPlayers = Array.from({ length: 11 }, (_, i) => `${rivalNombre} #${i + 1}`)
 
   /* ── Filters ── */
   const allEventPlayers = [...new Set(analisis.eventosPartido.filter(e => e.jugadora).map(e => e.jugadora!))]
@@ -991,33 +999,47 @@ export default function EventosTab({ analisis }: Props) {
 
       {/* ─────────────── MODAL ─────────────── */}
       {modal && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-end sm:items-center justify-center p-4" onClick={() => setModal(null)}>
-          <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-black/25 z-50 flex items-end justify-center sm:items-center sm:justify-start p-0 sm:p-4" onClick={() => setModal(null)}>
+          <div className="bg-white rounded-t-2xl sm:rounded-2xl w-full max-w-lg sm:ml-2 shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
             <div className="px-5 py-4 font-bold text-white flex items-center gap-2" style={{ background: EVENT_CONFIG[modal.tipo].color }}>
               <span className="text-xl">{EVENT_CONFIG[modal.tipo].emoji}</span>
               {EVENT_CONFIG[modal.tipo].label} — min. {modal.minuto}'
             </div>
-            <div className="p-5 space-y-4 max-h-[80vh] overflow-y-auto">
+            <div className="p-5 space-y-4 max-h-[85vh] overflow-y-auto">
 
               {/* Player */}
               <div>
                 <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Jugadora</label>
-                {convPlayers.length > 0 && (
-                  <div className="flex flex-wrap gap-1.5 mb-2">
-                    {convPlayers.map(p => (
-                      <button key={p}
-                        onClick={() => setModalJugadora(p === modalJugadora ? '' : p)}
-                        className={`px-2.5 py-1 rounded-lg text-xs font-semibold border transition-all ${modalJugadora === p ? 'bg-rfpaf-blue text-white border-rfpaf-blue' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}
-                      >
-                        {p}
-                      </button>
-                    ))}
-                  </div>
-                )}
+                {/* Toggle equipo */}
+                <div className="flex rounded-lg overflow-hidden border border-gray-200 w-fit mb-2">
+                  {(['propio', 'rival'] as const).map(eq => (
+                    <button key={eq}
+                      onClick={() => setModalEquipo(eq)}
+                      className={`px-3 py-1 text-xs font-semibold transition-all ${modalEquipo === eq ? 'bg-rfpaf-blue text-white' : 'bg-white text-gray-500 hover:bg-gray-50'}`}
+                    >
+                      {eq === 'propio' ? 'Equipo propio' : rivalNombre}
+                    </button>
+                  ))}
+                </div>
+                {(() => {
+                  const chips = modalEquipo === 'propio' ? convPlayers : rivalPlayers
+                  return chips.length > 0 ? (
+                    <div className="flex flex-wrap gap-1.5 mb-2">
+                      {chips.map(p => (
+                        <button key={p}
+                          onClick={() => setModalJugadora(p === modalJugadora ? '' : p)}
+                          className={`px-2.5 py-1 rounded-lg text-xs font-semibold border transition-all ${modalJugadora === p ? 'bg-rfpaf-blue text-white border-rfpaf-blue' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}
+                        >
+                          {p}
+                        </button>
+                      ))}
+                    </div>
+                  ) : null
+                })()}
                 <input
                   value={modalJugadora}
                   onChange={e => setModalJugadora(e.target.value)}
-                  placeholder={convPlayers.length > 0 ? 'O escribe el nombre...' : 'Nombre de la jugadora (opcional)'}
+                  placeholder="O escribe el nombre..."
                   className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-rfpaf-blue outline-none"
                 />
               </div>
@@ -1038,8 +1060,8 @@ export default function EventosTab({ analisis }: Props) {
                   <span className="text-gray-400 font-normal ml-1">(pulsa para marcar)</span>
                   {modalPosition && <span className="text-rfpaf-blue ml-2">({modalPosition.x}, {modalPosition.y})</span>}
                 </label>
-                <div className="rounded-xl overflow-hidden border border-gray-200 max-h-64">
-                  <FootballPitch events={[]} onPositionClick={(x, y) => setModalPosition({ x, y })} selectMode pendingPosition={modalPosition} />
+                <div className="rounded-xl overflow-hidden border border-gray-200 flex justify-center bg-[#2d7a3d]">
+                  <FootballPitch events={[]} onPositionClick={(x, y) => setModalPosition({ x, y })} selectMode pendingPosition={modalPosition} heightPx={340} />
                 </div>
                 {modalPosition && (
                   <button onClick={() => setModalPosition(null)} className="mt-1 text-[10px] text-gray-400 hover:text-red-500 transition-colors">
