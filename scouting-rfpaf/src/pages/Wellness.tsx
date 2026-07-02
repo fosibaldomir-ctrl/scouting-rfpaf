@@ -953,8 +953,12 @@ function HistorialTab() {
     <div className="space-y-5">
       {/* Cabecera jugadora + selector */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 flex flex-col sm:flex-row sm:items-center gap-3">
-        <div className="w-12 h-12 rounded-xl bg-rfpaf-blue/10 flex items-center justify-center flex-shrink-0">
-          <User className="w-6 h-6 text-rfpaf-blue" />
+        <div className="w-12 h-12 rounded-xl bg-rfpaf-blue/10 flex items-center justify-center flex-shrink-0 overflow-hidden">
+          {ficha?.foto ? (
+            <img src={ficha.foto} alt={selected} className="w-full h-full object-cover object-top" />
+          ) : (
+            <User className="w-6 h-6 text-rfpaf-blue" />
+          )}
         </div>
         <div className="flex-1 min-w-0">
           <h2 className="text-lg font-bold text-gray-900 truncate">{selected}</h2>
