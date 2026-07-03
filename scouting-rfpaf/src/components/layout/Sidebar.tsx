@@ -2,7 +2,7 @@ import { NavLink, useNavigate, useLocation } from 'react-router-dom'
 import {
   LayoutDashboard, Database, PlusCircle, Settings, LogOut, LayoutGrid, X,
   CalendarDays, ChevronDown, Dumbbell, ClipboardList, PenLine, BookOpen,
-  Video, TrendingUp, User, BarChart2, Target, Shield, Play, Heart,
+  Video, TrendingUp, User, BarChart2, Target, Shield, Play, Heart, FileText,
 } from 'lucide-react'
 import { useState } from 'react'
 import { useStore } from '../../store/useStore'
@@ -236,6 +236,21 @@ export default function Sidebar({ mobileOpen, onClose }: SidebarProps) {
           >
             <Heart className="w-5 h-5 flex-shrink-0" />
             Wellness
+          </NavLink>
+
+          <NavLink
+            to="/informes"
+            onClick={onClose}
+            className={({ isActive }) =>
+              `flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all ${
+                isActive
+                  ? 'bg-white text-rfpaf-blue shadow-sm'
+                  : 'text-white/80 hover:bg-white/10 hover:text-white'
+              }`
+            }
+          >
+            <FileText className="w-5 h-5 flex-shrink-0" />
+            Informes
           </NavLink>
         </nav>
 

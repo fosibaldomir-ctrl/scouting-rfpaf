@@ -497,6 +497,262 @@ export async function deleteAbpAccion(id: string): Promise<boolean> {
   return true
 }
 
+/* ─── Informes ─── */
+
+import type { Informe, PartidoInforme, EvaluacionJugadora, PlanFase } from '../types'
+
+const EMPTY_PLAN: PlanFase = { explicacion: '', imagenUrl: '', variante1Url: '', variante2Url: '' }
+
+function rowToInforme(row: any): Informe {
+  return {
+    id:           row.id,
+    titulo:       row.titulo       ?? '',
+    autor:        row.autor        ?? '',
+    fecha:        row.fecha        ?? '',
+    conclusiones: row.conclusiones ?? '',
+    creadoEn:     row.creado_en,
+  }
+}
+
+export async function fetchInformes(): Promise<Informe[]> {
+  const { data, error } = await supabase.from('informes').select('*').order('creado_en', { ascending: false })
+  if (error) { console.error('Error fetching informes:', error); return [] }
+  return (data ?? []).map(rowToInforme)
+}
+
+export async function createInforme(i: Omit<Informe, 'id' | 'creadoEn'>): Promise<Informe | null> {
+  const { data, error } = await supabase
+    .from('informes')
+    .insert([{ titulo: i.titulo, autor: i.autor, fecha: i.fecha || null, conclusiones: i.conclusiones }])
+    .select()
+    .single()
+  if (error) { console.error('Error creating informe:', error); return null }
+  return rowToInforme(data)
+}
+
+export async function updateInforme(id: string, patch: Partial<Omit<Informe, 'id' | 'creadoEn'>>): Promise<boolean> {
+  const row: Record<string, unknown> = {}
+  if (patch.titulo !== undefined) row.titulo = patch.titulo
+  if (patch.autor !== undefined) row.autor = patch.autor
+  if (patch.fecha !== undefined) row.fecha = patch.fecha || null
+  if (patch.conclusiones !== undefined) row.conclusiones = patch.conclusiones
+  const { error } = await supabase.from('informes').update(row).eq('id', id)
+  if (error) { console.error('Error updating informe:', error); return false }
+  return true
+}
+
+export async function deleteInformeDB(id: string): Promise<boolean> {
+  const { error } = await supabase.from('informes').delete().eq('id', id)
+  if (error) { console.error('Error deleting informe:', error); return false }
+  return true
+}
+
+function rowToPartidoInforme(row: any): PartidoInforme {
+  return {
+    id:                     row.id,
+    informeId:              row.informe_id,
+    jornada:                row.jornada ?? 1,
+    rivalNombre:            row.rival_nombre ?? '',
+    rivalEscudoUrl:         row.rival_escudo_url ?? '',
+    resultadoLocal:         row.resultado_local ?? 0,
+    resultadoVisitante:     row.resultado_visitante ?? 0,
+    fechaPartido:           row.fecha_partido ?? '',
+    horaPartido:            row.hora_partido ?? '',
+    campoNombre:            row.campo_nombre ?? '',
+    campoFotoUrl:           row.campo_foto_url ?? '',
+    condiciones:            row.condiciones ?? 'soleado',
+    equipacionLocalUrl:     row.equipacion_local_url ?? '',
+    equipacionVisitanteUrl: row.equipacion_visitante_url ?? '',
+    sistema:                row.sistema ?? '',
+    alineacionTitulares:    row.alineacion_titulares ?? [],
+    alineacionSuplentes:    row.alineacion_suplentes ?? [],
+    planOfensivo:           { ...EMPTY_PLAN, ...(row.plan_ofensivo ?? {}) },
+    planDefensivo:          { ...EMPTY_PLAN, ...(row.plan_defensivo ?? {}) },
+    creadoEn:               row.creado_en,
+  }
+}
+
+export async function fetchPartidosInforme(informeId: string): Promise<PartidoInforme[]> {
+  const { data, error } = await supabase
+    .from('informe_partidos')
+    .select('*')
+    .eq('informe_id', informeId)
+    .order('jornada', { ascending: true })
+  if (error) { console.error('Error fetching informe_partidos:', error); return [] }
+  return (data ?? []).map(rowToPartidoInforme)
+}
+
+export async function createPartidoInforme(p: Omit<PartidoInforme, 'id' | 'creadoEn'>): Promise<PartidoInforme | null> {
+  const { data, error } = await supabase
+    .from('informe_partidos')
+    .insert([{
+      informe_id:                p.informeId,
+      jornada:                   p.jornada,
+      rival_nombre:              p.rivalNombre,
+      rival_escudo_url:          p.rivalEscudoUrl || null,
+      resultado_local:           p.resultadoLocal,
+      resultado_visitante:       p.resultadoVisitante,
+      fecha_partido:             p.fechaPartido || null,
+      hora_partido:              p.horaPartido,
+      campo_nombre:              p.campoNombre,
+      campo_foto_url:            p.campoFotoUrl || null,
+      condiciones:               p.condiciones,
+      equipacion_local_url:      p.equipacionLocalUrl || null,
+      equipacion_visitante_url:  p.equipacionVisitanteUrl || null,
+      sistema:                   p.sistema,
+      alineacion_titulares:      p.alineacionTitulares,
+      alineacion_suplentes:      p.alineacionSuplentes,
+      plan_ofensivo:             p.planOfensivo,
+      plan_defensivo:            p.planDefensivo,
+    }])
+    .select()
+    .single()
+  if (error) { console.error('Error creating informe_partido:', error); return null }
+  return rowToPartidoInforme(data)
+}
+
+export async function updatePartidoInforme(id: string, patch: Partial<Omit<PartidoInforme, 'id' | 'informeId' | 'creadoEn'>>): Promise<boolean> {
+  const row: Record<string, unknown> = {}
+  if (patch.jornada !== undefined) row.jornada = patch.jornada
+  if (patch.rivalNombre !== undefined) row.rival_nombre = patch.rivalNombre
+  if (patch.rivalEscudoUrl !== undefined) row.rival_escudo_url = patch.rivalEscudoUrl || null
+  if (patch.resultadoLocal !== undefined) row.resultado_local = patch.resultadoLocal
+  if (patch.resultadoVisitante !== undefined) row.resultado_visitante = patch.resultadoVisitante
+  if (patch.fechaPartido !== undefined) row.fecha_partido = patch.fechaPartido || null
+  if (patch.horaPartido !== undefined) row.hora_partido = patch.horaPartido
+  if (patch.campoNombre !== undefined) row.campo_nombre = patch.campoNombre
+  if (patch.campoFotoUrl !== undefined) row.campo_foto_url = patch.campoFotoUrl || null
+  if (patch.condiciones !== undefined) row.condiciones = patch.condiciones
+  if (patch.equipacionLocalUrl !== undefined) row.equipacion_local_url = patch.equipacionLocalUrl || null
+  if (patch.equipacionVisitanteUrl !== undefined) row.equipacion_visitante_url = patch.equipacionVisitanteUrl || null
+  if (patch.sistema !== undefined) row.sistema = patch.sistema
+  if (patch.alineacionTitulares !== undefined) row.alineacion_titulares = patch.alineacionTitulares
+  if (patch.alineacionSuplentes !== undefined) row.alineacion_suplentes = patch.alineacionSuplentes
+  if (patch.planOfensivo !== undefined) row.plan_ofensivo = patch.planOfensivo
+  if (patch.planDefensivo !== undefined) row.plan_defensivo = patch.planDefensivo
+  const { error } = await supabase.from('informe_partidos').update(row).eq('id', id)
+  if (error) { console.error('Error updating informe_partido:', error); return false }
+  return true
+}
+
+export async function deletePartidoInforme(id: string): Promise<boolean> {
+  const { error } = await supabase.from('informe_partidos').delete().eq('id', id)
+  if (error) { console.error('Error deleting informe_partido:', error); return false }
+  return true
+}
+
+function rowToEvaluacion(row: any): EvaluacionJugadora {
+  return {
+    id:                row.id,
+    partidoInformeId:  row.partido_informe_id,
+    orden:             row.orden ?? 0,
+    fichaId:           row.ficha_id ?? undefined,
+    nombre:            row.nombre ?? '',
+    apellidos:         row.apellidos ?? '',
+    fotoUrl:           row.foto_url ?? '',
+    dorsal:            row.dorsal ?? null,
+    lateralidad:       row.lateralidad ?? '',
+    fechaNacimiento:   row.fecha_nacimiento ?? '',
+    clubNombre:        row.club_nombre ?? '',
+    clubEscudoUrl:     row.club_escudo_url ?? '',
+    posicionX:         row.posicion_x ?? null,
+    posicionY:         row.posicion_y ?? null,
+    minutos:           row.minutos ?? 0,
+    goles:             row.goles ?? 0,
+    asistencias:       row.asistencias ?? 0,
+    tarjetasAmarillas: row.tarjetas_amarillas ?? 0,
+    tarjetasRojas:     row.tarjetas_rojas ?? 0,
+    valoracion:        row.valoracion ?? null,
+    comentario:        row.comentario ?? '',
+    creadoEn:          row.creado_en,
+  }
+}
+
+export async function fetchEvaluaciones(partidoInformeId: string): Promise<EvaluacionJugadora[]> {
+  const { data, error } = await supabase
+    .from('informe_evaluaciones')
+    .select('*')
+    .eq('partido_informe_id', partidoInformeId)
+    .order('orden', { ascending: true })
+  if (error) { console.error('Error fetching informe_evaluaciones:', error); return [] }
+  return (data ?? []).map(rowToEvaluacion)
+}
+
+export async function createEvaluacion(e: Omit<EvaluacionJugadora, 'id' | 'creadoEn'>): Promise<EvaluacionJugadora | null> {
+  const { data, error } = await supabase
+    .from('informe_evaluaciones')
+    .insert([{
+      partido_informe_id: e.partidoInformeId,
+      orden:               e.orden,
+      ficha_id:            e.fichaId || null,
+      nombre:              e.nombre,
+      apellidos:           e.apellidos,
+      foto_url:            e.fotoUrl || null,
+      dorsal:              e.dorsal,
+      lateralidad:         e.lateralidad,
+      fecha_nacimiento:    e.fechaNacimiento || null,
+      club_nombre:         e.clubNombre,
+      club_escudo_url:     e.clubEscudoUrl || null,
+      posicion_x:          e.posicionX,
+      posicion_y:          e.posicionY,
+      minutos:             e.minutos,
+      goles:               e.goles,
+      asistencias:         e.asistencias,
+      tarjetas_amarillas:  e.tarjetasAmarillas,
+      tarjetas_rojas:      e.tarjetasRojas,
+      valoracion:          e.valoracion,
+      comentario:          e.comentario,
+    }])
+    .select()
+    .single()
+  if (error) { console.error('Error creating informe_evaluacion:', error); return null }
+  return rowToEvaluacion(data)
+}
+
+export async function updateEvaluacion(id: string, patch: Partial<Omit<EvaluacionJugadora, 'id' | 'partidoInformeId' | 'creadoEn'>>): Promise<boolean> {
+  const row: Record<string, unknown> = {}
+  if (patch.orden !== undefined) row.orden = patch.orden
+  if (patch.fichaId !== undefined) row.ficha_id = patch.fichaId || null
+  if (patch.nombre !== undefined) row.nombre = patch.nombre
+  if (patch.apellidos !== undefined) row.apellidos = patch.apellidos
+  if (patch.fotoUrl !== undefined) row.foto_url = patch.fotoUrl || null
+  if (patch.dorsal !== undefined) row.dorsal = patch.dorsal
+  if (patch.lateralidad !== undefined) row.lateralidad = patch.lateralidad
+  if (patch.fechaNacimiento !== undefined) row.fecha_nacimiento = patch.fechaNacimiento || null
+  if (patch.clubNombre !== undefined) row.club_nombre = patch.clubNombre
+  if (patch.clubEscudoUrl !== undefined) row.club_escudo_url = patch.clubEscudoUrl || null
+  if (patch.posicionX !== undefined) row.posicion_x = patch.posicionX
+  if (patch.posicionY !== undefined) row.posicion_y = patch.posicionY
+  if (patch.minutos !== undefined) row.minutos = patch.minutos
+  if (patch.goles !== undefined) row.goles = patch.goles
+  if (patch.asistencias !== undefined) row.asistencias = patch.asistencias
+  if (patch.tarjetasAmarillas !== undefined) row.tarjetas_amarillas = patch.tarjetasAmarillas
+  if (patch.tarjetasRojas !== undefined) row.tarjetas_rojas = patch.tarjetasRojas
+  if (patch.valoracion !== undefined) row.valoracion = patch.valoracion
+  if (patch.comentario !== undefined) row.comentario = patch.comentario
+  const { error } = await supabase.from('informe_evaluaciones').update(row).eq('id', id)
+  if (error) { console.error('Error updating informe_evaluacion:', error); return false }
+  return true
+}
+
+export async function deleteEvaluacion(id: string): Promise<boolean> {
+  const { error } = await supabase.from('informe_evaluaciones').delete().eq('id', id)
+  if (error) { console.error('Error deleting informe_evaluacion:', error); return false }
+  return true
+}
+
+// Upload a file (photo, kit image, field photo, tactical diagram) for an informe
+export async function uploadInformeArchivo(file: File, informeId: string): Promise<string | null> {
+  const ext = file.name.split('.').pop() ?? 'bin'
+  const path = `${informeId}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
+  const { error } = await supabase.storage
+    .from('informes-archivos')
+    .upload(path, file, { contentType: file.type, upsert: false })
+  if (error) { console.error('Error uploading informe archivo:', error); return null }
+  const { data } = supabase.storage.from('informes-archivos').getPublicUrl(path)
+  return data.publicUrl
+}
+
 /* ─── Ejercicios ─── */
 
 export async function deleteEjercicio(id: string): Promise<boolean> {

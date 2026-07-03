@@ -437,3 +437,73 @@ export interface RegistroRPE {
   notas: string
   creadoEn: string
 }
+
+/* ═══════════════════════════════════════
+   INFORMES TYPES
+═══════════════════════════════════════ */
+
+export type CondicionAtmosferica = 'soleado' | 'nublado' | 'lluvia' | 'tormenta'
+
+export interface PlanFase {
+  explicacion: string
+  imagenUrl: string
+  variante1Url: string
+  variante2Url: string
+}
+
+export interface PartidoInforme {
+  id: string
+  informeId: string
+  jornada: number
+  rivalNombre: string
+  rivalEscudoUrl: string
+  resultadoLocal: number
+  resultadoVisitante: number
+  fechaPartido: string
+  horaPartido: string
+  campoNombre: string
+  campoFotoUrl: string
+  condiciones: CondicionAtmosferica
+  equipacionLocalUrl: string
+  equipacionVisitanteUrl: string
+  sistema: string
+  alineacionTitulares: JugadoraTactica[]
+  alineacionSuplentes: JugadoraTactica[]
+  planOfensivo: PlanFase
+  planDefensivo: PlanFase
+  creadoEn: string
+}
+
+export interface EvaluacionJugadora {
+  id: string
+  partidoInformeId: string
+  orden: number
+  fichaId?: string
+  nombre: string
+  apellidos: string
+  fotoUrl: string
+  dorsal: number | null
+  lateralidad: string
+  fechaNacimiento: string
+  clubNombre: string
+  clubEscudoUrl: string
+  posicionX: number | null
+  posicionY: number | null
+  minutos: number
+  goles: number
+  asistencias: number
+  tarjetasAmarillas: number
+  tarjetasRojas: number
+  valoracion: number | null
+  comentario: string
+  creadoEn: string
+}
+
+export interface Informe {
+  id: string
+  titulo: string
+  autor: string
+  fecha: string
+  conclusiones: string
+  creadoEn: string
+}

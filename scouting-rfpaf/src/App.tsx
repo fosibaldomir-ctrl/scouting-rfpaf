@@ -24,6 +24,9 @@ import PlanPage from './pages/analisis/PlanPage'
 import ABPPage from './pages/analisis/ABPPage'
 import EventosPage from './pages/analisis/EventosPage'
 import Wellness from './pages/Wellness'
+import InformesPage from './pages/informes/InformesPage'
+import InformeDetailPage from './pages/informes/InformeDetailPage'
+import PartidoInformePage from './pages/informes/PartidoInformePage'
 
 function AppContent() {
   useSupabaseSync()
@@ -61,6 +64,9 @@ function AppContent() {
           <Route path="/analisis-global/abp" element={<ABPPage />} />
           <Route path="/analisis-global/eventos" element={<EventosPage />} />
           <Route path="/wellness" element={<Wellness />} />
+          <Route path="/informes" element={<InformesPage />} />
+          <Route path="/informes/:informeId" element={<InformeDetailPage />} />
+          <Route path="/informes/:informeId/partido/:partidoId" element={<PartidoInformePage />} />
         </Route>
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>

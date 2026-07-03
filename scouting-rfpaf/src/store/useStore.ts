@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { FichaJugadora, Observador, Club, CategoriaItem, PartidoCalendario, Convocatoria, JugadoraConvocada, Sesion, VideoSesion, Evento, AnalisisPartido, RegistroRPE, RegistroLesion, AccionBalonParado } from '../types'
+import type { FichaJugadora, Observador, Club, CategoriaItem, PartidoCalendario, Convocatoria, JugadoraConvocada, Sesion, VideoSesion, Evento, AnalisisPartido, RegistroRPE, RegistroLesion, AccionBalonParado, Informe, PartidoInforme, EvaluacionJugadora } from '../types'
 import type { EjercicioDB } from '../lib/supabase'
 import { OBSERVADORES, CATEGORIAS, CLUBES } from '../data/masterData'
 import { supabaseService } from '../services/supabaseService'
@@ -8,6 +8,9 @@ import {
   fetchAnalisis, saveAnalisis, deleteAnalisisFromDB,
   fetchAbpAcciones, createAbpAccion,
   updateAbpAccion as updateAbpAccionDB, deleteAbpAccion as deleteAbpAccionDB,
+  fetchInformes, createInforme, updateInforme as updateInformeDB, deleteInformeDB,
+  fetchPartidosInforme, createPartidoInforme, updatePartidoInforme as updatePartidoInformeDB, deletePartidoInforme as deletePartidoInformeDB,
+  fetchEvaluaciones, createEvaluacion, updateEvaluacion as updateEvaluacionDB, deleteEvaluacion as deleteEvaluacionDB,
 } from '../lib/supabase'
 import { SESION_EMPTY } from '../lib/entrenamientoConstants'
 import { buildTeamJugadoras } from '../utils/tactics'
@@ -91,6 +94,21 @@ interface AppState {
   addAbpAccion: (a: Omit<AccionBalonParado, 'id' | 'creadoEn'>) => Promise<void>
   updateAbpAccion: (id: string, patch: Partial<AccionBalonParado>) => Promise<void>
   deleteAbpAccion: (id: string) => Promise<void>
+  informes: Informe[]
+  loadInformes: () => Promise<void>
+  addInforme: (i: Omit<Informe, 'id' | 'creadoEn'>) => Promise<Informe | null>
+  updateInformeAction: (id: string, patch: Partial<Informe>) => Promise<void>
+  deleteInformeAction: (id: string) => Promise<void>
+  partidosInforme: PartidoInforme[]
+  loadPartidosInforme: (informeId: string) => Promise<void>
+  addPartidoInforme: (p: Omit<PartidoInforme, 'id' | 'creadoEn'>) => Promise<PartidoInforme | null>
+  updatePartidoInformeAction: (id: string, patch: Partial<PartidoInforme>) => Promise<void>
+  deletePartidoInformeAction: (id: string) => Promise<void>
+  evaluaciones: EvaluacionJugadora[]
+  loadEvaluaciones: (partidoInformeId: string) => Promise<void>
+  addEvaluacion: (e: Omit<EvaluacionJugadora, 'id' | 'creadoEn'>) => Promise<void>
+  updateEvaluacionAction: (id: string, patch: Partial<EvaluacionJugadora>) => Promise<void>
+  deleteEvaluacionAction: (id: string) => Promise<void>
   addPartido: (p: PartidoCalendario) => Promise<void>
   deletePartido: (id: string) => Promise<void>
   addFicha: (ficha: FichaJugadora) => Promise<void>
@@ -202,6 +220,62 @@ export const useStore = create<AppState>()(
       deleteAbpAccion: async (id) => {
         set((s) => ({ abpAcciones: s.abpAcciones.filter((a) => a.id !== id) }))
         await deleteAbpAccionDB(id)
+      },
+
+      informes: [],
+      loadInformes: async () => {
+        const data = await fetchInformes()
+        set({ informes: data })
+      },
+      addInforme: async (i) => {
+        const created = await createInforme(i)
+        if (created) set((s) => ({ informes: [created, ...s.informes] }))
+        return created
+      },
+      updateInformeAction: async (id, patch) => {
+        set((s) => ({ informes: s.informes.map((i) => i.id === id ? { ...i, ...patch } : i) }))
+        await updateInformeDB(id, patch)
+      },
+      deleteInformeAction: async (id) => {
+        set((s) => ({ informes: s.informes.filter((i) => i.id !== id) }))
+        await deleteInformeDB(id)
+      },
+
+      partidosInforme: [],
+      loadPartidosInforme: async (informeId) => {
+        const data = await fetchPartidosInforme(informeId)
+        set((s) => ({ partidosInforme: [...s.partidosInforme.filter((p) => p.informeId !== informeId), ...data] }))
+      },
+      addPartidoInforme: async (p) => {
+        const created = await createPartidoInforme(p)
+        if (created) set((s) => ({ partidosInforme: [...s.partidosInforme, created] }))
+        return created
+      },
+      updatePartidoInformeAction: async (id, patch) => {
+        set((s) => ({ partidosInforme: s.partidosInforme.map((p) => p.id === id ? { ...p, ...patch } : p) }))
+        await updatePartidoInformeDB(id, patch)
+      },
+      deletePartidoInformeAction: async (id) => {
+        set((s) => ({ partidosInforme: s.partidosInforme.filter((p) => p.id !== id) }))
+        await deletePartidoInformeDB(id)
+      },
+
+      evaluaciones: [],
+      loadEvaluaciones: async (partidoInformeId) => {
+        const data = await fetchEvaluaciones(partidoInformeId)
+        set((s) => ({ evaluaciones: [...s.evaluaciones.filter((e) => e.partidoInformeId !== partidoInformeId), ...data] }))
+      },
+      addEvaluacion: async (e) => {
+        const created = await createEvaluacion(e)
+        if (created) set((s) => ({ evaluaciones: [...s.evaluaciones, created] }))
+      },
+      updateEvaluacionAction: async (id, patch) => {
+        set((s) => ({ evaluaciones: s.evaluaciones.map((e) => e.id === id ? { ...e, ...patch } : e) }))
+        await updateEvaluacionDB(id, patch)
+      },
+      deleteEvaluacionAction: async (id) => {
+        set((s) => ({ evaluaciones: s.evaluaciones.filter((e) => e.id !== id) }))
+        await deleteEvaluacionDB(id)
       },
 
       addPartido: async (p) => {
