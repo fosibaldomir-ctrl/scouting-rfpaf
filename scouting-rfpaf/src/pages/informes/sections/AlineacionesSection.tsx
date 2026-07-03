@@ -91,11 +91,22 @@ export default function AlineacionesSection({ partido, onUpdate }: Props) {
 
       <div className="flex flex-wrap items-end gap-3 mb-4">
         <div>
-          <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Sistema</label>
+          <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Nuestro sistema</label>
           <select
             value={partido.sistema}
             onChange={(e) => handleSistemaChange(e.target.value)}
             className="w-36 border border-gray-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-rfpaf-blue outline-none bg-white"
+          >
+            <option value="">— Seleccionar —</option>
+            {SISTEMAS.map((s) => <option key={s} value={s}>{s}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Sistema rival</label>
+          <select
+            value={partido.sistemaRival}
+            onChange={(e) => onUpdate({ sistemaRival: e.target.value })}
+            className="w-36 border border-gray-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-rfpaf-red outline-none bg-white"
           >
             <option value="">— Seleccionar —</option>
             {SISTEMAS.map((s) => <option key={s} value={s}>{s}</option>)}
@@ -121,7 +132,16 @@ export default function AlineacionesSection({ partido, onUpdate }: Props) {
         </button>
       </div>
 
-      {/* Pitch with titulares */}
+      {/* Pitch: our titulares (blue, draggable) vs rival system (red, read-only) */}
+      <div className="flex items-center justify-center gap-3 mb-1">
+        <span className="text-[10px] font-bold uppercase tracking-wider text-rfpaf-blue flex items-center gap-1.5">
+          <span className="w-2 h-2 rounded-full bg-rfpaf-blue inline-block" /> Nuestro equipo{partido.sistema ? ` (${partido.sistema})` : ''}
+        </span>
+        <span className="text-gray-300 text-xs">vs</span>
+        <span className="text-[10px] font-bold uppercase tracking-wider text-rfpaf-red flex items-center gap-1.5">
+          {partido.rivalNombre || 'Rival'}{partido.sistemaRival ? ` (${partido.sistemaRival})` : ''} <span className="w-2 h-2 rounded-full bg-rfpaf-red inline-block" />
+        </span>
+      </div>
       <div className="flex justify-center mb-4">
         <div
           ref={pitchRef}
@@ -134,6 +154,18 @@ export default function AlineacionesSection({ partido, onUpdate }: Props) {
           <div className="absolute inset-2 border border-white/40 rounded" />
           <div className="absolute left-2 right-2 top-1/2 border-t border-white/40" />
           <div className="absolute left-1/2 top-1/2 w-16 h-16 -translate-x-1/2 -translate-y-1/2 border border-white/40 rounded-full" />
+
+          {/* Rival system — read-only, mirrored to attack from the top */}
+          {partido.sistemaRival && FORMATION_PRESETS[partido.sistemaRival as FormacionFutbol]?.map((pos, i) => (
+            <div
+              key={`rival-${i}`}
+              className="absolute w-6 h-6 rounded-full bg-rfpaf-red/80 border border-white/70 flex items-center justify-center text-white text-[10px] font-bold pointer-events-none"
+              style={{ left: `${pos.x}%`, top: `${100 - pos.y}%`, transform: 'translate(-50%, -50%)' }}
+            >
+              {i + 1}
+            </div>
+          ))}
+
           {titulares.map((t) => (
             <div
               key={t.uid}

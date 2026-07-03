@@ -43,6 +43,7 @@ export default function InformeDetailPage() {
       equipacionLocalUrl: '',
       equipacionVisitanteUrl: '',
       sistema: '',
+      sistemaRival: '',
       alineacionTitulares: [],
       alineacionSuplentes: [],
       planOfensivo: EMPTY_PLAN,

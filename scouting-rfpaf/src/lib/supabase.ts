@@ -564,6 +564,7 @@ function rowToPartidoInforme(row: any): PartidoInforme {
     equipacionLocalUrl:     row.equipacion_local_url ?? '',
     equipacionVisitanteUrl: row.equipacion_visitante_url ?? '',
     sistema:                row.sistema ?? '',
+    sistemaRival:           row.sistema_rival ?? '',
     alineacionTitulares:    row.alineacion_titulares ?? [],
     alineacionSuplentes:    row.alineacion_suplentes ?? [],
     planOfensivo:           { ...EMPTY_PLAN, ...(row.plan_ofensivo ?? {}) },
@@ -600,6 +601,7 @@ export async function createPartidoInforme(p: Omit<PartidoInforme, 'id' | 'cread
       equipacion_local_url:      p.equipacionLocalUrl || null,
       equipacion_visitante_url:  p.equipacionVisitanteUrl || null,
       sistema:                   p.sistema,
+      sistema_rival:             p.sistemaRival,
       alineacion_titulares:      p.alineacionTitulares,
       alineacion_suplentes:      p.alineacionSuplentes,
       plan_ofensivo:             p.planOfensivo,
@@ -626,6 +628,7 @@ export async function updatePartidoInforme(id: string, patch: Partial<Omit<Parti
   if (patch.equipacionLocalUrl !== undefined) row.equipacion_local_url = patch.equipacionLocalUrl || null
   if (patch.equipacionVisitanteUrl !== undefined) row.equipacion_visitante_url = patch.equipacionVisitanteUrl || null
   if (patch.sistema !== undefined) row.sistema = patch.sistema
+  if (patch.sistemaRival !== undefined) row.sistema_rival = patch.sistemaRival
   if (patch.alineacionTitulares !== undefined) row.alineacion_titulares = patch.alineacionTitulares
   if (patch.alineacionSuplentes !== undefined) row.alineacion_suplentes = patch.alineacionSuplentes
   if (patch.planOfensivo !== undefined) row.plan_ofensivo = patch.planOfensivo

@@ -467,6 +467,7 @@ export interface PartidoInforme {
   equipacionLocalUrl: string
   equipacionVisitanteUrl: string
   sistema: string
+  sistemaRival: string
   alineacionTitulares: JugadoraTactica[]
   alineacionSuplentes: JugadoraTactica[]
   planOfensivo: PlanFase
