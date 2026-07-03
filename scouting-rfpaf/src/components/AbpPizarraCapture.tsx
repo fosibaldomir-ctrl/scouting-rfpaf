@@ -21,7 +21,7 @@ interface AnimFrame { tokens: Token[]; balls: BallTok[] }
 type DragTarget =
   | { kind: 'token'; uid: string }
   | { kind: 'ball'; uid: string }
-  | { kind: 'shapeEndpoint'; shapeUid: string; which: 'start' | 'end' }
+  | { kind: 'shapeEndpoint'; shapeUid: string; which: 'start' | 'end' | 'control' }
 
 const VIEWS: Record<ViewMode, { w: number; h: number; label: string }> = {
   completo: { w: 105, h: 68, label: 'Campo completo' },
@@ -112,6 +112,7 @@ export default function AbpPizarraCapture({ equipoLocal, equipoVisitante, onCapt
   const [mode, setMode] = useState<Mode>('move')
   const [penColor, setPenColor] = useState('#facc15')
   const [fillEnabled, setFillEnabled] = useState(false)
+  const [tokenSize, setTokenSize] = useState(1.8)
   const [tokens, setTokens] = useState<Token[]>([])
   const [balls, setBalls] = useState<BallTok[]>([])
   const [shapes, setShapes] = useState<DrawShape[]>([])
@@ -191,6 +192,7 @@ export default function AbpPizarraCapture({ equipoLocal, equipoVisitante, onCapt
             return { ...s, pts: drag.which === 'start' ? [pt, s.pts[1]] : [s.pts[0], pt] }
           }
           if (s.type === 'curve') {
+            if (drag.which === 'control') return { ...s, pts: [s.pts[0], pt, s.pts[2]] }
             const start = drag.which === 'start' ? pt : s.pts[0]
             const end = drag.which === 'end' ? pt : s.pts[2]
             return { ...s, pts: [start, computeCurveCtrl(start, end), end] }
@@ -314,12 +316,12 @@ export default function AbpPizarraCapture({ equipoLocal, equipoVisitante, onCapt
     // Player tokens
     tokensSnap.forEach(t => {
       const color = t.team === 'local' ? equipoLocal.color : equipoVisitante.color
-      ctx.beginPath(); ctx.arc(t.x * SCALE, t.y * SCALE, 2.4 * SCALE, 0, Math.PI * 2)
+      ctx.beginPath(); ctx.arc(t.x * SCALE, t.y * SCALE, tokenSize * SCALE, 0, Math.PI * 2)
       ctx.fillStyle = t.team === 'local' ? 'white' : color
       ctx.fill()
-      ctx.strokeStyle = t.team === 'local' ? color : 'white'; ctx.lineWidth = 0.4 * SCALE; ctx.stroke()
+      ctx.strokeStyle = t.team === 'local' ? color : 'white'; ctx.lineWidth = tokenSize * 0.167 * SCALE; ctx.stroke()
       ctx.fillStyle = t.team === 'local' ? color : 'white'
-      ctx.font = `bold ${1.9 * SCALE}px Arial`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
+      ctx.font = `bold ${tokenSize * 0.79 * SCALE}px Arial`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
       ctx.fillText(String(t.numero), t.x * SCALE, t.y * SCALE)
     })
   }
@@ -485,6 +487,12 @@ export default function AbpPizarraCapture({ equipoLocal, equipoVisitante, onCapt
               </button>
             )}
             <div className="w-px h-5 bg-white/15 mx-1" />
+            <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-white/10">
+              <span className="text-[10px] text-white/60 font-semibold whitespace-nowrap">Tamaño</span>
+              <input type="range" min={1} max={3.2} step={0.1} value={tokenSize}
+                onChange={e => setTokenSize(Number(e.target.value))}
+                className="w-16 accent-rfpaf-blue" />
+            </div>
             <button onClick={undo} className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-white/10 text-white/70 hover:bg-white/20">
               <Eraser className="w-3 h-3" /> Deshacer
             </button>
@@ -595,6 +603,12 @@ export default function AbpPizarraCapture({ equipoLocal, equipoVisitante, onCapt
                   </g>
                 )
               })}
+              {/* Curve control handle — drag the belly of the curve to bend it in any direction */}
+              {mode === 'move' && shapes.filter(s => s.type === 'curve').map(s => (
+                <circle key={`ctrl-${s.uid}`} cx={s.pts[1].x} cy={s.pts[1].y} r={1.4} fill="#facc15" fillOpacity={0.95} stroke="white" strokeWidth={0.25}
+                  style={{ cursor: 'grab' }}
+                  onMouseDown={e => { e.stopPropagation(); dragRef.current = { kind: 'shapeEndpoint', shapeUid: s.uid, which: 'control' } }} />
+              ))}
 
               {balls.map(b => (
                 <circle key={b.uid} cx={b.x} cy={b.y} r={1.1} fill="white" stroke="#333" strokeWidth={0.15}
@@ -608,8 +622,8 @@ export default function AbpPizarraCapture({ equipoLocal, equipoVisitante, onCapt
                   <g key={t.uid}
                     style={{ cursor: tokensInteractive ? 'grab' : 'default' }}
                     onMouseDown={e => { if (!tokensInteractive) return; e.stopPropagation(); dragRef.current = { kind: 'token', uid: t.uid } }}>
-                    <circle cx={t.x} cy={t.y} r={2.4} fill={t.team === 'local' ? 'white' : color} stroke={t.team === 'local' ? color : 'white'} strokeWidth={0.4} />
-                    <text x={t.x} y={t.y} textAnchor="middle" dominantBaseline="central" fontSize={2} fontWeight="bold" fill={t.team === 'local' ? color : 'white'}>{t.numero}</text>
+                    <circle cx={t.x} cy={t.y} r={tokenSize} fill={t.team === 'local' ? 'white' : color} stroke={t.team === 'local' ? color : 'white'} strokeWidth={tokenSize * 0.167} />
+                    <text x={t.x} y={t.y} textAnchor="middle" dominantBaseline="central" fontSize={tokenSize * 0.83} fontWeight="bold" fill={t.team === 'local' ? color : 'white'}>{t.numero}</text>
                   </g>
                 )
               })}
@@ -617,7 +631,7 @@ export default function AbpPizarraCapture({ equipoLocal, equipoVisitante, onCapt
           </div>
 
           <p className="text-[10px] text-white/40 mt-2 text-center">
-            Toca un dorsal para añadir/quitar jugadoras (hasta 11 por equipo) · en "Mover" arrastra los extremos blancos de una flecha o curva para girarla libremente
+            Toca un dorsal para añadir/quitar jugadoras · ajusta su tamaño con el control "Tamaño" · en "Mover" arrastra los extremos blancos para girar libremente una flecha o curva, y el punto amarillo del centro para curvarla
           </p>
         </div>
 
