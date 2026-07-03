@@ -346,8 +346,6 @@ function analisisToRow(a: AnalisisPartido) {
     bloque_ataque:         a.bloqueAtaque,
     bloque_defensa:        a.bloqueDefensa,
     bloque_transicion:     a.bloqueTransicion,
-    abp_ofensivo:          a.abpOfensivo,
-    abp_defensivo:         a.abpDefensivo,
     video_partido_url:     a.videoPartidoUrl,
     tiempos:               a.tiempos,
     eventos_partido:       a.eventosPartido,
@@ -371,8 +369,6 @@ function rowToAnalisis(row: any): AnalisisPartido {
     bloqueAtaque:          row.bloque_ataque      ?? { notas:'', videoUrl:'', imagenUrl:'' },
     bloqueDefensa:         row.bloque_defensa     ?? { notas:'', videoUrl:'', imagenUrl:'' },
     bloqueTransicion:      row.bloque_transicion  ?? { notas:'', videoUrl:'', imagenUrl:'' },
-    abpOfensivo:           row.abp_ofensivo       ?? [],
-    abpDefensivo:          row.abp_defensivo      ?? [],
     videoPartidoUrl:       row.video_partido_url  ?? '',
     tiempos:               row.tiempos            ?? { inicio1:'', fin1:'', inicio2:'', fin2:'' },
     eventosPartido:        row.eventos_partido     ?? [],
@@ -420,6 +416,85 @@ export async function uploadAnalisisArchivo(
   if (error) { console.error('Error uploading archivo:', error); return null }
   const { data } = supabase.storage.from('analisis-archivos').getPublicUrl(path)
   return data.publicUrl
+}
+
+/* ─── ABP (Acciones a Balón Parado) ─── */
+
+import type { AccionBalonParado } from '../types'
+
+function rowToAbp(row: any): AccionBalonParado {
+  return {
+    id:            row.id,
+    analisisId:    row.analisis_id,
+    tipo:          row.tipo,
+    orden:         row.orden ?? 0,
+    titulo:        row.titulo        ?? '',
+    notas:         row.notas         ?? '',
+    imagenUrl:     row.imagen_pizarra_url ?? '',
+    videoUrl:      row.video_url     ?? '',
+    notas2:        row.notas2        ?? '',
+    imagen2Url:    row.imagen2_url   ?? '',
+    video2Url:     row.video2_url    ?? '',
+    creadoEn:      row.creado_en,
+  }
+}
+
+export async function fetchAbpAcciones(analisisId: string): Promise<AccionBalonParado[]> {
+  const { data, error } = await supabase
+    .from('abp_acciones')
+    .select('*')
+    .eq('analisis_id', analisisId)
+    .order('orden', { ascending: true })
+  if (error) { console.error('Error fetching abp_acciones:', error); return [] }
+  return (data ?? []).map(rowToAbp)
+}
+
+export async function createAbpAccion(
+  a: Omit<AccionBalonParado, 'id' | 'creadoEn'>
+): Promise<AccionBalonParado | null> {
+  const { data, error } = await supabase
+    .from('abp_acciones')
+    .insert([{
+      analisis_id:          a.analisisId,
+      tipo:                 a.tipo,
+      orden:                a.orden,
+      titulo:                a.titulo,
+      notas:                a.notas,
+      imagen_pizarra_url:   a.imagenUrl || null,
+      video_url:            a.videoUrl,
+      notas2:               a.notas2,
+      imagen2_url:          a.imagen2Url || null,
+      video2_url:           a.video2Url,
+    }])
+    .select()
+    .single()
+  if (error) { console.error('Error creating abp_accion:', error); return null }
+  return rowToAbp(data)
+}
+
+export async function updateAbpAccion(
+  id: string,
+  patch: Partial<Omit<AccionBalonParado, 'id' | 'analisisId' | 'creadoEn'>>
+): Promise<boolean> {
+  const row: Record<string, unknown> = {}
+  if (patch.tipo !== undefined) row.tipo = patch.tipo
+  if (patch.orden !== undefined) row.orden = patch.orden
+  if (patch.titulo !== undefined) row.titulo = patch.titulo
+  if (patch.notas !== undefined) row.notas = patch.notas
+  if (patch.imagenUrl !== undefined) row.imagen_pizarra_url = patch.imagenUrl || null
+  if (patch.videoUrl !== undefined) row.video_url = patch.videoUrl
+  if (patch.notas2 !== undefined) row.notas2 = patch.notas2
+  if (patch.imagen2Url !== undefined) row.imagen2_url = patch.imagen2Url || null
+  if (patch.video2Url !== undefined) row.video2_url = patch.video2Url
+  const { error } = await supabase.from('abp_acciones').update(row).eq('id', id)
+  if (error) { console.error('Error updating abp_accion:', error); return false }
+  return true
+}
+
+export async function deleteAbpAccion(id: string): Promise<boolean> {
+  const { error } = await supabase.from('abp_acciones').delete().eq('id', id)
+  if (error) { console.error('Error deleting abp_accion:', error); return false }
+  return true
 }
 
 /* ─── Ejercicios ─── */

@@ -45,8 +45,6 @@ function createEmptyAnalisis(nombre: string, fecha: string, categoria: string): 
     bloqueAtaque: { notas: '', videoUrl: '', imagenUrl: '' },
     bloqueDefensa: { notas: '', videoUrl: '', imagenUrl: '' },
     bloqueTransicion: { notas: '', videoUrl: '', imagenUrl: '' },
-    abpOfensivo: [],
-    abpDefensivo: [],
     videoPartidoUrl: '',
     tiempos: { inicio1: '', fin1: '', inicio2: '', fin2: '' },
     eventosPartido: [],

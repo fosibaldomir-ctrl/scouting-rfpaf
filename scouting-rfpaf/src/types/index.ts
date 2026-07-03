@@ -339,9 +339,17 @@ export interface CaracteristicasRival {
 
 export interface AccionBalonParado {
   id: string
+  analisisId: string
+  tipo: 'ofensivo' | 'defensivo'
+  orden: number
+  titulo: string
   notas: string
-  videoUrl: string
   imagenUrl: string
+  videoUrl: string
+  notas2: string
+  imagen2Url: string
+  video2Url: string
+  creadoEn: string
 }
 
 export type TipoEventoAnalisis =
@@ -374,8 +382,6 @@ export interface AnalisisPartido {
   bloqueAtaque: BloquePlan
   bloqueDefensa: BloquePlan
   bloqueTransicion: BloquePlan
-  abpOfensivo: AccionBalonParado[]
-  abpDefensivo: AccionBalonParado[]
   videoPartidoUrl: string
   tiempos: { inicio1: string; fin1: string; inicio2: string; fin2: string }
   eventosPartido: EventoAnalisis[]

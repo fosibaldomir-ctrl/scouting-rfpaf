@@ -1,10 +1,14 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { FichaJugadora, Observador, Club, CategoriaItem, PartidoCalendario, Convocatoria, JugadoraConvocada, Sesion, VideoSesion, Evento, AnalisisPartido, RegistroRPE, RegistroLesion } from '../types'
+import type { FichaJugadora, Observador, Club, CategoriaItem, PartidoCalendario, Convocatoria, JugadoraConvocada, Sesion, VideoSesion, Evento, AnalisisPartido, RegistroRPE, RegistroLesion, AccionBalonParado } from '../types'
 import type { EjercicioDB } from '../lib/supabase'
 import { OBSERVADORES, CATEGORIAS, CLUBES } from '../data/masterData'
 import { supabaseService } from '../services/supabaseService'
-import { fetchAnalisis, saveAnalisis, deleteAnalisisFromDB } from '../lib/supabase'
+import {
+  fetchAnalisis, saveAnalisis, deleteAnalisisFromDB,
+  fetchAbpAcciones, createAbpAccion,
+  updateAbpAccion as updateAbpAccionDB, deleteAbpAccion as deleteAbpAccionDB,
+} from '../lib/supabase'
 import { SESION_EMPTY } from '../lib/entrenamientoConstants'
 import { buildTeamJugadoras } from '../utils/tactics'
 
@@ -34,8 +38,6 @@ const DEFAULT_PIZARRA_LIBRE: AnalisisPartido = {
   bloqueAtaque: { notas: '', videoUrl: '', imagenUrl: '' },
   bloqueDefensa: { notas: '', videoUrl: '', imagenUrl: '' },
   bloqueTransicion: { notas: '', videoUrl: '', imagenUrl: '' },
-  abpOfensivo: [],
-  abpDefensivo: [],
   videoPartidoUrl: '',
   tiempos: { inicio1: '', fin1: '', inicio2: '', fin2: '' },
   eventosPartido: [],
@@ -84,6 +86,11 @@ interface AppState {
   deleteAnalisis: (id: string) => void
   setActiveAnalisisId: (id: string | null) => void
   loadAnalisisFromDB: () => Promise<void>
+  abpAcciones: AccionBalonParado[]
+  loadAbpAcciones: (analisisId: string) => Promise<void>
+  addAbpAccion: (a: Omit<AccionBalonParado, 'id' | 'creadoEn'>) => Promise<void>
+  updateAbpAccion: (id: string, patch: Partial<AccionBalonParado>) => Promise<void>
+  deleteAbpAccion: (id: string) => Promise<void>
   addPartido: (p: PartidoCalendario) => Promise<void>
   deletePartido: (id: string) => Promise<void>
   addFicha: (ficha: FichaJugadora) => Promise<void>
@@ -177,6 +184,24 @@ export const useStore = create<AppState>()(
       loadAnalisisFromDB: async () => {
         const data = await fetchAnalisis()
         if (data.length > 0) set({ analisis: data })
+      },
+
+      abpAcciones: [],
+      loadAbpAcciones: async (analisisId) => {
+        const data = await fetchAbpAcciones(analisisId)
+        set((s) => ({ abpAcciones: [...s.abpAcciones.filter((a) => a.analisisId !== analisisId), ...data] }))
+      },
+      addAbpAccion: async (a) => {
+        const created = await createAbpAccion(a)
+        if (created) set((s) => ({ abpAcciones: [...s.abpAcciones, created] }))
+      },
+      updateAbpAccion: async (id, patch) => {
+        set((s) => ({ abpAcciones: s.abpAcciones.map((a) => a.id === id ? { ...a, ...patch } : a) }))
+        await updateAbpAccionDB(id, patch)
+      },
+      deleteAbpAccion: async (id) => {
+        set((s) => ({ abpAcciones: s.abpAcciones.filter((a) => a.id !== id) }))
+        await deleteAbpAccionDB(id)
       },
 
       addPartido: async (p) => {
