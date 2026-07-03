@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { X, Pencil, ArrowRight, Spline, Eraser, Trash2, Camera, RefreshCw } from 'lucide-react'
+import { X, Pencil, ArrowRight, Spline, Circle, Square, Eraser, Trash2, Camera, RefreshCw } from 'lucide-react'
 import type { EquipoTactico } from '../types'
 
 interface Props {
@@ -9,31 +9,33 @@ interface Props {
   onClose: () => void
 }
 
-type Mode = 'move' | 'freehand' | 'arrow' | 'curve' | 'ball'
+type Mode = 'move' | 'freehand' | 'arrow' | 'curve' | 'circle' | 'rect' | 'ball'
 type ViewMode = 'completo' | 'area'
+type Team = 'local' | 'visit'
 interface Pt { x: number; y: number }
-interface Token { uid: string; team: 'local' | 'visit'; numero: number; x: number; y: number }
+interface Token { uid: string; team: Team; numero: number; x: number; y: number }
 interface BallTok { uid: string; x: number; y: number }
-interface DrawShape { uid: string; type: 'freehand' | 'arrow' | 'curve'; color: string; width: number; pts: Pt[] }
+interface DrawShape { uid: string; type: 'freehand' | 'arrow' | 'curve' | 'circle' | 'rect'; color: string; width: number; pts: Pt[] }
 
 const VIEWS: Record<ViewMode, { w: number; h: number; label: string }> = {
   completo: { w: 105, h: 68, label: 'Campo completo' },
   area: { w: 68, h: 42, label: 'Área de portería' },
 }
 
-function defaultTokens(equipoLocal: EquipoTactico, equipoVisitante: EquipoTactico, view: ViewMode): Token[] {
-  const { w, h } = VIEWS[view]
-  const locals = equipoLocal.jugadoras.slice(0, 6)
-  const visits = equipoVisitante.jugadoras.slice(0, 6)
-  const tokens: Token[] = []
-  if (view === 'area') {
-    locals.forEach((j, i) => tokens.push({ uid: `L-${j.uid}`, team: 'local', numero: j.numero, x: w * (0.28 + (i % 3) * 0.16), y: h * (0.4 + Math.floor(i / 3) * 0.22) }))
-    visits.forEach((j, i) => tokens.push({ uid: `V-${j.uid}`, team: 'visit', numero: j.numero, x: w * (0.34 + (i % 3) * 0.16), y: h * (0.28 + Math.floor(i / 3) * 0.22) }))
-  } else {
-    locals.forEach((j, i) => tokens.push({ uid: `L-${j.uid}`, team: 'local', numero: j.numero, x: w * 0.35, y: h * (0.12 + i * 0.14) }))
-    visits.forEach((j, i) => tokens.push({ uid: `V-${j.uid}`, team: 'visit', numero: j.numero, x: w * 0.65, y: h * (0.12 + i * 0.14) }))
+const SNAP_DIST = 4
+
+function dist(a: Pt, b: Pt): number {
+  return Math.hypot(a.x - b.x, a.y - b.y)
+}
+
+function nearestToken(pt: Pt, tokens: Token[]): Token | null {
+  let best: Token | null = null
+  let bestD = SNAP_DIST
+  for (const t of tokens) {
+    const d = dist(pt, t)
+    if (d < bestD) { best = t; bestD = d }
   }
-  return tokens
+  return best
 }
 
 function computeCurveCtrl(start: Pt, end: Pt): Pt {
@@ -42,6 +44,20 @@ function computeCurveCtrl(start: Pt, end: Pt): Pt {
   const dx = end.x - start.x; const dy = end.y - start.y
   const len = Math.sqrt(dx * dx + dy * dy) || 1
   return { x: mx + (-dy / len) * len * 0.28, y: my + (dx / len) * len * 0.28 }
+}
+
+// Default landing spot for the Nth (0-indexed) player of a team placed on the pitch
+function landingSpot(team: Team, idx: number, view: ViewMode): Pt {
+  const { w, h } = VIEWS[view]
+  const col = idx % 3
+  const row = Math.floor(idx / 3)
+  if (view === 'area') {
+    const baseX = team === 'local' ? 0.28 : 0.34
+    const baseY = team === 'local' ? 0.4 : 0.28
+    return { x: w * (baseX + col * 0.16), y: h * (baseY + row * 0.22) }
+  }
+  const baseX = team === 'local' ? 0.35 : 0.65
+  return { x: w * baseX, y: h * (0.1 + (col + row * 3) * 0.11) }
 }
 
 /* ── Markings shared by SVG (live) and Canvas (capture) ── */
@@ -71,7 +87,7 @@ export default function AbpPizarraCapture({ equipoLocal, equipoVisitante, onCapt
   const [view, setView] = useState<ViewMode>('area')
   const [mode, setMode] = useState<Mode>('move')
   const [penColor, setPenColor] = useState('#facc15')
-  const [tokens, setTokens] = useState<Token[]>(() => defaultTokens(equipoLocal, equipoVisitante, 'area'))
+  const [tokens, setTokens] = useState<Token[]>([])
   const [balls, setBalls] = useState<BallTok[]>([])
   const [shapes, setShapes] = useState<DrawShape[]>([])
   const [currentShape, setCurrentShape] = useState<DrawShape | null>(null)
@@ -83,11 +99,24 @@ export default function AbpPizarraCapture({ equipoLocal, equipoVisitante, onCapt
   const { w, h } = VIEWS[view]
   const marks = view === 'completo' ? markingsCompleto() : markingsArea()
 
+  const rosterLocal = equipoLocal.jugadoras.slice(0, 11)
+  const rosterVisit = equipoVisitante.jugadoras.slice(0, 11)
+
   const resetView = (v: ViewMode) => {
     setView(v)
-    setTokens(defaultTokens(equipoLocal, equipoVisitante, v))
+    setTokens([])
     setBalls([])
     setShapes([])
+  }
+
+  const toggleRosterPlayer = (team: Team, uid: string, numero: number) => {
+    setTokens(prev => {
+      const existing = prev.find(t => t.uid === uid)
+      if (existing) return prev.filter(t => t.uid !== uid)
+      const countForTeam = prev.filter(t => t.team === team).length
+      const spot = landingSpot(team, countForTeam, view)
+      return [...prev, { uid, team, numero, x: spot.x, y: spot.y }]
+    })
   }
 
   const getPt = (clientX: number, clientY: number): Pt => {
@@ -98,14 +127,20 @@ export default function AbpPizarraCapture({ equipoLocal, equipoVisitante, onCapt
     }
   }
 
+  const isDrawMode = (m: Mode) => m === 'freehand' || m === 'arrow' || m === 'curve' || m === 'circle' || m === 'rect'
+
   const handlePitchDown = (e: React.MouseEvent) => {
     if (mode === 'ball') {
       const pt = getPt(e.clientX, e.clientY)
       setBalls(prev => [...prev, { uid: crypto.randomUUID(), x: pt.x, y: pt.y }])
       return
     }
-    if (mode !== 'freehand' && mode !== 'arrow' && mode !== 'curve') return
-    const pt = getPt(e.clientX, e.clientY)
+    if (!isDrawMode(mode)) return
+    let pt = getPt(e.clientX, e.clientY)
+    if (mode === 'arrow' || mode === 'curve') {
+      const snap = nearestToken(pt, tokens)
+      if (snap) pt = { x: snap.x, y: snap.y }
+    }
     drawingRef.current = true
     setCurrentShape({ uid: crypto.randomUUID(), type: mode, color: penColor, width: 0.6, pts: [pt] })
   }
@@ -124,16 +159,27 @@ export default function AbpPizarraCapture({ equipoLocal, equipoVisitante, onCapt
     setCurrentShape(prev => {
       if (!prev) return prev
       if (prev.type === 'freehand') return { ...prev, pts: [...prev.pts, pt] }
-      if (prev.type === 'arrow') return { ...prev, pts: [prev.pts[0], pt] }
+      if (prev.type === 'arrow' || prev.type === 'rect' || prev.type === 'circle') return { ...prev, pts: [prev.pts[0], pt] }
       return { ...prev, pts: [prev.pts[0], computeCurveCtrl(prev.pts[0], pt), pt] }
     })
   }
-  const handlePitchUp = () => {
+  const handlePitchUp = (e: React.MouseEvent) => {
     dragRef.current = null
     if (drawingRef.current && currentShape) {
       drawingRef.current = false
-      const valid = currentShape.pts.length >= 2
-      if (valid) setShapes(prev => [...prev, currentShape])
+      let finalShape = currentShape
+      if ((finalShape.type === 'arrow' || finalShape.type === 'curve') && finalShape.pts.length >= 2) {
+        const endPt = getPt(e.clientX, e.clientY)
+        const snap = nearestToken(endPt, tokens)
+        if (snap) {
+          const snapped = { x: snap.x, y: snap.y }
+          finalShape = finalShape.type === 'arrow'
+            ? { ...finalShape, pts: [finalShape.pts[0], snapped] }
+            : { ...finalShape, pts: [finalShape.pts[0], computeCurveCtrl(finalShape.pts[0], snapped), snapped] }
+        }
+      }
+      const valid = finalShape.pts.length >= 2 && dist(finalShape.pts[0], finalShape.pts[finalShape.pts.length - 1]) > 0.8
+      if (valid) setShapes(prev => [...prev, finalShape])
       setCurrentShape(null)
     }
   }
@@ -163,13 +209,19 @@ export default function AbpPizarraCapture({ equipoLocal, equipoVisitante, onCapt
       if (r < 1) { ctx.fillStyle = 'rgba(255,255,255,0.85)'; ctx.fill() } else { ctx.stroke() }
     })
 
-    // Shapes (arrows/curves/freehand)
+    // Shapes
     shapes.forEach(s => {
       ctx.strokeStyle = s.color; ctx.lineWidth = s.width * SCALE; ctx.lineCap = 'round'; ctx.lineJoin = 'round'
       if (s.type === 'freehand') {
         ctx.beginPath()
         s.pts.forEach((p, i) => i === 0 ? ctx.moveTo(p.x * SCALE, p.y * SCALE) : ctx.lineTo(p.x * SCALE, p.y * SCALE))
         ctx.stroke()
+      } else if (s.type === 'rect' && s.pts.length >= 2) {
+        const [a, b] = s.pts
+        ctx.strokeRect(Math.min(a.x, b.x) * SCALE, Math.min(a.y, b.y) * SCALE, Math.abs(b.x - a.x) * SCALE, Math.abs(b.y - a.y) * SCALE)
+      } else if (s.type === 'circle' && s.pts.length >= 2) {
+        const [a, b] = s.pts
+        ctx.beginPath(); ctx.arc(a.x * SCALE, a.y * SCALE, dist(a, b) * SCALE, 0, Math.PI * 2); ctx.stroke()
       } else if (s.type === 'arrow' && s.pts.length >= 2) {
         const a = s.pts[0]; const b = s.pts[s.pts.length - 1]
         ctx.beginPath(); ctx.moveTo(a.x * SCALE, a.y * SCALE); ctx.lineTo(b.x * SCALE, b.y * SCALE); ctx.stroke()
@@ -223,7 +275,31 @@ export default function AbpPizarraCapture({ equipoLocal, equipoVisitante, onCapt
     >{icon}{label}</button>
   )
 
-  const inDrawMode = mode === 'freehand' || mode === 'arrow' || mode === 'curve'
+  const inDrawMode = isDrawMode(mode)
+
+  const rosterRow = (team: Team, label: string, roster: EquipoTactico['jugadoras'], color: string) => (
+    <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
+      <span className="text-[10px] font-bold uppercase tracking-wider text-white/50 flex-shrink-0 w-16">{label}</span>
+      {roster.map(j => {
+        const active = tokens.some(t => t.uid === j.uid)
+        return (
+          <button
+            key={j.uid}
+            onClick={() => toggleRosterPlayer(team, j.uid, j.numero)}
+            title={j.nombre}
+            className="w-7 h-7 rounded-full text-xs font-bold flex-shrink-0 flex items-center justify-center border-2 transition-all"
+            style={{
+              background: active ? (team === 'local' ? 'white' : color) : 'transparent',
+              color: active ? (team === 'local' ? color : 'white') : 'rgba(255,255,255,0.5)',
+              borderColor: active ? (team === 'local' ? color : 'white') : 'rgba(255,255,255,0.25)',
+            }}
+          >
+            {j.numero}
+          </button>
+        )
+      })}
+    </div>
+  )
 
   return (
     <div className="fixed inset-0 bg-black/70 z-[60] flex items-center justify-center p-4" onClick={onClose}>
@@ -244,12 +320,20 @@ export default function AbpPizarraCapture({ equipoLocal, equipoVisitante, onCapt
             ))}
           </div>
 
+          {/* Roster pickers — up to 11 jugadoras elegibles por equipo */}
+          <div className="mb-3 bg-white/5 rounded-xl p-2.5 space-y-1.5">
+            {rosterRow('local', equipoLocal.nombre || 'Local', rosterLocal, equipoLocal.color)}
+            {rosterRow('visit', equipoVisitante.nombre || 'Rival', rosterVisit, equipoVisitante.color)}
+          </div>
+
           {/* Toolbar */}
           <div className="flex flex-wrap items-center gap-1.5 mb-3">
             {modeBtn('move', 'Mover', <span className="leading-none">✋</span>)}
             {modeBtn('freehand', 'Trazar', <Pencil className="w-3 h-3" />)}
             {modeBtn('arrow', 'Flecha', <ArrowRight className="w-3 h-3" />)}
             {modeBtn('curve', 'Curva', <Spline className="w-3 h-3" />)}
+            {modeBtn('circle', 'Círculo', <Circle className="w-3 h-3" />)}
+            {modeBtn('rect', 'Cuadrado', <Square className="w-3 h-3" />)}
             {modeBtn('ball', 'Balón', <span className="leading-none">⚽</span>)}
             {inDrawMode && (
               <input type="color" value={penColor} onChange={e => setPenColor(e.target.value)}
@@ -273,7 +357,7 @@ export default function AbpPizarraCapture({ equipoLocal, equipoVisitante, onCapt
               ref={svgRef}
               viewBox={`0 0 ${w} ${h}`}
               className="w-full rounded-lg select-none"
-              style={{ background: '#2d6a27', maxHeight: '52vh', touchAction: 'none', cursor: mode === 'move' ? 'default' : 'crosshair' }}
+              style={{ background: '#2d6a27', maxHeight: '48vh', touchAction: 'none', cursor: mode === 'move' ? 'default' : 'crosshair' }}
               onMouseDown={handlePitchDown}
               onMouseMove={handlePitchMove}
               onMouseUp={handlePitchUp}
@@ -285,6 +369,14 @@ export default function AbpPizarraCapture({ equipoLocal, equipoVisitante, onCapt
 
               {[...shapes, currentShape].filter((s): s is DrawShape => !!s).map(s => {
                 if (s.type === 'freehand') return <polyline key={s.uid} points={s.pts.map(p => `${p.x},${p.y}`).join(' ')} stroke={s.color} strokeWidth={0.6} fill="none" strokeLinecap="round" strokeLinejoin="round" />
+                if (s.type === 'rect' && s.pts.length >= 2) {
+                  const [a, b] = s.pts
+                  return <rect key={s.uid} x={Math.min(a.x, b.x)} y={Math.min(a.y, b.y)} width={Math.abs(b.x - a.x)} height={Math.abs(b.y - a.y)} fill="none" stroke={s.color} strokeWidth={0.5} />
+                }
+                if (s.type === 'circle' && s.pts.length >= 2) {
+                  const [a, b] = s.pts
+                  return <circle key={s.uid} cx={a.x} cy={a.y} r={dist(a, b)} fill="none" stroke={s.color} strokeWidth={0.5} />
+                }
                 if (s.type === 'arrow' && s.pts.length >= 2) {
                   const a = s.pts[0]; const b = s.pts[s.pts.length - 1]
                   return <line key={s.uid} x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke={s.color} strokeWidth={0.6} strokeLinecap="round" markerEnd="url(#abp-arrowhead)" style={{ color: s.color }} />
@@ -322,7 +414,7 @@ export default function AbpPizarraCapture({ equipoLocal, equipoVisitante, onCapt
           </div>
 
           <p className="text-[10px] text-white/40 mt-2 text-center">
-            Arrastra jugadoras y balón · dibuja flechas o curvas para representar los movimientos
+            Toca un dorsal para añadir/quitar jugadoras (hasta 11 por equipo) · arrastra sobre el campo · las flechas y curvas se enganchan a la jugadora más cercana para marcar su movimiento
           </p>
         </div>
 
