@@ -1,21 +1,27 @@
 import { useRef, useState } from 'react'
-import { X, Pencil, ArrowRight, Spline, Circle, Square, Eraser, Trash2, Camera, RefreshCw } from 'lucide-react'
+import { X, Pencil, ArrowRight, Spline, Circle, Square, Eraser, Trash2, Camera, RefreshCw, Video, Aperture } from 'lucide-react'
 import type { EquipoTactico } from '../types'
 
 interface Props {
   equipoLocal: EquipoTactico
   equipoVisitante: EquipoTactico
   onCapture: (dataUrl: string) => void
+  onCaptureVideo: (file: File) => void
   onClose: () => void
 }
 
-type Mode = 'move' | 'freehand' | 'arrow' | 'curve' | 'circle' | 'rect' | 'ball'
+type Mode = 'move' | 'freehand' | 'arrow' | 'curve' | 'circle' | 'rect' | 'ball' | 'anim'
 type ViewMode = 'completo' | 'area'
 type Team = 'local' | 'visit'
 interface Pt { x: number; y: number }
 interface Token { uid: string; team: Team; numero: number; x: number; y: number }
 interface BallTok { uid: string; x: number; y: number }
-interface DrawShape { uid: string; type: 'freehand' | 'arrow' | 'curve' | 'circle' | 'rect'; color: string; width: number; pts: Pt[] }
+interface DrawShape { uid: string; type: 'freehand' | 'arrow' | 'curve' | 'circle' | 'rect'; color: string; width: number; pts: Pt[]; filled?: boolean }
+interface AnimFrame { tokens: Token[]; balls: BallTok[] }
+type DragTarget =
+  | { kind: 'token'; uid: string }
+  | { kind: 'ball'; uid: string }
+  | { kind: 'shapeEndpoint'; shapeUid: string; which: 'start' | 'end' }
 
 const VIEWS: Record<ViewMode, { w: number; h: number; label: string }> = {
   completo: { w: 105, h: 68, label: 'Campo completo' },
@@ -60,8 +66,16 @@ function landingSpot(team: Team, idx: number, view: ViewMode): Pt {
   return { x: w * baseX, y: h * (0.1 + (col + row * 3) * 0.11) }
 }
 
-/* ── Markings shared by SVG (live) and Canvas (capture) ── */
-function markingsCompleto(): { rects: number[][]; lines: number[][]; circles: number[][] } {
+interface Marks {
+  rects: number[][]
+  lines: number[][]
+  dots: number[][]
+  strokedCircles: number[][]
+  clippedArcs: { cx: number; cy: number; r: number; clip: [number, number, number, number] }[]
+}
+
+/* ── Markings shared by SVG (live) and Canvas (capture/video) ── */
+function markingsCompleto(): Marks {
   return {
     rects: [
       [0, 0, 105, 68],
@@ -69,31 +83,45 @@ function markingsCompleto(): { rects: number[][]; lines: number[][]; circles: nu
       [88.5, 13.84, 16.5, 40.32], [99.5, 24.84, 5.5, 18.32],
     ],
     lines: [[52.5, 0, 52.5, 68]],
-    circles: [[52.5, 34, 9.15], [11, 34, 0.5], [94, 34, 0.5], [52.5, 34, 0.3]],
+    dots: [[52.5, 34, 0.3], [11, 34, 0.4], [94, 34, 0.4]],
+    strokedCircles: [[52.5, 34, 9.15]],
+    clippedArcs: [
+      { cx: 11, cy: 34, r: 9.15, clip: [16.5, 0, 88.5, 68] },
+      { cx: 94, cy: 34, r: 9.15, clip: [0, 0, 88.5, 68] },
+    ],
   }
 }
-function markingsArea(): { rects: number[][]; lines: number[][]; circles: number[][] } {
+function markingsArea(): Marks {
+  const { h } = VIEWS.area
   return {
     rects: [
       [34 - 20.16, 0, 40.32, 16.5],
       [34 - 9.16, 0, 18.32, 5.5],
     ],
-    lines: [[34 - 3.66, 0, 34 - 3.66, -2], [34 + 3.66, 0, 34 + 3.66, -2]],
-    circles: [[34, 11, 9.15], [34, 11, 0.4]],
+    lines: [],
+    dots: [[34, 11, 0.4]],
+    strokedCircles: [],
+    clippedArcs: [
+      { cx: 34, cy: 11, r: 9.15, clip: [0, 16.5, 68, h - 16.5] },
+    ],
   }
 }
 
-export default function AbpPizarraCapture({ equipoLocal, equipoVisitante, onCapture, onClose }: Props) {
+export default function AbpPizarraCapture({ equipoLocal, equipoVisitante, onCapture, onCaptureVideo, onClose }: Props) {
   const [view, setView] = useState<ViewMode>('area')
   const [mode, setMode] = useState<Mode>('move')
   const [penColor, setPenColor] = useState('#facc15')
+  const [fillEnabled, setFillEnabled] = useState(false)
   const [tokens, setTokens] = useState<Token[]>([])
   const [balls, setBalls] = useState<BallTok[]>([])
   const [shapes, setShapes] = useState<DrawShape[]>([])
   const [currentShape, setCurrentShape] = useState<DrawShape | null>(null)
+  const [animFrames, setAnimFrames] = useState<AnimFrame[]>([])
+  const [animIdx, setAnimIdx] = useState(0)
+  const [recording, setRecording] = useState(false)
 
   const svgRef = useRef<SVGSVGElement>(null)
-  const dragRef = useRef<{ kind: 'token' | 'ball'; uid: string } | null>(null)
+  const dragRef = useRef<DragTarget | null>(null)
   const drawingRef = useRef(false)
 
   const { w, h } = VIEWS[view]
@@ -107,6 +135,8 @@ export default function AbpPizarraCapture({ equipoLocal, equipoVisitante, onCapt
     setTokens([])
     setBalls([])
     setShapes([])
+    setAnimFrames([])
+    setAnimIdx(0)
   }
 
   const toggleRosterPlayer = (team: Team, uid: string, numero: number) => {
@@ -128,6 +158,7 @@ export default function AbpPizarraCapture({ equipoLocal, equipoVisitante, onCapt
   }
 
   const isDrawMode = (m: Mode) => m === 'freehand' || m === 'arrow' || m === 'curve' || m === 'circle' || m === 'rect'
+  const tokensInteractive = mode === 'move' || mode === 'anim'
 
   const handlePitchDown = (e: React.MouseEvent) => {
     if (mode === 'ball') {
@@ -142,15 +173,30 @@ export default function AbpPizarraCapture({ equipoLocal, equipoVisitante, onCapt
       if (snap) pt = { x: snap.x, y: snap.y }
     }
     drawingRef.current = true
-    setCurrentShape({ uid: crypto.randomUUID(), type: mode, color: penColor, width: 0.6, pts: [pt] })
+    const filled = (mode === 'circle' || mode === 'rect') ? fillEnabled : undefined
+    setCurrentShape({ uid: crypto.randomUUID(), type: mode, color: penColor, width: 0.6, pts: [pt], filled })
   }
   const handlePitchMove = (e: React.MouseEvent) => {
     if (dragRef.current) {
       const pt = getPt(e.clientX, e.clientY)
-      if (dragRef.current.kind === 'token') {
-        setTokens(prev => prev.map(t => t.uid === dragRef.current!.uid ? { ...t, x: pt.x, y: pt.y } : t))
+      const drag = dragRef.current
+      if (drag.kind === 'token') {
+        setTokens(prev => prev.map(t => t.uid === drag.uid ? { ...t, x: pt.x, y: pt.y } : t))
+      } else if (drag.kind === 'ball') {
+        setBalls(prev => prev.map(b => b.uid === drag.uid ? { ...b, x: pt.x, y: pt.y } : b))
       } else {
-        setBalls(prev => prev.map(b => b.uid === dragRef.current!.uid ? { ...b, x: pt.x, y: pt.y } : b))
+        setShapes(prev => prev.map(s => {
+          if (s.uid !== drag.shapeUid) return s
+          if (s.type === 'arrow') {
+            return { ...s, pts: drag.which === 'start' ? [pt, s.pts[1]] : [s.pts[0], pt] }
+          }
+          if (s.type === 'curve') {
+            const start = drag.which === 'start' ? pt : s.pts[0]
+            const end = drag.which === 'end' ? pt : s.pts[2]
+            return { ...s, pts: [start, computeCurveCtrl(start, end), end] }
+          }
+          return s
+        }))
       }
       return
     }
@@ -190,13 +236,10 @@ export default function AbpPizarraCapture({ equipoLocal, equipoVisitante, onCapt
   }
   const clearAll = () => { setShapes([]); setBalls([]) }
 
-  /* ── Canvas capture ── */
-  const capture = () => {
-    const SCALE = 9
-    const W = Math.round(w * SCALE); const H = Math.round(h * SCALE)
-    const canvas = document.createElement('canvas')
-    canvas.width = W; canvas.height = H
-    const ctx = canvas.getContext('2d')!
+  /* ── Shared scene renderer (used by static PNG capture and video recording) ── */
+  const drawScene = (ctx: CanvasRenderingContext2D, SCALE: number, tokensSnap: Token[], ballsSnap: BallTok[]) => {
+    const W = w * SCALE; const H = h * SCALE
+    ctx.clearRect(0, 0, W, H)
     ctx.fillStyle = '#2d6a27'; ctx.fillRect(0, 0, W, H)
     ctx.strokeStyle = 'rgba(255,255,255,0.85)'; ctx.lineWidth = 2
 
@@ -204,9 +247,18 @@ export default function AbpPizarraCapture({ equipoLocal, equipoVisitante, onCapt
     marks.lines.forEach(([x1, y1, x2, y2]) => {
       ctx.beginPath(); ctx.moveTo(x1 * SCALE, y1 * SCALE); ctx.lineTo(x2 * SCALE, y2 * SCALE); ctx.stroke()
     })
-    marks.circles.forEach(([cx, cy, r]) => {
+    marks.strokedCircles.forEach(([cx, cy, r]) => {
+      ctx.beginPath(); ctx.arc(cx * SCALE, cy * SCALE, r * SCALE, 0, Math.PI * 2); ctx.stroke()
+    })
+    marks.clippedArcs.forEach(a => {
+      ctx.save()
+      ctx.beginPath(); ctx.rect(a.clip[0] * SCALE, a.clip[1] * SCALE, a.clip[2] * SCALE, a.clip[3] * SCALE); ctx.clip()
+      ctx.beginPath(); ctx.arc(a.cx * SCALE, a.cy * SCALE, a.r * SCALE, 0, Math.PI * 2); ctx.stroke()
+      ctx.restore()
+    })
+    marks.dots.forEach(([cx, cy, r]) => {
       ctx.beginPath(); ctx.arc(cx * SCALE, cy * SCALE, r * SCALE, 0, Math.PI * 2)
-      if (r < 1) { ctx.fillStyle = 'rgba(255,255,255,0.85)'; ctx.fill() } else { ctx.stroke() }
+      ctx.fillStyle = 'rgba(255,255,255,0.85)'; ctx.fill()
     })
 
     // Shapes
@@ -218,10 +270,16 @@ export default function AbpPizarraCapture({ equipoLocal, equipoVisitante, onCapt
         ctx.stroke()
       } else if (s.type === 'rect' && s.pts.length >= 2) {
         const [a, b] = s.pts
-        ctx.strokeRect(Math.min(a.x, b.x) * SCALE, Math.min(a.y, b.y) * SCALE, Math.abs(b.x - a.x) * SCALE, Math.abs(b.y - a.y) * SCALE)
+        const rx = Math.min(a.x, b.x) * SCALE; const ry = Math.min(a.y, b.y) * SCALE
+        const rw = Math.abs(b.x - a.x) * SCALE; const rh = Math.abs(b.y - a.y) * SCALE
+        if (s.filled) { ctx.globalAlpha = 0.35; ctx.fillStyle = s.color; ctx.fillRect(rx, ry, rw, rh); ctx.globalAlpha = 1 }
+        ctx.strokeRect(rx, ry, rw, rh)
       } else if (s.type === 'circle' && s.pts.length >= 2) {
         const [a, b] = s.pts
-        ctx.beginPath(); ctx.arc(a.x * SCALE, a.y * SCALE, dist(a, b) * SCALE, 0, Math.PI * 2); ctx.stroke()
+        const r = dist(a, b) * SCALE
+        ctx.beginPath(); ctx.arc(a.x * SCALE, a.y * SCALE, r, 0, Math.PI * 2)
+        if (s.filled) { ctx.globalAlpha = 0.35; ctx.fillStyle = s.color; ctx.fill(); ctx.globalAlpha = 1 }
+        ctx.stroke()
       } else if (s.type === 'arrow' && s.pts.length >= 2) {
         const a = s.pts[0]; const b = s.pts[s.pts.length - 1]
         ctx.beginPath(); ctx.moveTo(a.x * SCALE, a.y * SCALE); ctx.lineTo(b.x * SCALE, b.y * SCALE); ctx.stroke()
@@ -248,13 +306,13 @@ export default function AbpPizarraCapture({ equipoLocal, equipoVisitante, onCapt
     })
 
     // Balls
-    balls.forEach(b => {
+    ballsSnap.forEach(b => {
       ctx.beginPath(); ctx.arc(b.x * SCALE, b.y * SCALE, 1.1 * SCALE, 0, Math.PI * 2)
       ctx.fillStyle = 'white'; ctx.fill(); ctx.strokeStyle = '#333'; ctx.lineWidth = 1; ctx.stroke()
     })
 
     // Player tokens
-    tokens.forEach(t => {
+    tokensSnap.forEach(t => {
       const color = t.team === 'local' ? equipoLocal.color : equipoVisitante.color
       ctx.beginPath(); ctx.arc(t.x * SCALE, t.y * SCALE, 2.4 * SCALE, 0, Math.PI * 2)
       ctx.fillStyle = t.team === 'local' ? 'white' : color
@@ -264,8 +322,88 @@ export default function AbpPizarraCapture({ equipoLocal, equipoVisitante, onCapt
       ctx.font = `bold ${1.9 * SCALE}px Arial`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
       ctx.fillText(String(t.numero), t.x * SCALE, t.y * SCALE)
     })
+  }
 
+  const capture = () => {
+    const SCALE = 9
+    const canvas = document.createElement('canvas')
+    canvas.width = Math.round(w * SCALE); canvas.height = Math.round(h * SCALE)
+    const ctx = canvas.getContext('2d')!
+    drawScene(ctx, SCALE, tokens, balls)
     onCapture(canvas.toDataURL('image/png'))
+  }
+
+  /* ── Animation frames (movement over time) ── */
+  const captureFrame = () => {
+    setAnimFrames(prev => {
+      const next = [...prev, { tokens: JSON.parse(JSON.stringify(tokens)), balls: JSON.parse(JSON.stringify(balls)) }]
+      setAnimIdx(next.length - 1)
+      return next
+    })
+  }
+  const goToFrame = (idx: number) => {
+    const f = animFrames[idx]
+    if (!f) return
+    setAnimIdx(idx)
+    setTokens(JSON.parse(JSON.stringify(f.tokens)))
+    setBalls(JSON.parse(JSON.stringify(f.balls)))
+  }
+
+  const recordVideo = async () => {
+    if (animFrames.length < 2 || recording) return
+    setRecording(true)
+    try {
+      const SCALE = 9
+      const canvas = document.createElement('canvas')
+      canvas.width = Math.round(w * SCALE); canvas.height = Math.round(h * SCALE)
+      const ctx = canvas.getContext('2d')!
+      const stream = (canvas as unknown as { captureStream: (fps?: number) => MediaStream }).captureStream(30)
+      const mime = MediaRecorder.isTypeSupported('video/webm;codecs=vp9') ? 'video/webm;codecs=vp9' : 'video/webm'
+      const recorder = new MediaRecorder(stream, { mimeType: mime })
+      const chunks: BlobPart[] = []
+      recorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data) }
+      const stopped = new Promise<Blob>((resolve) => { recorder.onstop = () => resolve(new Blob(chunks, { type: mime })) })
+      recorder.start()
+
+      const SEGMENT = 900; const HOLD = 350
+      const lerp = (a: number, b: number, t: number) => a + (b - a) * t
+      const ease = (t: number) => (t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2)
+
+      drawScene(ctx, SCALE, animFrames[0].tokens, animFrames[0].balls)
+      await new Promise((r) => setTimeout(r, HOLD))
+
+      for (let seg = 0; seg < animFrames.length - 1; seg++) {
+        const from = animFrames[seg]; const to = animFrames[seg + 1]
+        await new Promise<void>((resolve) => {
+          const start = performance.now()
+          const tick = (now: number) => {
+            const te = ease(Math.min(1, (now - start) / SEGMENT))
+            const tk = from.tokens.map((tok) => {
+              const target = to.tokens.find((x) => x.uid === tok.uid)
+              return target ? { ...tok, x: lerp(tok.x, target.x, te), y: lerp(tok.y, target.y, te) } : tok
+            })
+            const bl = from.balls.map((b) => {
+              const target = to.balls.find((x) => x.uid === b.uid)
+              return target ? { ...b, x: lerp(b.x, target.x, te), y: lerp(b.y, target.y, te) } : b
+            })
+            drawScene(ctx, SCALE, tk, bl)
+            if (te < 1) requestAnimationFrame(tick); else resolve()
+          }
+          requestAnimationFrame(tick)
+        })
+        await new Promise((r) => setTimeout(r, HOLD))
+      }
+
+      recorder.stop()
+      const blob = await stopped
+      const file = new File([blob], `abp-video-${Date.now()}.webm`, { type: mime })
+      onCaptureVideo(file)
+    } catch (err) {
+      console.error('Error grabando vídeo:', err)
+      alert('Este navegador no permite grabar el movimiento como vídeo.')
+    } finally {
+      setRecording(false)
+    }
   }
 
   const modeBtn = (m: Mode, label: string, icon: React.ReactNode) => (
@@ -327,7 +465,7 @@ export default function AbpPizarraCapture({ equipoLocal, equipoVisitante, onCapt
           </div>
 
           {/* Toolbar */}
-          <div className="flex flex-wrap items-center gap-1.5 mb-3">
+          <div className="flex flex-wrap items-center gap-1.5 mb-2">
             {modeBtn('move', 'Mover', <span className="leading-none">✋</span>)}
             {modeBtn('freehand', 'Trazar', <Pencil className="w-3 h-3" />)}
             {modeBtn('arrow', 'Flecha', <ArrowRight className="w-3 h-3" />)}
@@ -335,9 +473,16 @@ export default function AbpPizarraCapture({ equipoLocal, equipoVisitante, onCapt
             {modeBtn('circle', 'Círculo', <Circle className="w-3 h-3" />)}
             {modeBtn('rect', 'Cuadrado', <Square className="w-3 h-3" />)}
             {modeBtn('ball', 'Balón', <span className="leading-none">⚽</span>)}
+            {modeBtn('anim', 'Animar', <Video className="w-3 h-3" />)}
             {inDrawMode && (
               <input type="color" value={penColor} onChange={e => setPenColor(e.target.value)}
                 className="w-7 h-7 rounded cursor-pointer border-0 p-0 ml-1" />
+            )}
+            {(mode === 'circle' || mode === 'rect') && (
+              <button onClick={() => setFillEnabled(v => !v)}
+                className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${fillEnabled ? 'bg-rfpaf-blue text-white' : 'bg-white/10 text-white/70 hover:bg-white/20'}`}>
+                {fillEnabled ? '■' : '□'} Relleno
+              </button>
             )}
             <div className="w-px h-5 bg-white/15 mx-1" />
             <button onClick={undo} className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-white/10 text-white/70 hover:bg-white/20">
@@ -351,31 +496,79 @@ export default function AbpPizarraCapture({ equipoLocal, equipoVisitante, onCapt
             </button>
           </div>
 
+          {/* Animation panel */}
+          {mode === 'anim' && (
+            <div className="mb-3 p-2.5 bg-amber-500/10 border border-amber-500/30 rounded-xl space-y-1.5">
+              <div className="flex items-center gap-2 flex-wrap">
+                <button onClick={captureFrame}
+                  className="flex items-center gap-1.5 bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold px-3 py-1.5 rounded-lg transition-colors">
+                  <Aperture className="w-3.5 h-3.5" /> Capturar fotograma
+                </button>
+                <div className="flex gap-1">
+                  {animFrames.map((_, i) => (
+                    <button key={i} onClick={() => goToFrame(i)}
+                      className={`w-7 h-7 rounded-lg text-xs font-bold border transition-colors ${animIdx === i ? 'bg-amber-500 text-white border-amber-600' : 'bg-white/5 text-amber-200 border-amber-500/40 hover:bg-white/10'}`}>
+                      {i + 1}
+                    </button>
+                  ))}
+                </div>
+                {animFrames.length >= 2 && (
+                  <button onClick={recordVideo} disabled={recording}
+                    className="flex items-center gap-1.5 bg-rfpaf-blue hover:bg-blue-700 disabled:opacity-50 text-white text-xs font-bold px-3 py-1.5 rounded-lg transition-colors">
+                    <Video className="w-3.5 h-3.5" /> {recording ? 'Grabando…' : 'Grabar vídeo del movimiento'}
+                  </button>
+                )}
+                {animFrames.length > 0 && (
+                  <button onClick={() => { setAnimFrames([]); setAnimIdx(0) }}
+                    className="text-xs text-amber-200/70 hover:text-red-400 transition-colors ml-auto">
+                    Vaciar fotogramas
+                  </button>
+                )}
+              </div>
+              <p className="text-[10px] text-amber-200/60">
+                Coloca a las jugadoras y pulsa "Capturar fotograma"; muévelas de nuevo y repite para cada paso del movimiento. Con 2 o más fotogramas puedes grabar el vídeo.
+              </p>
+            </div>
+          )}
+
           {/* Pitch */}
           <div className="flex justify-center bg-black/30 rounded-xl p-3">
             <svg
               ref={svgRef}
               viewBox={`0 0 ${w} ${h}`}
               className="w-full rounded-lg select-none"
-              style={{ background: '#2d6a27', maxHeight: '48vh', touchAction: 'none', cursor: mode === 'move' ? 'default' : 'crosshair' }}
+              style={{ background: '#2d6a27', maxHeight: '46vh', touchAction: 'none', cursor: (mode === 'move' || mode === 'anim') ? 'default' : 'crosshair' }}
               onMouseDown={handlePitchDown}
               onMouseMove={handlePitchMove}
               onMouseUp={handlePitchUp}
               onMouseLeave={handlePitchUp}
             >
+              <defs>
+                {marks.clippedArcs.map((a, i) => (
+                  <clipPath key={i} id={`abp-clip-${i}`}>
+                    <rect x={a.clip[0]} y={a.clip[1]} width={a.clip[2]} height={a.clip[3]} />
+                  </clipPath>
+                ))}
+                <marker id="abp-arrowhead" markerWidth="4" markerHeight="4" refX="3" refY="2" orient="auto">
+                  <path d="M0,0 L4,2 L0,4 Z" fill="currentColor" />
+                </marker>
+              </defs>
+
               {marks.rects.map((r, i) => <rect key={i} x={r[0]} y={r[1]} width={r[2]} height={r[3]} fill="none" stroke="white" strokeWidth={0.3} opacity={0.85} />)}
               {marks.lines.map((l, i) => <line key={i} x1={l[0]} y1={l[1]} x2={l[2]} y2={l[3]} stroke="white" strokeWidth={0.3} opacity={0.85} />)}
-              {marks.circles.map((c, i) => <circle key={i} cx={c[0]} cy={c[1]} r={c[2]} fill={c[2] < 1 ? 'white' : 'none'} stroke="white" strokeWidth={0.3} opacity={0.85} />)}
+              {marks.strokedCircles.map((c, i) => <circle key={i} cx={c[0]} cy={c[1]} r={c[2]} fill="none" stroke="white" strokeWidth={0.3} opacity={0.85} />)}
+              {marks.clippedArcs.map((a, i) => <circle key={i} cx={a.cx} cy={a.cy} r={a.r} fill="none" stroke="white" strokeWidth={0.3} opacity={0.85} clipPath={`url(#abp-clip-${i})`} />)}
+              {marks.dots.map((c, i) => <circle key={i} cx={c[0]} cy={c[1]} r={c[2]} fill="white" opacity={0.85} />)}
 
               {[...shapes, currentShape].filter((s): s is DrawShape => !!s).map(s => {
                 if (s.type === 'freehand') return <polyline key={s.uid} points={s.pts.map(p => `${p.x},${p.y}`).join(' ')} stroke={s.color} strokeWidth={0.6} fill="none" strokeLinecap="round" strokeLinejoin="round" />
                 if (s.type === 'rect' && s.pts.length >= 2) {
                   const [a, b] = s.pts
-                  return <rect key={s.uid} x={Math.min(a.x, b.x)} y={Math.min(a.y, b.y)} width={Math.abs(b.x - a.x)} height={Math.abs(b.y - a.y)} fill="none" stroke={s.color} strokeWidth={0.5} />
+                  return <rect key={s.uid} x={Math.min(a.x, b.x)} y={Math.min(a.y, b.y)} width={Math.abs(b.x - a.x)} height={Math.abs(b.y - a.y)} fill={s.filled ? s.color : 'none'} fillOpacity={s.filled ? 0.35 : 1} stroke={s.color} strokeWidth={0.5} />
                 }
                 if (s.type === 'circle' && s.pts.length >= 2) {
                   const [a, b] = s.pts
-                  return <circle key={s.uid} cx={a.x} cy={a.y} r={dist(a, b)} fill="none" stroke={s.color} strokeWidth={0.5} />
+                  return <circle key={s.uid} cx={a.x} cy={a.y} r={dist(a, b)} fill={s.filled ? s.color : 'none'} fillOpacity={s.filled ? 0.35 : 1} stroke={s.color} strokeWidth={0.5} />
                 }
                 if (s.type === 'arrow' && s.pts.length >= 2) {
                   const a = s.pts[0]; const b = s.pts[s.pts.length - 1]
@@ -387,24 +580,34 @@ export default function AbpPizarraCapture({ equipoLocal, equipoVisitante, onCapt
                 }
                 return null
               })}
-              <defs>
-                <marker id="abp-arrowhead" markerWidth="4" markerHeight="4" refX="3" refY="2" orient="auto">
-                  <path d="M0,0 L4,2 L0,4 Z" fill="currentColor" />
-                </marker>
-              </defs>
+
+              {/* Rotation handles for arrows/curves — drag freely in any direction */}
+              {mode === 'move' && shapes.filter(s => s.type === 'arrow' || s.type === 'curve').map(s => {
+                const start = s.pts[0]; const end = s.pts[s.pts.length - 1]
+                return (
+                  <g key={`h-${s.uid}`}>
+                    <circle cx={start.x} cy={start.y} r={1.6} fill="white" fillOpacity={0.9} stroke={s.color} strokeWidth={0.3}
+                      style={{ cursor: 'grab' }}
+                      onMouseDown={e => { e.stopPropagation(); dragRef.current = { kind: 'shapeEndpoint', shapeUid: s.uid, which: 'start' } }} />
+                    <circle cx={end.x} cy={end.y} r={1.6} fill="white" fillOpacity={0.9} stroke={s.color} strokeWidth={0.3}
+                      style={{ cursor: 'grab' }}
+                      onMouseDown={e => { e.stopPropagation(); dragRef.current = { kind: 'shapeEndpoint', shapeUid: s.uid, which: 'end' } }} />
+                  </g>
+                )
+              })}
 
               {balls.map(b => (
                 <circle key={b.uid} cx={b.x} cy={b.y} r={1.1} fill="white" stroke="#333" strokeWidth={0.15}
-                  style={{ cursor: mode === 'move' ? 'grab' : 'default' }}
-                  onMouseDown={e => { if (mode !== 'move') return; e.stopPropagation(); dragRef.current = { kind: 'ball', uid: b.uid } }} />
+                  style={{ cursor: tokensInteractive ? 'grab' : 'default' }}
+                  onMouseDown={e => { if (!tokensInteractive) return; e.stopPropagation(); dragRef.current = { kind: 'ball', uid: b.uid } }} />
               ))}
 
               {tokens.map(t => {
                 const color = t.team === 'local' ? equipoLocal.color : equipoVisitante.color
                 return (
                   <g key={t.uid}
-                    style={{ cursor: mode === 'move' ? 'grab' : 'default' }}
-                    onMouseDown={e => { if (mode !== 'move') return; e.stopPropagation(); dragRef.current = { kind: 'token', uid: t.uid } }}>
+                    style={{ cursor: tokensInteractive ? 'grab' : 'default' }}
+                    onMouseDown={e => { if (!tokensInteractive) return; e.stopPropagation(); dragRef.current = { kind: 'token', uid: t.uid } }}>
                     <circle cx={t.x} cy={t.y} r={2.4} fill={t.team === 'local' ? 'white' : color} stroke={t.team === 'local' ? color : 'white'} strokeWidth={0.4} />
                     <text x={t.x} y={t.y} textAnchor="middle" dominantBaseline="central" fontSize={2} fontWeight="bold" fill={t.team === 'local' ? color : 'white'}>{t.numero}</text>
                   </g>
@@ -414,7 +617,7 @@ export default function AbpPizarraCapture({ equipoLocal, equipoVisitante, onCapt
           </div>
 
           <p className="text-[10px] text-white/40 mt-2 text-center">
-            Toca un dorsal para añadir/quitar jugadoras (hasta 11 por equipo) · arrastra sobre el campo · las flechas y curvas se enganchan a la jugadora más cercana para marcar su movimiento
+            Toca un dorsal para añadir/quitar jugadoras (hasta 11 por equipo) · en "Mover" arrastra los extremos blancos de una flecha o curva para girarla libremente
           </p>
         </div>
 

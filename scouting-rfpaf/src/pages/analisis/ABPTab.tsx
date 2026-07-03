@@ -18,6 +18,9 @@ function extractVimeoId(url: string): string | null {
   const m = url.match(/vimeo\.com\/(?:video\/)?(\d+)/)
   return m ? m[1] : null
 }
+function isDirectVideoUrl(url: string): boolean {
+  return /\.(webm|mp4|mov)(\?|$)/i.test(url) || url.includes('supabase.co/storage')
+}
 
 function VideoEmbed({ url }: { url: string }) {
   const yt = extractYoutubeId(url)
@@ -41,6 +44,9 @@ function VideoEmbed({ url }: { url: string }) {
         className="w-full aspect-video rounded-xl"
       />
     )
+  }
+  if (isDirectVideoUrl(url)) {
+    return <video src={url} controls className="w-full aspect-video rounded-xl bg-black object-contain" />
   }
   return (
     <div className="flex items-center justify-center aspect-video bg-gray-100 rounded-xl text-gray-400 text-xs">
@@ -73,6 +79,14 @@ function ABPCard({ action, index, onUpdate, onDelete, color, analisisId }: {
     const url = await uploadAnalisisArchivo(file, analisisId)
     setUploading(false)
     if (url) onUpdate({ imagenUrl: url })
+  }
+
+  const handleCaptureVideo = async (file: File) => {
+    setShowCapture(false)
+    setUploading(true)
+    const url = await uploadAnalisisArchivo(file, analisisId)
+    setUploading(false)
+    if (url) onUpdate({ videoUrl: url })
   }
 
   return (
@@ -189,6 +203,7 @@ function ABPCard({ action, index, onUpdate, onDelete, color, analisisId }: {
           equipoLocal={parent.equipoLocal}
           equipoVisitante={parent.equipoVisitante}
           onCapture={handleCapture}
+          onCaptureVideo={handleCaptureVideo}
           onClose={() => setShowCapture(false)}
         />
       )}
