@@ -5,13 +5,24 @@ import type { PartidoInforme, EvaluacionJugadora, JugadoraTactica } from '../../
 
 interface Props { partido: PartidoInforme }
 
-function MiniPitch({ x, y }: { x: number | null; y: number | null }) {
+function MiniPitch({ x, y, onSetPosition }: { x: number | null; y: number | null; onSetPosition: (x: number, y: number) => void }) {
+  const handleClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect()
+    const nx = Math.max(2, Math.min(98, ((e.clientX - rect.left) / rect.width) * 100))
+    const ny = Math.max(2, Math.min(98, ((e.clientY - rect.top) / rect.height) * 100))
+    onSetPosition(nx, ny)
+  }
   return (
-    <div className="relative w-full rounded-lg overflow-hidden flex-shrink-0" style={{ aspectRatio: '68/105', background: '#2d6a27' }}>
-      <div className="absolute inset-1 border border-white/40 rounded-sm" />
-      <div className="absolute left-1 right-1 top-1/2 border-t border-white/40" />
+    <div
+      onClick={handleClick}
+      title="Toca para marcar la posición"
+      className="relative w-full rounded-lg overflow-hidden flex-shrink-0 cursor-crosshair"
+      style={{ aspectRatio: '68/105', background: '#2d6a27' }}
+    >
+      <div className="absolute inset-1 border border-white/40 rounded-sm pointer-events-none" />
+      <div className="absolute left-1 right-1 top-1/2 border-t border-white/40 pointer-events-none" />
       {x !== null && y !== null && (
-        <div className="absolute w-3 h-3 rounded-full bg-white border-2 border-rfpaf-red shadow" style={{ left: `${x}%`, top: `${y}%`, transform: 'translate(-50%, -50%)' }} />
+        <div className="absolute w-3 h-3 rounded-full bg-white border-2 border-rfpaf-red shadow pointer-events-none" style={{ left: `${x}%`, top: `${y}%`, transform: 'translate(-50%, -50%)' }} />
       )}
     </div>
   )
@@ -61,7 +72,7 @@ function EvaluacionCard({ ev, onUpdate, onDelete }: {
               {ev.fotoUrl ? <img src={ev.fotoUrl} alt={ev.nombre} className="w-full h-full object-cover object-top" /> : <UserCircle2 className="w-10 h-10 text-gray-300" />}
             </div>
             <div className="w-20 sm:w-24">
-              <MiniPitch x={ev.posicionX} y={ev.posicionY} />
+              <MiniPitch x={ev.posicionX} y={ev.posicionY} onSetPosition={(x, y) => onUpdate({ posicionX: x, posicionY: y })} />
             </div>
           </div>
 
@@ -121,7 +132,9 @@ export default function ValoracionesSection({ partido }: Props) {
   useEffect(() => { loadEvaluaciones(partido.id) }, [partido.id])
 
   const list = evaluaciones.filter((e) => e.partidoInformeId === partido.id).sort((a, b) => a.orden - b.orden)
+  const evaluadasFichaIds = new Set(list.map((e) => e.fichaId).filter(Boolean))
   const disponibles = [...partido.alineacionTitulares, ...partido.alineacionSuplentes]
+    .filter((j) => !evaluadasFichaIds.has(j.fichaId))
   const posicionesTitulares = new Map(partido.alineacionTitulares.map((t) => [t.uid, t]))
 
   const addFromJugadora = (j: JugadoraTactica) => {
@@ -148,16 +161,6 @@ export default function ValoracionesSection({ partido }: Props) {
     setShowPicker(false)
   }
 
-  const addBlank = () => {
-    addEvaluacion({
-      partidoInformeId: partido.id, orden: list.length, nombre: '', apellidos: '', fotoUrl: '',
-      dorsal: null, lateralidad: '', fechaNacimiento: '', clubNombre: '', clubEscudoUrl: '',
-      posicionX: null, posicionY: null, minutos: 0, goles: 0, asistencias: 0,
-      tarjetasAmarillas: 0, tarjetasRojas: 0, valoracion: null, comentario: '',
-    })
-    setShowPicker(false)
-  }
-
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-5">
       <div className="flex items-center justify-between mb-4 relative">
@@ -172,19 +175,20 @@ export default function ValoracionesSection({ partido }: Props) {
           {showPicker && (
             <div className="absolute right-0 top-full mt-2 w-64 bg-white border border-gray-200 rounded-xl shadow-lg z-10 max-h-72 overflow-y-auto">
               {disponibles.length === 0 ? (
-                <p className="text-xs text-gray-400 p-3">No hay jugadoras en la alineación</p>
+                <p className="text-xs text-gray-400 p-3 leading-relaxed">
+                  Todas las jugadoras de la alineación ya están evaluadas, o aún no has cargado la convocatoria en la sección Alineaciones.
+                </p>
               ) : (
                 disponibles.map((j) => (
                   <button key={j.uid} onClick={() => addFromJugadora(j)}
                     className="w-full flex items-center gap-2 px-3 py-2 text-left text-xs font-semibold text-gray-700 hover:bg-gray-50 border-b border-gray-100 last:border-0">
-                    <span className="w-5 h-5 rounded-full bg-rfpaf-blue/10 text-rfpaf-blue flex items-center justify-center text-[10px] font-bold flex-shrink-0">{j.numero}</span>
+                    <span className="w-5 h-5 rounded-full overflow-hidden bg-rfpaf-blue/10 text-rfpaf-blue flex items-center justify-center text-[10px] font-bold flex-shrink-0">
+                      {j.foto ? <img src={j.foto} alt={j.nombre} className="w-full h-full object-cover" /> : j.numero}
+                    </span>
                     {j.nombre}
                   </button>
                 ))
               )}
-              <button onClick={addBlank} className="w-full px-3 py-2 text-left text-xs font-semibold text-gray-500 hover:bg-gray-50 border-t border-gray-200">
-                + Entrada manual
-              </button>
             </div>
           )}
         </div>
