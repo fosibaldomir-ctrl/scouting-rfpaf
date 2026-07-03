@@ -1,7 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
-import { ArrowLeft, Plus, Trash2, Shield, Users } from 'lucide-react'
+import { ArrowLeft, Plus, Trash2, Shield, Users, Download, Loader2 } from 'lucide-react'
 import { useStore } from '../../store/useStore'
+import InformePDFTemplate from '../../components/pdf/InformePDFTemplate'
+import type { EvaluacionJugadora } from '../../types'
 
 const EMPTY_PLAN = { explicacion: '', imagenUrl: '', variante1Url: '', variante2Url: '' }
 
@@ -11,6 +13,7 @@ export default function InformeDetailPage() {
   const {
     informes, updateInformeAction,
     partidosInforme, loadPartidosInforme, addPartidoInforme, deletePartidoInformeAction,
+    evaluaciones, loadEvaluaciones,
   } = useStore()
 
   const informe = informes.find((i) => i.id === informeId)
@@ -19,12 +22,98 @@ export default function InformeDetailPage() {
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState({ jornada: partidos.length + 1, rivalNombre: '', fechaPartido: new Date().toISOString().slice(0, 10) })
   const [conclusiones, setConclusiones] = useState('')
+  const [generatingPdf, setGeneratingPdf] = useState(false)
+  const pdfRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => { if (informeId) loadPartidosInforme(informeId) }, [informeId, loadPartidosInforme])
   useEffect(() => { setConclusiones(informe?.conclusiones ?? '') }, [informe?.conclusiones])
   useEffect(() => { setForm((f) => ({ ...f, jornada: partidos.length + 1 })) }, [partidos.length])
 
   if (!informeId) return null
+
+  const evaluacionesByPartido: Record<string, EvaluacionJugadora[]> = {}
+  for (const p of partidos) {
+    evaluacionesByPartido[p.id] = evaluaciones.filter((e) => e.partidoInformeId === p.id).sort((a, b) => a.orden - b.orden)
+  }
+
+  const handleExportPDF = async () => {
+    if (!pdfRef.current || !informe || partidos.length === 0) return
+    setGeneratingPdf(true)
+    try {
+      await Promise.all(partidos.map((p) => loadEvaluaciones(p.id)))
+      // Esperar a que React renderice la plantilla con las evaluaciones ya cargadas
+      await new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r())))
+
+      const el = pdfRef.current!
+      const prevCss = el.style.cssText
+      el.style.cssText = 'position:fixed;top:0;left:0;width:794px;z-index:99999;background:white;'
+      await new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r())))
+
+      // Convertir cada <img> (fotos, escudos, diagramas) a dataURL antes de capturar —
+      // si no, html2canvas las deja en blanco por CORS aunque el navegador sí las cargue
+      const toDataURL = (url: string): Promise<string | null> => {
+        if (!url || url.startsWith('data:')) return Promise.resolve(url || null)
+        return new Promise((resolve) => {
+          const img = new Image()
+          img.crossOrigin = 'anonymous'
+          img.onload = () => {
+            const c = document.createElement('canvas')
+            c.width = img.naturalWidth; c.height = img.naturalHeight
+            c.getContext('2d')!.drawImage(img, 0, 0)
+            try { resolve(c.toDataURL('image/png')) } catch { resolve(url) }
+          }
+          img.onerror = () => resolve(null)
+          img.src = url + (url.includes('?') ? '&' : '?') + '_t=' + Date.now()
+        })
+      }
+      const imgEls = Array.from(el.querySelectorAll('img'))
+      await Promise.all(imgEls.map(async (imgEl) => {
+        const orig = imgEl.getAttribute('src')
+        if (!orig) return
+        const dataUrl = await toDataURL(orig)
+        if (dataUrl) imgEl.src = dataUrl
+      }))
+      await new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r())))
+
+      try {
+        const html2canvas = (await import('html2canvas')).default
+        const { jsPDF } = await import('jspdf')
+        const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
+        const pdfW = pdf.internal.pageSize.getWidth()
+        const pdfH = pdf.internal.pageSize.getHeight()
+
+        const SIDE = (28 / 794) * pdfW
+        const TOP = 8
+        const BOTTOM = 8
+        const GAP = (14 / 794) * pdfW
+
+        const blocks = Array.from(el.querySelectorAll<HTMLElement>('[data-pdf-block]'))
+        let y = 0
+
+        for (const block of blocks) {
+          const isFullBleed = block.dataset.pdfBlock === 'header' || block.dataset.pdfBlock === 'conclusiones'
+          const c = await html2canvas(block, {
+            scale: 3, useCORS: true, logging: false,
+            backgroundColor: isFullBleed ? null : '#ffffff', allowTaint: true,
+          })
+          const blockW = isFullBleed ? pdfW : pdfW - SIDE * 2
+          const x = isFullBleed ? 0 : SIDE
+          const imgH = (c.height / c.width) * blockW
+          const imgData = c.toDataURL('image/jpeg', 0.95)
+
+          if (y > 0 && y + imgH > pdfH - BOTTOM) { pdf.addPage(); y = TOP }
+          pdf.addImage(imgData, 'JPEG', x, y, blockW, imgH)
+          y += imgH + (isFullBleed ? GAP * 0.5 : GAP)
+        }
+
+        pdf.save(`informe-${(informe.titulo || 'informe').toLowerCase().replace(/\s+/g, '-')}.pdf`)
+      } finally {
+        el.style.cssText = prevCss
+      }
+    } finally {
+      setGeneratingPdf(false)
+    }
+  }
 
   const handleCreatePartido = async () => {
     if (!form.rivalNombre.trim()) return
@@ -75,12 +164,22 @@ export default function InformeDetailPage() {
           <h1 className="text-xl font-bold text-rfpaf-blue">{informe?.titulo || 'Informe'}</h1>
           <p className="text-sm text-gray-500">{informe?.autor} · {informe?.fecha}</p>
         </div>
-        <button
-          onClick={() => setShowForm(true)}
-          className="flex items-center gap-2 bg-rfpaf-blue text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-blue-700 transition-colors"
-        >
-          <Plus className="w-4 h-4" /> Añadir Partido
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleExportPDF}
+            disabled={generatingPdf || partidos.length === 0}
+            className="flex items-center gap-2 bg-white border border-gray-200 text-gray-700 px-4 py-2 rounded-xl text-sm font-medium hover:bg-gray-50 transition-colors disabled:opacity-50"
+          >
+            {generatingPdf ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+            {generatingPdf ? 'Generando…' : 'Descargar PDF'}
+          </button>
+          <button
+            onClick={() => setShowForm(true)}
+            className="flex items-center gap-2 bg-rfpaf-blue text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-blue-700 transition-colors"
+          >
+            <Plus className="w-4 h-4" /> Añadir Partido
+          </button>
+        </div>
       </div>
 
       {showForm && (
@@ -186,6 +285,13 @@ export default function InformeDetailPage() {
           className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-rfpaf-blue outline-none resize-y"
         />
       </div>
+
+      {/* Plantilla oculta para exportar a PDF */}
+      {informe && (
+        <div ref={pdfRef} style={{ position: 'absolute', left: '-9999px', top: 0, zIndex: -1 }} aria-hidden="true">
+          <InformePDFTemplate informe={informe} partidos={partidos} evaluacionesByPartido={evaluacionesByPartido} />
+        </div>
+      )}
     </div>
   )
 }
