@@ -2,16 +2,18 @@ import { useRef, useState } from 'react'
 import { X, Pencil, ArrowRight, Spline, Circle, Square, Eraser, Trash2, Camera, RefreshCw, Video, Aperture } from 'lucide-react'
 import type { EquipoTactico } from '../types'
 
+type ViewMode = 'completo' | 'area'
+
 interface Props {
   equipoLocal: EquipoTactico
   equipoVisitante: EquipoTactico
   onCapture: (dataUrl: string) => void
   onCaptureVideo: (file: File) => void
   onClose: () => void
+  defaultView?: ViewMode
 }
 
 type Mode = 'move' | 'freehand' | 'arrow' | 'curve' | 'circle' | 'rect' | 'ball' | 'anim'
-type ViewMode = 'completo' | 'area'
 type Team = 'local' | 'visit'
 interface Pt { x: number; y: number }
 interface Token { uid: string; team: Team; numero: number; x: number; y: number }
@@ -107,8 +109,8 @@ function markingsArea(): Marks {
   }
 }
 
-export default function AbpPizarraCapture({ equipoLocal, equipoVisitante, onCapture, onCaptureVideo, onClose }: Props) {
-  const [view, setView] = useState<ViewMode>('area')
+export default function AbpPizarraCapture({ equipoLocal, equipoVisitante, onCapture, onCaptureVideo, onClose, defaultView = 'area' }: Props) {
+  const [view, setView] = useState<ViewMode>(defaultView)
   const [mode, setMode] = useState<Mode>('move')
   const [penColor, setPenColor] = useState('#facc15')
   const [fillEnabled, setFillEnabled] = useState(false)

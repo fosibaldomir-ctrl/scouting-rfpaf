@@ -2,7 +2,11 @@ import { useState } from 'react'
 import { Layers, Zap, ShieldAlert } from 'lucide-react'
 import AbpPizarraCapture from '../../../components/AbpPizarraCapture'
 import { uploadInformeArchivo } from '../../../lib/supabase'
-import type { PartidoInforme, PlanFase, EquipoTactico } from '../../../types'
+import type { PartidoInforme, PlanFase, EquipoTactico, JugadoraTactica } from '../../../types'
+
+const RIVAL_GENERICO: JugadoraTactica[] = Array.from({ length: 11 }, (_, i) => ({
+  uid: `rival-${i + 1}`, numero: i + 1, nombre: `Jugadora ${i + 1}`, posX: 50, posY: 50,
+}))
 
 interface Props {
   partido: PartidoInforme
@@ -51,7 +55,7 @@ export default function PlanPartidoSection({ partido, onUpdate }: Props) {
   }
 
   const equipoLocal: EquipoTactico = { nombre: 'Nuestro equipo', formacion: '4-3-3', color: '#1a3a6b', jugadoras: partido.alineacionTitulares }
-  const equipoVisitante: EquipoTactico = { nombre: partido.rivalNombre || 'Rival', formacion: '4-4-2', color: '#c0392b', jugadoras: [] }
+  const equipoVisitante: EquipoTactico = { nombre: partido.rivalNombre || 'Rival', formacion: '4-4-2', color: '#c0392b', jugadoras: RIVAL_GENERICO }
 
   const faseBlock = (fase: Fase, plan: PlanFase, label: string, icon: React.ReactNode, color: string) => (
     <div className="flex-1 min-w-[280px] border border-gray-200 rounded-xl p-4">
@@ -89,6 +93,7 @@ export default function PlanPartidoSection({ partido, onUpdate }: Props) {
           onCapture={handleCapture}
           onCaptureVideo={handleCaptureVideo}
           onClose={() => setCaptureTarget(null)}
+          defaultView="completo"
         />
       )}
     </div>
