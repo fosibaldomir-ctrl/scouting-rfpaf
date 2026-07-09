@@ -30,7 +30,7 @@ function Pill({ children, bg, color }: { children: React.ReactNode; bg: string; 
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
   return (
-    <h3 style={{ fontSize: 14, fontWeight: 800, color: '#1a3a6b', textTransform: 'uppercase', letterSpacing: 0.5, margin: '0 0 10px 0' }}>
+    <h3 style={{ fontSize: 14, lineHeight: 1.5, fontWeight: 800, color: '#1a3a6b', textTransform: 'uppercase', letterSpacing: 0.5, margin: 0, padding: '4px 0 10px 0' }}>
       {children}
     </h3>
   )
@@ -112,8 +112,8 @@ function EvaluacionCard({ ev }: { ev: EvaluacionJugadora }) {
           <StatBox label="TR" value={ev.tarjetasRojas} />
           <StatBox label="VAL" value={ev.valoracion === null ? 'SC' : ev.valoracion} />
         </div>
-        <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: 5 }}>
-          <div style={{ fontSize: 7.5, fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 2 }}>
+        <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: 6 }}>
+          <div style={{ fontSize: 8, lineHeight: 1.6, fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 0.4, margin: 0, paddingBottom: 2 }}>
             Valoración
           </div>
           <p style={{
