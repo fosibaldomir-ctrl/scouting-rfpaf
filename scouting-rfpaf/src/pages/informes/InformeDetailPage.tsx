@@ -89,27 +89,40 @@ export default function InformeDetailPage() {
 
         const blocks = Array.from(el.querySelectorAll<HTMLElement>('[data-pdf-block]'))
         let y = 0
+        let renderedAny = false
 
         for (const block of blocks) {
           const isFullBleed = block.dataset.pdfBlock === 'header' || block.dataset.pdfBlock === 'conclusiones'
-          const c = await html2canvas(block, {
-            scale: 3, useCORS: true, logging: false,
-            backgroundColor: isFullBleed ? null : '#ffffff', allowTaint: true,
-          })
-          const blockW = isFullBleed ? pdfW : pdfW - SIDE * 2
-          const x = isFullBleed ? 0 : SIDE
-          const imgH = (c.height / c.width) * blockW
-          const imgData = c.toDataURL('image/jpeg', 0.95)
+          try {
+            const c = await html2canvas(block, {
+              scale: 3, useCORS: true, logging: false,
+              backgroundColor: isFullBleed ? null : '#ffffff', allowTaint: true,
+            })
+            const blockW = isFullBleed ? pdfW : pdfW - SIDE * 2
+            const x = isFullBleed ? 0 : SIDE
+            const imgH = (c.height / c.width) * blockW
+            const imgData = c.toDataURL('image/jpeg', 0.95)
 
-          if (y > 0 && y + imgH > pdfH - BOTTOM) { pdf.addPage(); y = TOP }
-          pdf.addImage(imgData, 'JPEG', x, y, blockW, imgH)
-          y += imgH + (isFullBleed ? GAP * 0.5 : GAP)
+            if (y > 0 && y + imgH > pdfH - BOTTOM) { pdf.addPage(); y = TOP }
+            pdf.addImage(imgData, 'JPEG', x, y, blockW, imgH)
+            y += imgH + (isFullBleed ? GAP * 0.5 : GAP)
+            renderedAny = true
+          } catch (blockErr) {
+            // Una imagen sin CORS puede "manchar" el canvas de un bloque concreto —
+            // se omite ese bloque en vez de abortar todo el PDF
+            console.error(`Error capturando bloque "${block.dataset.pdfBlock}":`, blockErr)
+          }
         }
+
+        if (!renderedAny) throw new Error('No se pudo capturar ningún bloque del informe')
 
         pdf.save(`informe-${(informe.titulo || 'informe').toLowerCase().replace(/\s+/g, '-')}.pdf`)
       } finally {
         el.style.cssText = prevCss
       }
+    } catch (err) {
+      console.error('Error generando el PDF del informe:', err)
+      alert('No se ha podido generar el PDF. Revisa que las imágenes (escudos, fotos de equipación) provengan de subidas propias y vuelve a intentarlo.')
     } finally {
       setGeneratingPdf(false)
     }
