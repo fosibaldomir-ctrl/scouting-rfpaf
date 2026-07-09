@@ -54,7 +54,7 @@ function MiniPitch({ titulares, sistemaRival }: { titulares: PartidoInforme['ali
         <div key={`r-${i}`} style={{
           position: 'absolute', left: `${pos.x}%`, top: `${100 - pos.y}%`, transform: 'translate(-50%,-50%)',
           width: 20, height: 20, borderRadius: '50%', background: '#c0392b', border: '1.5px solid white',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, fontWeight: 800, color: 'white',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, lineHeight: '20px', fontWeight: 800, color: 'white', textAlign: 'center',
         }}>
           {i + 1}
         </div>
@@ -66,7 +66,7 @@ function MiniPitch({ titulares, sistemaRival }: { titulares: PartidoInforme['ali
           ) : (
             <div style={{
               width: 22, height: 22, borderRadius: '50%', background: 'white', border: '2px solid #1a3a6b',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, fontWeight: 800, color: '#1a3a6b',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, lineHeight: '22px', fontWeight: 800, color: '#1a3a6b', textAlign: 'center',
             }}>
               {t.numero}
             </div>
@@ -96,7 +96,7 @@ function EvaluacionCard({ ev }: { ev: EvaluacionJugadora }) {
       )}
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
-          <span style={{ width: 18, height: 18, borderRadius: '50%', background: '#1a3a6b', color: 'white', fontSize: 9, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+          <span style={{ width: 18, height: 18, borderRadius: '50%', background: '#1a3a6b', color: 'white', fontSize: 9, lineHeight: '18px', fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center', flexShrink: 0 }}>
             {ev.dorsal ?? '–'}
           </span>
           <span style={{ fontSize: 12, fontWeight: 800, color: '#1e293b' }}>{ev.nombre} {ev.apellidos}</span>
