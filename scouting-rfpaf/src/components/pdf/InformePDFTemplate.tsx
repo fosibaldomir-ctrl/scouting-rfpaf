@@ -112,9 +112,18 @@ function EvaluacionCard({ ev }: { ev: EvaluacionJugadora }) {
           <StatBox label="TR" value={ev.tarjetasRojas} />
           <StatBox label="VAL" value={ev.valoracion === null ? 'SC' : ev.valoracion} />
         </div>
-        {ev.comentario && (
-          <p style={{ fontSize: 9.5, color: '#475569', lineHeight: 1.5, margin: 0 }}>{ev.comentario}</p>
-        )}
+        <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: 5 }}>
+          <div style={{ fontSize: 7.5, fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 2 }}>
+            Valoración
+          </div>
+          <p style={{
+            fontSize: 9.5, lineHeight: 1.55, margin: 0,
+            color: ev.comentario ? '#475569' : '#cbd5e1',
+            fontStyle: ev.comentario ? 'normal' : 'italic',
+          }}>
+            {ev.comentario || 'Sin valoración escrita.'}
+          </p>
+        </div>
       </div>
     </div>
   )
