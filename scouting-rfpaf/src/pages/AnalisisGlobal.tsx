@@ -56,6 +56,7 @@ export default function AnalisisGlobal() {
   const { analisis, activeAnalisisId, addAnalisis, deleteAnalisis, setActiveAnalisisId, clubes } = useStore()
   const navigate = useNavigate()
   const [showForm, setShowForm] = useState(false)
+  const [filtroCategoria, setFiltroCategoria] = useState<string>('Todas')
   const [form, setForm] = useState({
     nombre: '',
     fecha: new Date().toISOString().slice(0, 10),
@@ -63,6 +64,16 @@ export default function AnalisisGlobal() {
     clubLocalId: '',
     clubVisitanteId: '',
   })
+
+  const conteoPorCategoria: Record<string, number> = {}
+  for (const a of analisis) {
+    const key = a.categoria || 'Sin categoría'
+    conteoPorCategoria[key] = (conteoPorCategoria[key] ?? 0) + 1
+  }
+  const filtros = ['Todas', ...CATEGORIAS_ANALISIS, 'Sin categoría']
+  const analisisFiltrados = filtroCategoria === 'Todas'
+    ? analisis
+    : analisis.filter((a) => (a.categoria || 'Sin categoría') === filtroCategoria)
 
   const handleCreate = () => {
     if (!form.nombre.trim()) return
@@ -203,6 +214,29 @@ export default function AnalisisGlobal() {
         </div>
       )}
 
+      {/* Category filter tabs */}
+      {analisis.length > 0 && (
+        <div className="flex flex-wrap gap-2 mb-5">
+          {filtros.map((cat) => {
+            const count = cat === 'Todas' ? analisis.length : (conteoPorCategoria[cat] ?? 0)
+            if (cat !== 'Todas' && count === 0) return null
+            const isActive = filtroCategoria === cat
+            return (
+              <button
+                key={cat}
+                onClick={() => setFiltroCategoria(cat)}
+                className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold transition-all ${
+                  isActive ? 'bg-rfpaf-blue text-white shadow-sm' : 'bg-white text-gray-500 border border-gray-200 hover:border-rfpaf-blue/40 hover:text-rfpaf-blue'
+                }`}
+              >
+                {cat}
+                <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${isActive ? 'bg-white/20' : 'bg-gray-100'}`}>{count}</span>
+              </button>
+            )
+          })}
+        </div>
+      )}
+
       {/* Cards */}
       {analisis.length === 0 ? (
         <div className="text-center py-16 text-gray-400">
@@ -210,9 +244,14 @@ export default function AnalisisGlobal() {
           <p className="font-medium">No hay análisis creados</p>
           <p className="text-sm mt-1">Crea el primero con el botón de arriba</p>
         </div>
+      ) : analisisFiltrados.length === 0 ? (
+        <div className="text-center py-16 text-gray-400">
+          <BarChart2 className="w-12 h-12 mx-auto mb-3 opacity-30" />
+          <p className="font-medium">Sin análisis en «{filtroCategoria}»</p>
+        </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {analisis.map((a) => {
+          {analisisFiltrados.map((a) => {
             const isActive = a.id === activeAnalisisId
             const catColor = a.categoria
               ? (CATEGORIA_COLORS[a.categoria] ?? 'bg-gray-100 text-gray-600')
