@@ -1,15 +1,28 @@
-import { useState } from 'react'
-import { Trash2, Plus, Shield } from 'lucide-react'
+import { useRef, useState } from 'react'
+import { Trash2, Plus, Shield, Pencil, Check, X, ImagePlus } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import { DEMARCACIONES_ITEMS } from '../data/masterData'
+
+function readFileAsDataURL(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(reader.result as string)
+    reader.onerror = reject
+    reader.readAsDataURL(file)
+  })
+}
 
 export default function Admin() {
   const { observadores, categorias, clubes, addObservador, deleteObservador, addClub, updateClub, deleteClub, addCategoria, deleteCategoria } = useStore()
 
   const [newObs, setNewObs] = useState('')
   const [newClub, setNewClub] = useState('')
+  const [newClubEscudo, setNewClubEscudo] = useState<string | null>(null)
   const [newCat, setNewCat] = useState('')
   const [activeTab, setActiveTab] = useState<'observadores' | 'categorias' | 'clubes' | 'demarcaciones'>('observadores')
+  const [editingClubId, setEditingClubId] = useState<string | null>(null)
+  const [editingClubName, setEditingClubName] = useState('')
+  const newClubFileRef = useRef<HTMLInputElement>(null)
 
   const handleAddObs = () => {
     const name = newObs.trim().toUpperCase()
@@ -18,11 +31,31 @@ export default function Admin() {
     setNewObs('')
   }
 
+  const handleNewClubEscudoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setNewClubEscudo(await readFileAsDataURL(file))
+  }
+
   const handleAddClub = () => {
     const name = newClub.trim().toUpperCase()
     if (!name) return
-    addClub({ id: crypto.randomUUID(), nombre: name })
+    addClub({ id: crypto.randomUUID(), nombre: name, escudo: newClubEscudo })
     setNewClub('')
+    setNewClubEscudo(null)
+    if (newClubFileRef.current) newClubFileRef.current.value = ''
+  }
+
+  const startEditClub = (id: string, nombre: string) => {
+    setEditingClubId(id)
+    setEditingClubName(nombre)
+  }
+
+  const saveEditClub = () => {
+    const name = editingClubName.trim().toUpperCase()
+    if (editingClubId && name) updateClub(editingClubId, { nombre: name })
+    setEditingClubId(null)
+    setEditingClubName('')
   }
 
   const handleAddCat = () => {
@@ -138,7 +171,17 @@ export default function Admin() {
       {activeTab === 'clubes' && (
         <div className="card space-y-4">
           <h2 className="text-base font-bold text-gray-700">Clubes ({clubes.length})</h2>
-          <div className="flex gap-2">
+          <div className="flex gap-2 items-start">
+            <button
+              onClick={() => newClubFileRef.current?.click()}
+              className="w-11 h-11 flex-shrink-0 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center overflow-hidden hover:border-rfpaf-blue hover:bg-blue-50 transition-colors"
+              title="Escudo del nuevo club"
+            >
+              {newClubEscudo
+                ? <img src={newClubEscudo} alt="Escudo" className="w-full h-full object-contain" />
+                : <ImagePlus className="w-4 h-4 text-gray-400" />}
+            </button>
+            <input ref={newClubFileRef} type="file" accept="image/*" className="hidden" onChange={handleNewClubEscudoChange} />
             <input
               type="text"
               className="form-input flex-1"
@@ -147,7 +190,7 @@ export default function Admin() {
               onChange={(e) => setNewClub(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleAddClub()}
             />
-            <button onClick={handleAddClub} className="btn-primary flex items-center gap-2">
+            <button onClick={handleAddClub} className="btn-primary flex items-center gap-2 flex-shrink-0">
               <Plus className="w-4 h-4" />
               Añadir
             </button>
@@ -156,12 +199,40 @@ export default function Admin() {
             {clubes.map((c) => (
               <div key={c.id} className="bg-gray-50 rounded-lg p-3 space-y-2 border border-gray-200">
                 <div className="flex items-start justify-between gap-2">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-700 truncate">{c.nombre}</p>
+                  {editingClubId === c.id ? (
+                    <input
+                      autoFocus
+                      value={editingClubName}
+                      onChange={(e) => setEditingClubName(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === 'Enter') saveEditClub(); if (e.key === 'Escape') setEditingClubId(null) }}
+                      className="flex-1 min-w-0 border border-rfpaf-blue rounded px-1.5 py-0.5 text-sm font-medium text-gray-700 outline-none"
+                    />
+                  ) : (
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-gray-700 truncate">{c.nombre}</p>
+                    </div>
+                  )}
+                  <div className="flex items-center gap-1.5 flex-shrink-0">
+                    {editingClubId === c.id ? (
+                      <>
+                        <button onClick={saveEditClub} className="text-emerald-500 hover:text-emerald-600">
+                          <Check className="w-4 h-4" />
+                        </button>
+                        <button onClick={() => setEditingClubId(null)} className="text-gray-400 hover:text-gray-600">
+                          <X className="w-4 h-4" />
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <button onClick={() => startEditClub(c.id, c.nombre)} className="text-gray-400 hover:text-rfpaf-blue">
+                          <Pencil className="w-3.5 h-3.5" />
+                        </button>
+                        <button onClick={() => deleteClub(c.id)} className="text-red-400 hover:text-red-600">
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </>
+                    )}
                   </div>
-                  <button onClick={() => deleteClub(c.id)} className="text-red-400 hover:text-red-600 flex-shrink-0">
-                    <Trash2 className="w-4 h-4" />
-                  </button>
                 </div>
                 <div className="flex flex-col gap-2">
                   {c.escudo ? (
