@@ -13,22 +13,57 @@ function readFileAsDataURL(file: File): Promise<string> {
 }
 
 export default function Admin() {
-  const { observadores, categorias, clubes, addObservador, deleteObservador, addClub, updateClub, deleteClub, addCategoria, deleteCategoria } = useStore()
+  const { observadores, categorias, clubes, addObservador, updateObservador, deleteObservador, addClub, updateClub, deleteClub, addCategoria, deleteCategoria } = useStore()
 
   const [newObs, setNewObs] = useState('')
+  const [newObsFoto, setNewObsFoto] = useState<string | null>(null)
   const [newClub, setNewClub] = useState('')
   const [newClubEscudo, setNewClubEscudo] = useState<string | null>(null)
   const [newCat, setNewCat] = useState('')
   const [activeTab, setActiveTab] = useState<'observadores' | 'categorias' | 'clubes' | 'demarcaciones'>('observadores')
+  const [editingObsId, setEditingObsId] = useState<string | null>(null)
+  const [editingObsName, setEditingObsName] = useState('')
   const [editingClubId, setEditingClubId] = useState<string | null>(null)
   const [editingClubName, setEditingClubName] = useState('')
+  const newObsFileRef = useRef<HTMLInputElement>(null)
   const newClubFileRef = useRef<HTMLInputElement>(null)
 
   const handleAddObs = () => {
     const name = newObs.trim().toUpperCase()
     if (!name) return
-    addObservador({ id: crypto.randomUUID(), nombre: name })
+    addObservador({ id: crypto.randomUUID(), nombre: name, foto: newObsFoto })
     setNewObs('')
+    setNewObsFoto(null)
+    if (newObsFileRef.current) newObsFileRef.current.value = ''
+  }
+
+  const handleNewObsFotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setNewObsFoto(await readFileAsDataURL(file))
+  }
+
+  const startEditObs = (id: string, nombre: string) => {
+    setEditingObsId(id)
+    setEditingObsName(nombre)
+  }
+
+  const saveEditObs = () => {
+    const name = editingObsName.trim().toUpperCase()
+    if (editingObsId && name) updateObservador(editingObsId, { nombre: name })
+    setEditingObsId(null)
+    setEditingObsName('')
+  }
+
+  const handleObsFotoChange = (obsId: string, e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      const reader = new FileReader()
+      reader.onload = () => {
+        updateObservador(obsId, { foto: reader.result as string })
+      }
+      reader.readAsDataURL(file)
+    }
   }
 
   const handleNewClubEscudoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -109,7 +144,17 @@ export default function Admin() {
       {activeTab === 'observadores' && (
         <div className="card space-y-4">
           <h2 className="text-base font-bold text-gray-700">Observadores ({observadores.length})</h2>
-          <div className="flex gap-2">
+          <div className="flex gap-2 items-center">
+            <button
+              onClick={() => newObsFileRef.current?.click()}
+              className="w-11 h-11 flex-shrink-0 rounded-full border-2 border-dashed border-gray-300 flex items-center justify-center overflow-hidden hover:border-rfpaf-blue hover:bg-blue-50 transition-colors"
+              title="Foto del nuevo observador"
+            >
+              {newObsFoto
+                ? <img src={newObsFoto} alt="Foto" className="w-full h-full object-cover" />
+                : <ImagePlus className="w-4 h-4 text-gray-400" />}
+            </button>
+            <input ref={newObsFileRef} type="file" accept="image/*" className="hidden" onChange={handleNewObsFotoChange} />
             <input
               type="text"
               className="form-input flex-1"
@@ -118,18 +163,62 @@ export default function Admin() {
               onChange={(e) => setNewObs(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleAddObs()}
             />
-            <button onClick={handleAddObs} className="btn-primary flex items-center gap-2">
+            <button onClick={handleAddObs} className="btn-primary flex items-center gap-2 flex-shrink-0">
               <Plus className="w-4 h-4" />
               Añadir
             </button>
           </div>
           <div className="space-y-2">
             {observadores.map((o) => (
-              <div key={o.id} className="flex items-center justify-between py-2 px-3 bg-gray-50 rounded-lg">
-                <span className="font-medium text-gray-700">{o.nombre}</span>
-                <button onClick={() => deleteObservador(o.id)} className="text-red-400 hover:text-red-600">
-                  <Trash2 className="w-4 h-4" />
-                </button>
+              <div key={o.id} className="flex items-center justify-between py-2 px-3 bg-gray-50 rounded-lg gap-2">
+                <div className="flex items-center gap-3 flex-1 min-w-0">
+                  {o.foto ? (
+                    <div className="relative w-9 h-9 flex-shrink-0">
+                      <img src={o.foto} alt={o.nombre} className="w-9 h-9 rounded-full object-cover border border-gray-300" />
+                      <label className="absolute inset-0 bg-black/0 hover:bg-black/30 rounded-full flex items-center justify-center cursor-pointer transition-colors">
+                        <input type="file" accept="image/*" className="hidden" onChange={(e) => handleObsFotoChange(o.id, e)} />
+                        <span className="text-white text-[9px] font-bold opacity-0 hover:opacity-100">Cambiar</span>
+                      </label>
+                    </div>
+                  ) : (
+                    <label className="w-9 h-9 flex-shrink-0 rounded-full border-2 border-dashed border-gray-300 flex items-center justify-center cursor-pointer hover:border-rfpaf-blue hover:bg-blue-50 transition-colors">
+                      <input type="file" accept="image/*" className="hidden" onChange={(e) => handleObsFotoChange(o.id, e)} />
+                      <ImagePlus className="w-3.5 h-3.5 text-gray-400" />
+                    </label>
+                  )}
+                  {editingObsId === o.id ? (
+                    <input
+                      autoFocus
+                      value={editingObsName}
+                      onChange={(e) => setEditingObsName(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === 'Enter') saveEditObs(); if (e.key === 'Escape') setEditingObsId(null) }}
+                      className="flex-1 min-w-0 border border-rfpaf-blue rounded px-1.5 py-0.5 text-sm font-medium text-gray-700 outline-none"
+                    />
+                  ) : (
+                    <span className="font-medium text-gray-700 truncate">{o.nombre}</span>
+                  )}
+                </div>
+                <div className="flex items-center gap-1.5 flex-shrink-0">
+                  {editingObsId === o.id ? (
+                    <>
+                      <button onClick={saveEditObs} className="text-emerald-500 hover:text-emerald-600">
+                        <Check className="w-4 h-4" />
+                      </button>
+                      <button onClick={() => setEditingObsId(null)} className="text-gray-400 hover:text-gray-600">
+                        <X className="w-4 h-4" />
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button onClick={() => startEditObs(o.id, o.nombre)} className="text-gray-400 hover:text-rfpaf-blue">
+                        <Pencil className="w-3.5 h-3.5" />
+                      </button>
+                      <button onClick={() => deleteObservador(o.id)} className="text-red-400 hover:text-red-600">
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </>
+                  )}
+                </div>
               </div>
             ))}
           </div>

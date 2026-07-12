@@ -217,6 +217,7 @@ export const supabaseService = {
     return (data || []).map((o: any) => ({
       id: o.id,
       nombre: o.nombre,
+      foto: o.foto,
     }))
   },
 
@@ -224,6 +225,15 @@ export const supabaseService = {
     const { error } = await supabase.from('observadores').insert([obs])
     if (error) {
       console.error('Error al agregar observador:', error)
+      return false
+    }
+    return true
+  },
+
+  async updateObservador(id: string, obs: Partial<Observador>): Promise<boolean> {
+    const { error } = await supabase.from('observadores').update(obs).eq('id', id)
+    if (error) {
+      console.error('Error al actualizar observador:', error)
       return false
     }
     return true

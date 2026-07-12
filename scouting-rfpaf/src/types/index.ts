@@ -76,6 +76,7 @@ export interface FichaJugadora {
 export interface Observador {
   id: string
   nombre: string
+  foto?: string | null
 }
 
 export interface Club {

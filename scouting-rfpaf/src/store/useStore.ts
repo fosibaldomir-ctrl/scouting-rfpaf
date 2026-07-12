@@ -118,6 +118,7 @@ interface AppState {
   saveBorrador: (data: Partial<FichaJugadora>) => void
   clearBorrador: () => void
   addObservador: (obs: Observador) => Promise<void>
+  updateObservador: (id: string, obs: Partial<Observador>) => Promise<void>
   deleteObservador: (id: string) => Promise<void>
   addClub: (club: Club) => Promise<void>
   updateClub: (id: string, club: Partial<Club>) => Promise<void>
@@ -317,6 +318,15 @@ export const useStore = create<AppState>()(
       addObservador: async (obs) => {
         set((state) => ({ observadores: [...state.observadores, obs] }))
         await supabaseService.addObservador(obs)
+      },
+
+      updateObservador: async (id, data) => {
+        set((state) => ({
+          observadores: state.observadores.map((o) =>
+            o.id === id ? { ...o, ...data } : o
+          ),
+        }))
+        await supabaseService.updateObservador(id, data)
       },
 
       deleteObservador: async (id) => {
