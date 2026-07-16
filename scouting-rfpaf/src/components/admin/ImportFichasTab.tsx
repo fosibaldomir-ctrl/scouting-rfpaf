@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { v4 as uuidv4 } from 'uuid'
-import { Upload, Trash2, AlertTriangle, CheckCircle2, Loader2 } from 'lucide-react'
+import { Upload, Trash2, AlertTriangle, CheckCircle2, Loader2, RefreshCw, FilePlus2 } from 'lucide-react'
 import { useStore } from '../../store/useStore'
 import { DEMARCACIONES_ITEMS } from '../../data/masterData'
 import { defaultFichaFields } from '../../utils/fichaDefaults'
@@ -20,7 +20,7 @@ interface BatchFields {
 }
 
 export default function ImportFichasTab() {
-  const { fichas, addFicha, observadores, categorias, clubes, currentObservador } = useStore()
+  const { fichas, addFicha, updateFicha, observadores, categorias, clubes, currentObservador } = useStore()
 
   const [batch, setBatch] = useState<BatchFields>({
     fechaPartido: new Date().toISOString().split('T')[0],
@@ -36,7 +36,7 @@ export default function ImportFichasTab() {
   const [parsing, setParsing] = useState(false)
   const [importing, setImporting] = useState(false)
   const [progress, setProgress] = useState({ done: 0, total: 0 })
-  const [result, setResult] = useState<{ ok: number; failed: number } | null>(null)
+  const [result, setResult] = useState<{ created: number; updated: number; failed: number } | null>(null)
 
   const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -45,7 +45,7 @@ export default function ImportFichasTab() {
     setResult(null)
     try {
       const raw = await parseFichasFile(file)
-      setRows(buildImportRows(raw, clubes))
+      setRows(buildImportRows(raw, clubes, fichas))
       setFileName(file.name)
     } catch (err) {
       console.error('Error al leer el archivo:', err)
@@ -64,7 +64,10 @@ export default function ImportFichasTab() {
     setRows((prev) => prev.filter((r) => r.rowIndex !== rowIndex))
   }
 
-  const includedCount = rows.filter((r) => r.included).length
+  const includedRows = rows.filter((r) => r.included)
+  const includedCount = includedRows.length
+  const updateCount = includedRows.filter((r) => r.action === 'update' && r.matchingFichaIds.length > 0).length
+  const createCount = includedCount - updateCount
 
   const handleImport = async () => {
     const toImport = rows.filter((r) => r.included)
@@ -73,44 +76,59 @@ export default function ImportFichasTab() {
 
     setImporting(true)
     setProgress({ done: 0, total: toImport.length })
-    let ok = 0
+    let created = 0
+    let updated = 0
     let failed = 0
     let fichasCount = fichas.length
 
     for (const row of toImport) {
-      const now = new Date().toISOString()
-      const obsNombre = observadores.find((o) => o.id === batch.observador)?.nombre ?? ''
-      const ficha: FichaJugadora = {
-        ...defaultFichaFields(),
-        fechaPartido: batch.fechaPartido,
-        categoria: batch.categoria as FichaJugadora['categoria'],
-        observador: batch.observador,
-        equipo: batch.equipo,
-        local: batch.local,
-        visitante: batch.visitante,
-        nombre: row.nombre,
-        primerApellido: row.primerApellido,
-        segundoApellido: row.segundoApellido,
-        fechaNacimiento: row.fechaNacimiento,
-        dorsal: row.dorsal,
-        club: row.clubId || row.clubRawText,
-        demarcacion: (row.demarcacion || 'CENTRAL') as FichaJugadora['demarcacion'],
-        minutosJugados: row.minutosJugados,
-        partidosTitular: row.partidosTitular,
-        partidosSuplente: row.partidosSuplente,
-        goles: row.goles,
-        tarjetasAmarillas: row.tarjetasAmarillas,
-        tarjetasRojas: row.tarjetasRojas,
-        id: uuidv4(),
-        registro: genRegistro(obsNombre, fichasCount),
-        creadoEn: now,
-        actualizadoEn: now,
-      } as FichaJugadora
-
       try {
-        await addFicha(ficha)
-        fichasCount++
-        ok++
+        if (row.action === 'update' && row.matchingFichaIds.length > 0) {
+          const statsPatch = {
+            minutosJugados: row.minutosJugados,
+            partidosTitular: row.partidosTitular,
+            partidosSuplente: row.partidosSuplente,
+            goles: row.goles,
+            tarjetasAmarillas: row.tarjetasAmarillas,
+            tarjetasRojas: row.tarjetasRojas,
+          }
+          for (const fichaId of row.matchingFichaIds) {
+            await updateFicha(fichaId, statsPatch)
+          }
+          updated++
+        } else {
+          const now = new Date().toISOString()
+          const obsNombre = observadores.find((o) => o.id === batch.observador)?.nombre ?? ''
+          const ficha: FichaJugadora = {
+            ...defaultFichaFields(),
+            fechaPartido: batch.fechaPartido,
+            categoria: batch.categoria as FichaJugadora['categoria'],
+            observador: batch.observador,
+            equipo: batch.equipo,
+            local: batch.local,
+            visitante: batch.visitante,
+            nombre: row.nombre,
+            primerApellido: row.primerApellido,
+            segundoApellido: row.segundoApellido,
+            fechaNacimiento: row.fechaNacimiento,
+            dorsal: row.dorsal,
+            club: row.clubId || row.clubRawText,
+            demarcacion: (row.demarcacion || 'CENTRAL') as FichaJugadora['demarcacion'],
+            minutosJugados: row.minutosJugados,
+            partidosTitular: row.partidosTitular,
+            partidosSuplente: row.partidosSuplente,
+            goles: row.goles,
+            tarjetasAmarillas: row.tarjetasAmarillas,
+            tarjetasRojas: row.tarjetasRojas,
+            id: uuidv4(),
+            registro: genRegistro(obsNombre, fichasCount),
+            creadoEn: now,
+            actualizadoEn: now,
+          } as FichaJugadora
+          await addFicha(ficha)
+          fichasCount++
+          created++
+        }
         removeRow(row.rowIndex)
       } catch (err) {
         console.error(`Error al importar fila ${row.rowIndex}:`, err)
@@ -120,7 +138,7 @@ export default function ImportFichasTab() {
     }
 
     setImporting(false)
-    setResult({ ok, failed })
+    setResult({ created, updated, failed })
   }
 
   return (
@@ -129,8 +147,10 @@ export default function ImportFichasTab() {
         <h2 className="text-base font-bold text-gray-700">Importar fichas desde CSV/Excel</h2>
         <p className="text-xs text-gray-500 mt-1">
           Crea una ficha por jugadora con los datos identificativos del archivo. Los datos de partido de abajo se
-          aplican a todas las fichas del lote; el resto (evaluación técnica, valoración) queda en blanco para que lo
-          complete el observador.
+          aplican a todas las fichas nuevas; el resto (evaluación técnica, valoración) queda en blanco para que lo
+          complete el observador. Si una jugadora ya tiene ficha (mismo nombre y club), en vez de crear un
+          duplicado se actualizan solo sus estadísticas de temporada — pulsa la etiqueta "Estado" de la fila para
+          forzar una ficha nueva si lo prefieres.
         </p>
       </div>
 
@@ -206,6 +226,7 @@ export default function ImportFichasTab() {
                   <th className="py-2 pr-2">Dorsal</th>
                   <th className="py-2 pr-2">Club</th>
                   <th className="py-2 pr-2">Posición</th>
+                  <th className="py-2 pr-2">Estado</th>
                   <th className="py-2 pr-2"></th>
                 </tr>
               </thead>
@@ -261,6 +282,25 @@ export default function ImportFichasTab() {
                       </div>
                     </td>
                     <td className="py-1.5 pr-2">
+                      {r.matchingFichaIds.length > 0 ? (
+                        <button
+                          onClick={() => updateRow(r.rowIndex, { action: r.action === 'update' ? 'create' : 'update' })}
+                          title="Pulsa para cambiar entre actualizar la(s) ficha(s) existente(s) o crear una nueva"
+                          className={`flex items-center gap-1 px-2 py-1 rounded-full text-[11px] font-semibold whitespace-nowrap ${
+                            r.action === 'update' ? 'bg-blue-100 text-blue-700' : 'bg-emerald-100 text-emerald-700'
+                          }`}
+                        >
+                          {r.action === 'update'
+                            ? <><RefreshCw className="w-3 h-3" /> Actualizar ({r.matchingFichaIds.length})</>
+                            : <><FilePlus2 className="w-3 h-3" /> Nueva (forzada)</>}
+                        </button>
+                      ) : (
+                        <span className="flex items-center gap-1 px-2 py-1 rounded-full text-[11px] font-semibold bg-gray-100 text-gray-500 whitespace-nowrap">
+                          <FilePlus2 className="w-3 h-3" /> Nueva
+                        </span>
+                      )}
+                    </td>
+                    <td className="py-1.5 pr-2">
                       <button onClick={() => removeRow(r.rowIndex)} className="text-red-400 hover:text-red-600">
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
@@ -274,7 +314,9 @@ export default function ImportFichasTab() {
           <button onClick={handleImport} disabled={importing || includedCount === 0}
             className="btn-primary flex items-center gap-2 disabled:opacity-50">
             {importing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
-            {importing ? `Importando ${progress.done}/${progress.total}…` : `Importar ${includedCount} ficha${includedCount !== 1 ? 's' : ''}`}
+            {importing
+              ? `Procesando ${progress.done}/${progress.total}…`
+              : `Procesar ${includedCount} fila${includedCount !== 1 ? 's' : ''} (${createCount} nueva${createCount !== 1 ? 's' : ''}, ${updateCount} actualizar${updateCount !== 1 ? 'es' : ''})`}
           </button>
         </div>
       )}
@@ -282,7 +324,7 @@ export default function ImportFichasTab() {
       {result && (
         <div className={`flex items-center gap-2 text-sm rounded-xl px-3 py-2 ${result.failed > 0 ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700'}`}>
           <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
-          {result.ok} ficha{result.ok !== 1 ? 's' : ''} importada{result.ok !== 1 ? 's' : ''}
+          {result.created} ficha{result.created !== 1 ? 's' : ''} nueva{result.created !== 1 ? 's' : ''}, {result.updated} actualizada{result.updated !== 1 ? 's' : ''}
           {result.failed > 0 && `, ${result.failed} fallida${result.failed !== 1 ? 's' : ''} (revisa la consola y vuelve a intentarlo)`}
         </div>
       )}

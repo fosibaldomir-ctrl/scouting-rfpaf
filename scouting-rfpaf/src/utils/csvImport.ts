@@ -1,5 +1,5 @@
 import * as XLSX from 'xlsx'
-import type { Club, Demarcacion } from '../types'
+import type { Club, Demarcacion, FichaJugadora } from '../types'
 import { normalizeText } from './textNormalize'
 import { findBestClubMatch } from './fuzzyMatch'
 import { matchDemarcacion } from './demarcacionSynonyms'
@@ -113,6 +113,29 @@ export interface ImportRow {
   tarjetasAmarillas: number
   tarjetasRojas: number
   included: boolean
+  matchingFichaIds: string[]
+  action: 'create' | 'update'
+}
+
+function fichaFullName(f: Pick<FichaJugadora, 'nombre' | 'primerApellido' | 'segundoApellido'>): string {
+  return normalizeText(`${f.nombre} ${f.primerApellido} ${f.segundoApellido}`.replace(/\s+/g, ' '))
+}
+
+function clubDisplayName(clubId: string, clubRawText: string, clubes: Club[]): string {
+  return normalizeText(clubes.find((c) => c.id === clubId)?.nombre || clubRawText)
+}
+
+function findMatchingFichas(
+  row: Pick<ImportRow, 'nombre' | 'primerApellido' | 'segundoApellido' | 'clubId' | 'clubRawText'>,
+  fichas: FichaJugadora[],
+  clubes: Club[]
+): string[] {
+  const rowName = fichaFullName(row)
+  const rowClub = clubDisplayName(row.clubId, row.clubRawText, clubes)
+  if (!rowName || !rowClub) return []
+  return fichas
+    .filter((f) => fichaFullName(f) === rowName && clubDisplayName(f.club, f.club, clubes) === rowClub)
+    .map((f) => f.id)
 }
 
 function toInt(raw: string | undefined): number {
@@ -120,7 +143,7 @@ function toInt(raw: string | undefined): number {
   return Number.isFinite(n) ? Math.round(n) : 0
 }
 
-export function buildImportRows(rawRows: Record<string, string>[], clubes: Club[]): ImportRow[] {
+export function buildImportRows(rawRows: Record<string, string>[], clubes: Club[], fichas: FichaJugadora[] = []): ImportRow[] {
   return rawRows.map((raw, i) => {
     const row = mapHeaders(raw)
 
@@ -146,6 +169,8 @@ export function buildImportRows(rawRows: Record<string, string>[], clubes: Club[
     const demarcacionRaw = row.posicion ?? ''
     const demarcacion = matchDemarcacion(demarcacionRaw) ?? ''
 
+    const matchingFichaIds = findMatchingFichas({ nombre, primerApellido, segundoApellido, clubId, clubRawText }, fichas, clubes)
+
     return {
       rowIndex: i,
       nombre,
@@ -158,6 +183,8 @@ export function buildImportRows(rawRows: Record<string, string>[], clubes: Club[
       clubScore: score,
       demarcacion,
       demarcacionRaw,
+      matchingFichaIds,
+      action: matchingFichaIds.length > 0 ? 'update' : 'create',
       minutosJugados: toInt(row.minutosJugados),
       partidosTitular: toInt(row.partidosTitular),
       partidosSuplente: toInt(row.partidosSuplente),
