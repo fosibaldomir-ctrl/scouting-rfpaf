@@ -2,6 +2,7 @@ import { useRef, useState } from 'react'
 import { Trash2, Plus, Shield, Pencil, Check, X, ImagePlus } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import { DEMARCACIONES_ITEMS } from '../data/masterData'
+import ImportFichasTab from '../components/admin/ImportFichasTab'
 
 function readFileAsDataURL(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -20,7 +21,7 @@ export default function Admin() {
   const [newClub, setNewClub] = useState('')
   const [newClubEscudo, setNewClubEscudo] = useState<string | null>(null)
   const [newCat, setNewCat] = useState('')
-  const [activeTab, setActiveTab] = useState<'observadores' | 'categorias' | 'clubes' | 'demarcaciones'>('observadores')
+  const [activeTab, setActiveTab] = useState<'observadores' | 'categorias' | 'clubes' | 'demarcaciones' | 'importar'>('observadores')
   const [editingObsId, setEditingObsId] = useState<string | null>(null)
   const [editingObsName, setEditingObsName] = useState('')
   const [editingClubId, setEditingClubId] = useState<string | null>(null)
@@ -116,6 +117,7 @@ export default function Admin() {
     { key: 'categorias', label: 'Categorías' },
     { key: 'clubes', label: 'Clubes' },
     { key: 'demarcaciones', label: 'Demarcaciones' },
+    { key: 'importar', label: 'Importar CSV' },
   ] as const
 
   return (
@@ -372,6 +374,9 @@ export default function Admin() {
           </div>
         </div>
       )}
+
+      {/* Importar CSV */}
+      {activeTab === 'importar' && <ImportFichasTab />}
     </div>
   )
 }

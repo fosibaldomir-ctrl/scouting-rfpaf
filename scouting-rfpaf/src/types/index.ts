@@ -57,6 +57,13 @@ export interface FichaJugadora {
   fuerza: number
   velocidad: number
   resistencia: number
+  // Estadísticas de temporada (acumuladas, no del partido de esta ficha)
+  minutosJugados: number
+  partidosTitular: number
+  partidosSuplente: number
+  goles: number
+  tarjetasAmarillas: number
+  tarjetasRojas: number
   // Demarcación
   demarcacion: Demarcacion
   otraDemarcacion: string

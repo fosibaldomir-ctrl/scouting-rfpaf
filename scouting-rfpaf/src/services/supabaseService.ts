@@ -35,6 +35,12 @@ export const supabaseService = {
       fuerza: f.fuerza,
       velocidad: f.velocidad,
       resistencia: f.resistencia,
+      minutosJugados: f.minutos_jugados ?? 0,
+      partidosTitular: f.partidos_titular ?? 0,
+      partidosSuplente: f.partidos_suplente ?? 0,
+      goles: f.goles ?? 0,
+      tarjetasAmarillas: f.tarjetas_amarillas ?? 0,
+      tarjetasRojas: f.tarjetas_rojas ?? 0,
       demarcacion: f.demarcacion,
       otraDemarcacion: f.otra_demarcacion,
       evaluacionTecnica: f.evaluacion_tecnica,
@@ -74,6 +80,12 @@ export const supabaseService = {
         fuerza: ficha.fuerza || 0,
         velocidad: ficha.velocidad || 0,
         resistencia: ficha.resistencia || 0,
+        minutos_jugados: ficha.minutosJugados || 0,
+        partidos_titular: ficha.partidosTitular || 0,
+        partidos_suplente: ficha.partidosSuplente || 0,
+        goles: ficha.goles || 0,
+        tarjetas_amarillas: ficha.tarjetasAmarillas || 0,
+        tarjetas_rojas: ficha.tarjetasRojas || 0,
         demarcacion: ficha.demarcacion,
         otra_demarcacion: ficha.otraDemarcacion || null,
         evaluacion_tecnica: ficha.evaluacionTecnica,
@@ -128,6 +140,12 @@ export const supabaseService = {
       if (ficha.fuerza !== undefined) data.fuerza = ficha.fuerza
       if (ficha.velocidad !== undefined) data.velocidad = ficha.velocidad
       if (ficha.resistencia !== undefined) data.resistencia = ficha.resistencia
+      if (ficha.minutosJugados !== undefined) data.minutos_jugados = ficha.minutosJugados
+      if (ficha.partidosTitular !== undefined) data.partidos_titular = ficha.partidosTitular
+      if (ficha.partidosSuplente !== undefined) data.partidos_suplente = ficha.partidosSuplente
+      if (ficha.goles !== undefined) data.goles = ficha.goles
+      if (ficha.tarjetasAmarillas !== undefined) data.tarjetas_amarillas = ficha.tarjetasAmarillas
+      if (ficha.tarjetasRojas !== undefined) data.tarjetas_rojas = ficha.tarjetasRojas
       if (ficha.demarcacion !== undefined) data.demarcacion = ficha.demarcacion
       if (ficha.otraDemarcacion !== undefined) data.otra_demarcacion = ficha.otraDemarcacion
       if (ficha.evaluacionTecnica !== undefined) data.evaluacion_tecnica = ficha.evaluacionTecnica

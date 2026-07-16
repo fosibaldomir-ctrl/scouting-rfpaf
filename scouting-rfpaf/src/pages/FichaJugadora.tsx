@@ -393,6 +393,26 @@ export default function FichaJugadora() {
         </div>
       </div>
 
+      {/* Estadísticas de temporada */}
+      <div className="card">
+        <h2 className="text-base font-bold text-gray-700 mb-3">Estadísticas de Temporada</h2>
+        <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
+          {[
+            { label: 'Minutos', value: ficha.minutosJugados ?? 0 },
+            { label: 'Titular', value: ficha.partidosTitular ?? 0 },
+            { label: 'Suplente', value: ficha.partidosSuplente ?? 0 },
+            { label: 'Goles', value: ficha.goles ?? 0 },
+            { label: 'T. Amarillas', value: ficha.tarjetasAmarillas ?? 0 },
+            { label: 'T. Rojas', value: ficha.tarjetasRojas ?? 0 },
+          ].map(({ label, value }) => (
+            <div key={label} className="text-center bg-gray-50 rounded-xl py-3">
+              <p className="text-xl font-bold text-rfpaf-blue">{value}</p>
+              <p className="text-[11px] text-gray-500 mt-0.5">{label}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
       {/* Evaluación técnica */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="card">

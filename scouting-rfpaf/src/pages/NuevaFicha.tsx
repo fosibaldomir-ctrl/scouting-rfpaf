@@ -7,6 +7,8 @@ import { DEMARCACIONES_ITEMS, ALTURAS, TIPOLOGIAS, LATERALIDADES, PROPUESTAS } f
 import ScoreSlider from '../components/forms/ScoreSlider'
 import RadarChart from '../components/charts/RadarChart'
 import type { FichaJugadora, Demarcacion, EvaluacionDemarcacion } from '../types'
+import { genRegistro } from '../utils/registro'
+import { defaultFichaFields as defaultForm } from '../utils/fichaDefaults'
 
 const STEPS = ['Partido', 'Jugadora', 'Físico', 'Técnica', 'Evaluación']
 
@@ -18,42 +20,6 @@ function calcularEdad(fecha: string): number {
   if (hoy.getMonth() - nac.getMonth() < 0 || (hoy.getMonth() - nac.getMonth() === 0 && hoy.getDate() < nac.getDate())) e--
   return e
 }
-
-function genRegistro(observador: string, fichasCount: number): string {
-  const year = new Date().getFullYear()
-  const num = String(fichasCount + 1).padStart(4, '0')
-  return `${observador.substring(0, 3).toUpperCase()}-${year}-${num}`
-}
-
-const defaultForm = (): Partial<FichaJugadora> => ({
-  fechaPartido: new Date().toISOString().split('T')[0],
-  equipo: '',
-  categoria: '1ª REF',
-  local: '',
-  visitante: '',
-  observador: '',
-  nombre: '',
-  primerApellido: '',
-  segundoApellido: '',
-  fechaNacimiento: '',
-  dorsal: 0,
-  lateralidad: 'DIESTRA',
-  tipologia: 'ATLÉTICA',
-  altura: '1.65',
-  club: '',
-  foto: null,
-  fuerza: 5,
-  velocidad: 5,
-  resistencia: 5,
-  demarcacion: 'CENTRAL',
-  otraDemarcacion: '',
-  evaluacionTecnica: { item1: 3, item2: 3, item3: 3, item4: 3, item5: 3, item6: 3 },
-  valoracionGeneral: 3,
-  propuesta: 'SEGUIR',
-  descripcionJugadora: '',
-  observaciones: '',
-  cierre: '',
-})
 
 export default function NuevaFicha() {
   const { id } = useParams()
@@ -372,6 +338,40 @@ export default function NuevaFicha() {
               <ScoreSlider label="Fuerza" value={form.fuerza ?? 5} onChange={(v) => set('fuerza', v)} />
               <ScoreSlider label="Velocidad" value={form.velocidad ?? 5} onChange={(v) => set('velocidad', v)} color="#c0392b" />
               <ScoreSlider label="Resistencia" value={form.resistencia ?? 5} onChange={(v) => set('resistencia', v)} color="#16a34a" />
+
+              <h2 className="text-lg font-bold text-gray-700 mb-4 pt-4 border-t border-gray-100">Estadísticas de Temporada</h2>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                <div>
+                  <label className="form-label">Minutos jugados</label>
+                  <input type="number" min={0} className="form-input" value={form.minutosJugados ?? 0}
+                    onChange={(e) => set('minutosJugados', Number(e.target.value))} />
+                </div>
+                <div>
+                  <label className="form-label">Partidos titular</label>
+                  <input type="number" min={0} className="form-input" value={form.partidosTitular ?? 0}
+                    onChange={(e) => set('partidosTitular', Number(e.target.value))} />
+                </div>
+                <div>
+                  <label className="form-label">Partidos suplente</label>
+                  <input type="number" min={0} className="form-input" value={form.partidosSuplente ?? 0}
+                    onChange={(e) => set('partidosSuplente', Number(e.target.value))} />
+                </div>
+                <div>
+                  <label className="form-label">Goles</label>
+                  <input type="number" min={0} className="form-input" value={form.goles ?? 0}
+                    onChange={(e) => set('goles', Number(e.target.value))} />
+                </div>
+                <div>
+                  <label className="form-label">Tarjetas amarillas</label>
+                  <input type="number" min={0} className="form-input" value={form.tarjetasAmarillas ?? 0}
+                    onChange={(e) => set('tarjetasAmarillas', Number(e.target.value))} />
+                </div>
+                <div>
+                  <label className="form-label">Tarjetas rojas</label>
+                  <input type="number" min={0} className="form-input" value={form.tarjetasRojas ?? 0}
+                    onChange={(e) => set('tarjetasRojas', Number(e.target.value))} />
+                </div>
+              </div>
             </div>
           )}
 
