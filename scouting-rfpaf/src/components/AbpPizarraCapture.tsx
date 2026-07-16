@@ -46,6 +46,53 @@ function nearestToken(pt: Pt, tokens: Token[]): Token | null {
   return best
 }
 
+function ballIconGeometry(cx: number, cy: number, r: number) {
+  const pentR = r * 0.42
+  return Array.from({ length: 5 }, (_, i) => {
+    const angle = -Math.PI / 2 + i * (2 * Math.PI / 5)
+    return { x: cx + pentR * Math.cos(angle), y: cy + pentR * Math.sin(angle), angle }
+  })
+}
+
+function drawBallIcon(ctx: CanvasRenderingContext2D, cx: number, cy: number, r: number) {
+  ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2)
+  ctx.fillStyle = 'white'; ctx.fill()
+  ctx.strokeStyle = '#1a1a1a'; ctx.lineWidth = Math.max(0.6, r * 0.09); ctx.stroke()
+
+  const pts = ballIconGeometry(cx, cy, r)
+  ctx.beginPath()
+  pts.forEach((p, i) => (i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y)))
+  ctx.closePath()
+  ctx.fillStyle = '#1a1a1a'; ctx.fill()
+
+  ctx.strokeStyle = '#1a1a1a'; ctx.lineWidth = Math.max(0.5, r * 0.07)
+  pts.forEach((p) => {
+    ctx.beginPath()
+    ctx.moveTo(p.x, p.y)
+    ctx.lineTo(cx + r * 0.92 * Math.cos(p.angle), cy + r * 0.92 * Math.sin(p.angle))
+    ctx.stroke()
+  })
+}
+
+function BallGlyph({ cx, cy, r }: { cx: number; cy: number; r: number }) {
+  const pts = ballIconGeometry(cx, cy, r)
+  const pentagonPoints = pts.map((p) => `${p.x},${p.y}`).join(' ')
+  return (
+    <g pointerEvents="none">
+      <circle cx={cx} cy={cy} r={r} fill="white" stroke="#1a1a1a" strokeWidth={r * 0.09} />
+      <polygon points={pentagonPoints} fill="#1a1a1a" />
+      {pts.map((p, i) => (
+        <line
+          key={i}
+          x1={p.x} y1={p.y}
+          x2={cx + r * 0.92 * Math.cos(p.angle)} y2={cy + r * 0.92 * Math.sin(p.angle)}
+          stroke="#1a1a1a" strokeWidth={r * 0.07}
+        />
+      ))}
+    </g>
+  )
+}
+
 function computeCurveCtrl(start: Pt, end: Pt): Pt {
   const mx = (start.x + end.x) / 2
   const my = (start.y + end.y) / 2
@@ -311,8 +358,7 @@ export default function AbpPizarraCapture({ equipoLocal, equipoVisitante, onCapt
 
     // Balls
     ballsSnap.forEach(b => {
-      ctx.beginPath(); ctx.arc(b.x * SCALE, b.y * SCALE, 1.1 * SCALE, 0, Math.PI * 2)
-      ctx.fillStyle = 'white'; ctx.fill(); ctx.strokeStyle = '#333'; ctx.lineWidth = 1; ctx.stroke()
+      drawBallIcon(ctx, b.x * SCALE, b.y * SCALE, 1.1 * SCALE)
     })
 
     // Player tokens
@@ -613,9 +659,11 @@ export default function AbpPizarraCapture({ equipoLocal, equipoVisitante, onCapt
               ))}
 
               {balls.map(b => (
-                <circle key={b.uid} cx={b.x} cy={b.y} r={1.1} fill="white" stroke="#333" strokeWidth={0.15}
-                  style={{ cursor: tokensInteractive ? 'grab' : 'default' }}
-                  onMouseDown={e => { if (!tokensInteractive) return; e.stopPropagation(); dragRef.current = { kind: 'ball', uid: b.uid } }} />
+                <g key={b.uid} style={{ cursor: tokensInteractive ? 'grab' : 'default' }}>
+                  <BallGlyph cx={b.x} cy={b.y} r={1.1} />
+                  <circle cx={b.x} cy={b.y} r={1.3} fill="transparent"
+                    onMouseDown={e => { if (!tokensInteractive) return; e.stopPropagation(); dragRef.current = { kind: 'ball', uid: b.uid } }} />
+                </g>
               ))}
 
               {tokens.map(t => {
