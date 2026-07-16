@@ -43,6 +43,7 @@ export function useSupabaseSync() {
   const setPartidos = useStore((s) => s.setPartidos)
   const setConvocatorias = useStore((s) => s.setConvocatorias)
   const setClubes = useStore((s) => s.setClubes)
+  const setObservadores = useStore((s) => s.setObservadores)
   const setVideosSesiones = useStore((s) => s.setVideosSesiones)
   const setEventos = useStore((s) => s.setEventos)
   const loadAnalisisFromDB = useStore((s) => s.loadAnalisisFromDB)
@@ -64,6 +65,9 @@ export function useSupabaseSync() {
       const clubes = await supabaseService.getClubes()
       if (clubes.length > 0) setClubes(clubes)
 
+      const observadores = await supabaseService.getObservadores()
+      if (observadores.length > 0) setObservadores(observadores)
+
       const { fetchVideosSesiones, fetchEventos } = await import('../lib/supabase')
       const videos = await fetchVideosSesiones()
       setVideosSesiones(videos)
@@ -73,11 +77,11 @@ export function useSupabaseSync() {
 
       await loadAnalisisFromDB()
 
-      console.log(`✅ Supabase sync lista. Fichas: ${fichas.length}, Partidos: ${partidos.length}, Convocatorias: ${convocatorias.length}, Clubes: ${clubes.length}, Videos: ${videos.length}, Eventos: ${eventos.length}`)
+      console.log(`✅ Supabase sync lista. Fichas: ${fichas.length}, Partidos: ${partidos.length}, Convocatorias: ${convocatorias.length}, Clubes: ${clubes.length}, Observadores: ${observadores.length}, Videos: ${videos.length}, Eventos: ${eventos.length}`)
     }
 
     init().catch((err) => {
       console.error('❌ Error en sincronización:', err)
     })
-  }, [setFichasWithSync, setFichasMain, setPartidos, setConvocatorias, setClubes, setVideosSesiones, setEventos, loadAnalisisFromDB])
+  }, [setFichasWithSync, setFichasMain, setPartidos, setConvocatorias, setClubes, setObservadores, setVideosSesiones, setEventos, loadAnalisisFromDB])
 }

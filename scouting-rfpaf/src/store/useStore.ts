@@ -65,6 +65,7 @@ interface AppState {
   logout: () => void
   setFichas: (fichas: FichaJugadora[]) => void
   setClubes: (clubes: Club[]) => void
+  setObservadores: (observadores: Observador[]) => void
   setPartidos: (partidos: PartidoCalendario[]) => void
   setSesion: (sesion: Sesion | ((s: Sesion) => Sesion)) => void
   setEjercicios: (ejercicios: EjercicioDB[]) => void
@@ -159,6 +160,7 @@ export const useStore = create<AppState>()(
 
       setFichas: (fichas) => set({ fichas }),
       setClubes: (clubes) => set({ clubes }),
+      setObservadores: (observadores) => set({ observadores }),
       setPartidos: (partidos) => set({ partidos }),
       setSesion: (sesion) => {
         if (typeof sesion === 'function') {
