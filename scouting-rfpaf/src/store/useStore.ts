@@ -410,11 +410,14 @@ export const useStore = create<AppState>()(
     }),
     {
       name: 'rfpaf-scouting-storage',
+      // fichas/observadores/clubes contain base64 fotos/escudos and are always
+      // re-fetched fresh from Supabase on load (useSupabaseSync) — persisting them
+      // here too just duplicates that data into localStorage, and once enough
+      // images accumulate it blows the ~5-10MB browser quota, which throws
+      // synchronously inside set() and silently aborts whatever add/update call
+      // triggered it (including its Supabase write) before it ever runs.
       partialize: (state) => ({
-        fichas: state.fichas,
-        observadores: state.observadores,
         categorias: state.categorias,
-        clubes: state.clubes,
         partidos: state.partidos,
         convocatorias: state.convocatorias,
         currentObservador: state.currentObservador,
