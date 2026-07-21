@@ -516,3 +516,33 @@ export interface Informe {
   conclusiones: string
   creadoEn: string
 }
+
+export interface CompeticionMapeo {
+  id: string
+  temporadaValor: string
+  temporadaLabel: string
+  tipoJuego: string
+  competicionId: string
+  competicionLabel: string
+  grupoId: string
+  grupoLabel: string
+  categoria: Categoria
+  activo: boolean
+  ultimaJornadaProcesada: number
+  creadoEn: string
+  actualizadoEn: string
+}
+
+export interface SyncRun {
+  id: string
+  iniciadoEn: string
+  finalizadoEn: string | null
+  estado: 'en_curso' | 'completado' | 'error'
+  disparadoPor: 'cron' | 'manual'
+  competicionesProcesadas: number
+  actasNuevas: number
+  fichasActualizadas: number
+  jugadorasSinMatch: number
+  errores: { mapeo?: string; codActa?: string; message: string }[]
+  resumen: string
+}

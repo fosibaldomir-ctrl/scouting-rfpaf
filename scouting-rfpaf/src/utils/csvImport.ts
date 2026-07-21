@@ -117,6 +117,9 @@ export interface ImportRow {
   action: 'create' | 'update'
 }
 
+// Mirrored (not shared — Deno Edge Functions can't import from src/) in
+// supabase/functions/_shared/matching.ts, used by the weekly acta sync job.
+// Keep both in sync by hand if this matching rule ever changes.
 function fichaFullName(f: Pick<FichaJugadora, 'nombre' | 'primerApellido' | 'segundoApellido'>): string {
   return normalizeText(`${f.nombre} ${f.primerApellido} ${f.segundoApellido}`.replace(/\s+/g, ' '))
 }

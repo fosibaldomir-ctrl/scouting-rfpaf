@@ -3,6 +3,7 @@ import { Trash2, Plus, Shield, Pencil, Check, X, ImagePlus } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import { DEMARCACIONES_ITEMS } from '../data/masterData'
 import ImportFichasTab from '../components/admin/ImportFichasTab'
+import SyncTab from '../components/admin/SyncTab'
 
 function readFileAsDataURL(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -21,7 +22,7 @@ export default function Admin() {
   const [newClub, setNewClub] = useState('')
   const [newClubEscudo, setNewClubEscudo] = useState<string | null>(null)
   const [newCat, setNewCat] = useState('')
-  const [activeTab, setActiveTab] = useState<'observadores' | 'categorias' | 'clubes' | 'demarcaciones' | 'importar'>('observadores')
+  const [activeTab, setActiveTab] = useState<'observadores' | 'categorias' | 'clubes' | 'demarcaciones' | 'importar' | 'sincronizacion'>('observadores')
   const [editingObsId, setEditingObsId] = useState<string | null>(null)
   const [editingObsName, setEditingObsName] = useState('')
   const [editingClubId, setEditingClubId] = useState<string | null>(null)
@@ -118,6 +119,7 @@ export default function Admin() {
     { key: 'clubes', label: 'Clubes' },
     { key: 'demarcaciones', label: 'Demarcaciones' },
     { key: 'importar', label: 'Importar CSV' },
+    { key: 'sincronizacion', label: 'Sincronización' },
   ] as const
 
   return (
@@ -377,6 +379,9 @@ export default function Admin() {
 
       {/* Importar CSV */}
       {activeTab === 'importar' && <ImportFichasTab />}
+
+      {/* Sincronización automática */}
+      {activeTab === 'sincronizacion' && <SyncTab />}
     </div>
   )
 }

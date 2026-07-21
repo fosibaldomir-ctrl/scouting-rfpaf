@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { FichaJugadora, Observador, Club, CategoriaItem, PartidoCalendario, Convocatoria, JugadoraConvocada, Sesion, VideoSesion, Evento, AnalisisPartido, RegistroRPE, RegistroLesion, AccionBalonParado, Informe, PartidoInforme, EvaluacionJugadora } from '../types'
+import type { FichaJugadora, Observador, Club, CategoriaItem, PartidoCalendario, Convocatoria, JugadoraConvocada, Sesion, VideoSesion, Evento, AnalisisPartido, RegistroRPE, RegistroLesion, AccionBalonParado, Informe, PartidoInforme, EvaluacionJugadora, CompeticionMapeo, SyncRun } from '../types'
 import type { EjercicioDB } from '../lib/supabase'
 import { OBSERVADORES, CATEGORIAS, CLUBES } from '../data/masterData'
 import { supabaseService } from '../services/supabaseService'
@@ -11,6 +11,8 @@ import {
   fetchInformes, createInforme, updateInforme as updateInformeDB, deleteInformeDB,
   fetchPartidosInforme, createPartidoInforme, updatePartidoInforme as updatePartidoInformeDB, deletePartidoInforme as deletePartidoInformeDB,
   fetchEvaluaciones, createEvaluacion, updateEvaluacion as updateEvaluacionDB, deleteEvaluacion as deleteEvaluacionDB,
+  fetchCompeticionMapeos, createCompeticionMapeo, updateCompeticionMapeo as updateCompeticionMapeoDB, deleteCompeticionMapeo as deleteCompeticionMapeoDB,
+  fetchSyncRuns,
 } from '../lib/supabase'
 import { SESION_EMPTY } from '../lib/entrenamientoConstants'
 import { buildTeamJugadoras } from '../utils/tactics'
@@ -132,6 +134,13 @@ interface AppState {
   deleteConvocatoria: (id: string) => Promise<void>
   addJugadoraToConvocatoria: (convocatoriaId: string, jugadora: JugadoraConvocada) => Promise<void>
   removeJugadoraFromConvocatoria: (convocatoriaId: string, fichaId: string) => Promise<void>
+  competicionMapeos: CompeticionMapeo[]
+  loadCompeticionMapeos: () => Promise<void>
+  addCompeticionMapeo: (m: Omit<CompeticionMapeo, 'id' | 'creadoEn' | 'actualizadoEn' | 'ultimaJornadaProcesada'>) => Promise<CompeticionMapeo | null>
+  updateCompeticionMapeoAction: (id: string, patch: Partial<CompeticionMapeo>) => Promise<void>
+  deleteCompeticionMapeoAction: (id: string) => Promise<void>
+  syncRuns: SyncRun[]
+  loadSyncRuns: () => Promise<void>
 }
 
 export const useStore = create<AppState>()(
@@ -406,6 +415,33 @@ export const useStore = create<AppState>()(
           ),
         }))
         await supabaseService.updateConvocatoria(convocatoriaId, { jugadoras: newJugadoras })
+      },
+
+      competicionMapeos: [],
+      loadCompeticionMapeos: async () => {
+        const data = await fetchCompeticionMapeos()
+        set({ competicionMapeos: data })
+      },
+      addCompeticionMapeo: async (m) => {
+        const created = await createCompeticionMapeo(m)
+        if (created) set((s) => ({ competicionMapeos: [...s.competicionMapeos, created] }))
+        return created
+      },
+      updateCompeticionMapeoAction: async (id, patch) => {
+        set((s) => ({
+          competicionMapeos: s.competicionMapeos.map((m) => (m.id === id ? { ...m, ...patch } : m)),
+        }))
+        await updateCompeticionMapeoDB(id, patch)
+      },
+      deleteCompeticionMapeoAction: async (id) => {
+        set((s) => ({ competicionMapeos: s.competicionMapeos.filter((m) => m.id !== id) }))
+        await deleteCompeticionMapeoDB(id)
+      },
+
+      syncRuns: [],
+      loadSyncRuns: async () => {
+        const data = await fetchSyncRuns()
+        set({ syncRuns: data })
       },
     }),
     {

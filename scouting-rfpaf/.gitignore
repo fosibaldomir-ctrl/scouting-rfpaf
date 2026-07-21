@@ -23,3 +23,6 @@ dist-ssr
 *.sln
 *.sw?
 .vercel
+
+# Supabase CLI local state (project link cache, not secrets but machine-local)
+supabase/.temp/

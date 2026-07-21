@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.rfpaf.sync-actas</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/usr/local/bin/node</string>
+    <string>/Users/alfonsobaldomirferrer/Desktop/PROYECTO APP WEB FEDERACION /scouting-rfpaf/scripts/sync-actas.mjs</string>
+    <string>--cron</string>
+  </array>
+
+  <key>WorkingDirectory</key>
+  <string>/Users/alfonsobaldomirferrer/Desktop/PROYECTO APP WEB FEDERACION /scouting-rfpaf</string>
+
+  <!-- Lunes a las 08:00 -->
+  <key>StartCalendarInterval</key>
+  <dict>
+    <key>Weekday</key>
+    <integer>1</integer>
+    <key>Hour</key>
+    <integer>8</integer>
+    <key>Minute</key>
+    <integer>0</integer>
+  </dict>
+
+  <key>StandardOutPath</key>
+  <string>/tmp/sync-actas.log</string>
+  <key>StandardErrorPath</key>
+  <string>/tmp/sync-actas.error.log</string>
+
+  <!-- Si el Mac está apagado/dormido a esa hora, se ejecuta en cuanto se despierta -->
+  <key>RunAtLoad</key>
+  <false/>
+</dict>
+</plist>

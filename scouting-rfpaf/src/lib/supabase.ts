@@ -783,3 +783,101 @@ export async function deleteEjercicio(id: string): Promise<boolean> {
     return false
   }
 }
+
+/* ─── Sincronización automática de actas (asturfutbol.es) ─── */
+import type { CompeticionMapeo, SyncRun } from '../types'
+
+function rowToCompeticionMapeo(row: any): CompeticionMapeo {
+  return {
+    id: row.id,
+    temporadaValor: row.temporada_valor,
+    temporadaLabel: row.temporada_label ?? '',
+    tipoJuego: row.tipo_juego,
+    competicionId: row.competicion_id,
+    competicionLabel: row.competicion_label ?? '',
+    grupoId: row.grupo_id,
+    grupoLabel: row.grupo_label ?? '',
+    categoria: row.categoria,
+    activo: row.activo,
+    ultimaJornadaProcesada: row.ultima_jornada_procesada ?? 0,
+    creadoEn: row.creado_en,
+    actualizadoEn: row.actualizado_en,
+  }
+}
+
+export async function fetchCompeticionMapeos(): Promise<CompeticionMapeo[]> {
+  const { data, error } = await supabase.from('competicion_mapeos').select('*').order('categoria')
+  if (error) { console.error('Error fetching competicion_mapeos:', error); return [] }
+  return (data ?? []).map(rowToCompeticionMapeo)
+}
+
+export async function createCompeticionMapeo(
+  m: Omit<CompeticionMapeo, 'id' | 'creadoEn' | 'actualizadoEn' | 'ultimaJornadaProcesada'>
+): Promise<CompeticionMapeo | null> {
+  const { data, error } = await supabase
+    .from('competicion_mapeos')
+    .insert([{
+      temporada_valor: m.temporadaValor,
+      temporada_label: m.temporadaLabel,
+      tipo_juego: m.tipoJuego,
+      competicion_id: m.competicionId,
+      competicion_label: m.competicionLabel,
+      grupo_id: m.grupoId,
+      grupo_label: m.grupoLabel,
+      categoria: m.categoria,
+      activo: m.activo,
+    }])
+    .select()
+    .single()
+  if (error) { console.error('Error creating competicion_mapeo:', error); return null }
+  return rowToCompeticionMapeo(data)
+}
+
+export async function updateCompeticionMapeo(id: string, patch: Partial<CompeticionMapeo>): Promise<boolean> {
+  const row: Record<string, unknown> = { actualizado_en: new Date().toISOString() }
+  if (patch.temporadaValor !== undefined) row.temporada_valor = patch.temporadaValor
+  if (patch.temporadaLabel !== undefined) row.temporada_label = patch.temporadaLabel
+  if (patch.tipoJuego !== undefined) row.tipo_juego = patch.tipoJuego
+  if (patch.competicionId !== undefined) row.competicion_id = patch.competicionId
+  if (patch.competicionLabel !== undefined) row.competicion_label = patch.competicionLabel
+  if (patch.grupoId !== undefined) row.grupo_id = patch.grupoId
+  if (patch.grupoLabel !== undefined) row.grupo_label = patch.grupoLabel
+  if (patch.categoria !== undefined) row.categoria = patch.categoria
+  if (patch.activo !== undefined) row.activo = patch.activo
+  if (patch.ultimaJornadaProcesada !== undefined) row.ultima_jornada_procesada = patch.ultimaJornadaProcesada
+  const { error } = await supabase.from('competicion_mapeos').update(row).eq('id', id)
+  if (error) { console.error('Error updating competicion_mapeo:', error); return false }
+  return true
+}
+
+export async function deleteCompeticionMapeo(id: string): Promise<boolean> {
+  const { error } = await supabase.from('competicion_mapeos').delete().eq('id', id)
+  if (error) { console.error('Error deleting competicion_mapeo:', error); return false }
+  return true
+}
+
+function rowToSyncRun(row: any): SyncRun {
+  return {
+    id: row.id,
+    iniciadoEn: row.iniciado_en,
+    finalizadoEn: row.finalizado_en,
+    estado: row.estado,
+    disparadoPor: row.disparado_por,
+    competicionesProcesadas: row.competiciones_procesadas ?? 0,
+    actasNuevas: row.actas_nuevas ?? 0,
+    fichasActualizadas: row.fichas_actualizadas ?? 0,
+    jugadorasSinMatch: row.jugadoras_sin_match ?? 0,
+    errores: row.errores ?? [],
+    resumen: row.resumen ?? '',
+  }
+}
+
+export async function fetchSyncRuns(limit = 20): Promise<SyncRun[]> {
+  const { data, error } = await supabase
+    .from('sync_runs')
+    .select('*')
+    .order('iniciado_en', { ascending: false })
+    .limit(limit)
+  if (error) { console.error('Error fetching sync_runs:', error); return [] }
+  return (data ?? []).map(rowToSyncRun)
+}
