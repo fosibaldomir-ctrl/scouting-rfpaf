@@ -26,7 +26,7 @@ export default function Login() {
           <div className="inline-block mb-4 scale-150">
             <RFPAFLogo />
           </div>
-          <h1 className="text-2xl font-bold text-rfpaf-blue">RFPAF Scouting</h1>
+          <h1 className="text-2xl font-bold text-rfpaf-blue">Selección</h1>
           <p className="text-gray-500 text-sm mt-1">
             Real Federación de Fútbol del Principado de Asturias
           </p>
