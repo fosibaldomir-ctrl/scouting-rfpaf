@@ -49,6 +49,7 @@ export const supabaseService = {
       descripcionJugadora: f.descripcion_jugadora,
       observaciones: f.observaciones,
       cierre: f.cierre,
+      valoraciones: f.valoraciones ?? [],
       creadoEn: f.creado_en,
       actualizadoEn: f.actualizado_en,
     }))
@@ -94,6 +95,7 @@ export const supabaseService = {
         descripcion_jugadora: ficha.descripcionJugadora || null,
         observaciones: ficha.observaciones || null,
         cierre: ficha.cierre || null,
+        valoraciones: ficha.valoraciones ?? [],
         creado_en: ficha.creadoEn,
         actualizado_en: ficha.actualizadoEn,
       }
@@ -154,6 +156,7 @@ export const supabaseService = {
       if (ficha.descripcionJugadora !== undefined) data.descripcion_jugadora = ficha.descripcionJugadora
       if (ficha.observaciones !== undefined) data.observaciones = ficha.observaciones
       if (ficha.cierre !== undefined) data.cierre = ficha.cierre
+      if (ficha.valoraciones !== undefined) data.valoraciones = ficha.valoraciones
       data.actualizado_en = new Date().toISOString()
 
       console.log('📤 Datos a actualizar:', data)

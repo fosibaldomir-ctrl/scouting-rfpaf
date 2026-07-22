@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Search, Download, Eye, Edit, Trash2, Copy, ChevronUp, ChevronDown, LayoutGrid, List } from 'lucide-react'
+import { Search, Download, Eye, Edit, Trash2, Copy, ChevronUp, ChevronDown, LayoutGrid, List, PlusCircle } from 'lucide-react'
 import * as XLSX from 'xlsx'
 import { useStore } from '../store/useStore'
 import type { FichaJugadora } from '../types'
@@ -44,15 +44,17 @@ function valoracionColor(v: number): string {
   return '#ea580c'
 }
 
-function PlayerCard({ f, onView, onEdit, onDuplicate, onDelete, escudo }: {
+function PlayerCard({ f, onView, onEdit, onAddValoracion, onDuplicate, onDelete, escudo }: {
   f: FichaJugadora
   onView: () => void
   onEdit: () => void
+  onAddValoracion: () => void
   onDuplicate: () => void
   onDelete: () => void
   escudo?: string
 }) {
   const edad = calcularEdad(f.fechaNacimiento)
+  const sinValorar = f.valoraciones.length === 0
   const val = f.valoracionGeneral ?? 0
   const pct = Math.round((val / 5) * 100)
   const barColor = valoracionColor(val)
@@ -73,7 +75,13 @@ function PlayerCard({ f, onView, onEdit, onDuplicate, onDelete, escudo }: {
         )}
         {/* Propuesta badge top-right */}
         <div className="absolute top-2 right-2">
-          <PropuestaBadge p={f.propuesta} />
+          {sinValorar ? (
+            <span className="text-[10px] font-bold px-2 py-1 rounded-full bg-gray-100 text-gray-500 border border-gray-200">
+              Sin valorar
+            </span>
+          ) : (
+            <PropuestaBadge p={f.propuesta} />
+          )}
         </div>
         {/* Club escudo top-left */}
         {escudo && (
@@ -97,15 +105,19 @@ function PlayerCard({ f, onView, onEdit, onDuplicate, onDelete, escudo }: {
         </div>
 
         {/* Valoración bar */}
-        <div>
-          <div className="flex justify-between items-center mb-0.5">
-            <span className="text-[10px] text-gray-400 font-medium">Valoración</span>
-            <span className="text-[10px] font-bold" style={{ color: barColor }}>{val}/5</span>
+        {sinValorar ? (
+          <p className="text-[10px] text-gray-400 italic">Sin valorar todavía</p>
+        ) : (
+          <div>
+            <div className="flex justify-between items-center mb-0.5">
+              <span className="text-[10px] text-gray-400 font-medium">Valoración</span>
+              <span className="text-[10px] font-bold" style={{ color: barColor }}>{val}/5</span>
+            </div>
+            <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+              <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: barColor }} />
+            </div>
           </div>
-          <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-            <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: barColor }} />
-          </div>
-        </div>
+        )}
 
         {/* Category */}
         <p className="text-[10px] text-gray-400 truncate">{f.categoria}</p>
@@ -120,6 +132,9 @@ function PlayerCard({ f, onView, onEdit, onDuplicate, onDelete, escudo }: {
             Ver
           </button>
           <div className="flex items-center gap-1 ml-1">
+            <button onClick={onAddValoracion} className="text-gray-400 hover:text-rfpaf-blue p-1" title="Nueva valoración">
+              <PlusCircle className="w-3 h-3" />
+            </button>
             <button onClick={onEdit} className="text-gray-400 hover:text-gray-600 p-1" title="Editar">
               <Edit className="w-3 h-3" />
             </button>
@@ -185,7 +200,13 @@ export default function BaseDatos() {
     sortKey === k ? (sortDir === 'asc' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />) : null
 
   const handleDuplicate = (f: FichaJugadora) => {
-    const copy = { ...f, id: crypto.randomUUID(), registro: `${f.registro}-COPIA`, creadoEn: new Date().toISOString() }
+    const copy = {
+      ...f,
+      id: crypto.randomUUID(),
+      registro: `${f.registro}-COPIA`,
+      creadoEn: new Date().toISOString(),
+      valoraciones: f.valoraciones.map((v) => ({ ...v, id: crypto.randomUUID() })),
+    }
     addFicha(copy)
   }
 
@@ -349,6 +370,7 @@ export default function BaseDatos() {
                         escudo={getEscudo(f)}
                         onView={() => navigate(`/ficha/${f.id}`)}
                         onEdit={() => navigate(`/editar/${f.id}`)}
+                        onAddValoracion={() => navigate(`/ficha/${f.id}/valorar`)}
                         onDuplicate={() => handleDuplicate(f)}
                         onDelete={() => setConfirmDelete(f.id)}
                       />
@@ -443,15 +465,26 @@ export default function BaseDatos() {
                       <td className="px-4 py-3 text-gray-600 whitespace-nowrap">{f.demarcacion}</td>
                       <td className="px-4 py-3 text-gray-600">{f.lateralidad?.charAt(0)}</td>
                       <td className="px-4 py-3">
-                        <span className="text-yellow-500">{'★'.repeat(f.valoracionGeneral ?? 0)}</span>
+                        {f.valoraciones.length === 0 ? (
+                          <span className="text-xs text-gray-400 italic">Sin valorar</span>
+                        ) : (
+                          <span className="text-yellow-500">{'★'.repeat(f.valoracionGeneral ?? 0)}</span>
+                        )}
                       </td>
                       <td className="px-4 py-3">
-                        <PropuestaBadge p={f.propuesta} />
+                        {f.valoraciones.length === 0 ? (
+                          <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 border border-gray-200">Sin valorar</span>
+                        ) : (
+                          <PropuestaBadge p={f.propuesta} />
+                        )}
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
                           <button onClick={() => navigate(`/ficha/${f.id}`)} className="text-rfpaf-blue hover:text-rfpaf-blue-light" title="Ver">
                             <Eye className="w-4 h-4" />
+                          </button>
+                          <button onClick={() => navigate(`/ficha/${f.id}/valorar`)} className="text-gray-400 hover:text-rfpaf-blue" title="Nueva valoración">
+                            <PlusCircle className="w-4 h-4" />
                           </button>
                           <button onClick={() => navigate(`/editar/${f.id}`)} className="text-gray-500 hover:text-gray-700" title="Editar">
                             <Edit className="w-4 h-4" />

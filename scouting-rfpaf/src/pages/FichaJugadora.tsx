@@ -1,6 +1,6 @@
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Edit, FileText, Star, Eye, ClipboardList, Check, X } from 'lucide-react'
-import { useRef, useState } from 'react'
+import { ArrowLeft, Edit, FileText, Star, ClipboardList, Check, X, PlusCircle, Trash2, ChevronDown, ChevronUp } from 'lucide-react'
+import { Fragment, useRef, useState } from 'react'
 import { useStore } from '../store/useStore'
 import type { JugadoraConvocada } from '../types'
 import RadarChart from '../components/charts/RadarChart'
@@ -42,12 +42,13 @@ function PropuestaBadge({ propuesta }: { propuesta: string }) {
 export default function FichaJugadora() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const { fichas: allFichas, getFicha, observadores, clubes, convocatorias, addJugadoraToConvocatoria } = useStore()
+  const { getFicha, observadores, clubes, convocatorias, addJugadoraToConvocatoria, deleteValoracion } = useStore()
   const contentRef = useRef<HTMLDivElement>(null)
   const pdfRef = useRef<HTMLDivElement>(null)
   const [showConvModal, setShowConvModal] = useState(false)
   const [addedToId, setAddedToId] = useState<string | null>(null)
   const [pdfImgs, setPdfImgs] = useState<{ fed: string | null; escudo: string | null }>({ fed: null, escudo: null })
+  const [expandedId, setExpandedId] = useState<string | null>(null)
 
   const ficha = getFicha(id ?? '')
 
@@ -240,14 +241,12 @@ export default function FichaJugadora() {
   const obsNombre = observadores.find((o) => o.id === ficha.observador)?.nombre ?? ficha.observador
   const clubNombre = clubes.find((c) => c.id === ficha.club)?.nombre ?? ficha.club
 
-  const fichasJugadora = allFichas
-    .filter(
-      (f) =>
-        f.nombre === ficha.nombre &&
-        f.primerApellido === ficha.primerApellido &&
-        f.segundoApellido === ficha.segundoApellido,
-    )
-    .sort((a, b) => new Date(b.fechaPartido).getTime() - new Date(a.fechaPartido).getTime())
+  const historial = [...ficha.valoraciones].sort((a, b) => {
+    const byFecha = new Date(b.fechaPartido).getTime() - new Date(a.fechaPartido).getTime()
+    if (byFecha !== 0) return byFecha
+    return new Date(b.creadoEn).getTime() - new Date(a.creadoEn).getTime()
+  })
+  const tieneValoraciones = historial.length > 0
   const itemsDemarc = DEMARCACIONES_ITEMS.find((d) => d.posicion === ficha.demarcacion)?.items ?? []
   const tecValues = [
     ficha.evaluacionTecnica?.item1 ?? 0,
@@ -322,10 +321,18 @@ export default function FichaJugadora() {
             </div>
           </div>
           <div className="text-right">
-            <div className="text-yellow-300 text-2xl mb-1">
-              {'★'.repeat(ficha.valoracionGeneral ?? 0)}{'☆'.repeat(5 - (ficha.valoracionGeneral ?? 0))}
-            </div>
-            <PropuestaBadge propuesta={ficha.propuesta} />
+            {tieneValoraciones ? (
+              <>
+                <div className="text-yellow-300 text-2xl mb-1">
+                  {'★'.repeat(ficha.valoracionGeneral ?? 0)}{'☆'.repeat(5 - (ficha.valoracionGeneral ?? 0))}
+                </div>
+                <PropuestaBadge propuesta={ficha.propuesta} />
+              </>
+            ) : (
+              <span className="px-4 py-2 rounded-full text-sm font-bold bg-white/15 text-white/80">
+                Sin valorar todavía
+              </span>
+            )}
           </div>
         </div>
       </div>
@@ -350,15 +357,20 @@ export default function FichaJugadora() {
           </div>
         </div>
 
-        {/* Datos partido */}
+        {/* Datos partido (última valoración) */}
         <div className="card">
-          <h2 className="text-base font-bold text-gray-700 mb-3">Contexto del Partido</h2>
-          <DataRow label="Fecha" value={new Date(ficha.fechaPartido).toLocaleDateString('es-ES')} />
-          <DataRow label="Equipo" value={ficha.equipo} />
-          <DataRow label="Categoría" value={ficha.categoria} />
-          <DataRow label="Local" value={ficha.local} />
-          <DataRow label="Visitante" value={ficha.visitante} />
-          <DataRow label="Observador" value={obsNombre} />
+          <h2 className="text-base font-bold text-gray-700 mb-3">Última Valoración</h2>
+          {tieneValoraciones ? (
+            <>
+              <DataRow label="Fecha" value={new Date(ficha.fechaPartido).toLocaleDateString('es-ES')} />
+              <DataRow label="Categoría" value={ficha.categoria} />
+              <DataRow label="Local" value={ficha.local} />
+              <DataRow label="Visitante" value={ficha.visitante} />
+              <DataRow label="Observador" value={obsNombre} />
+            </>
+          ) : (
+            <p className="text-sm text-gray-400 py-2">Sin valoraciones registradas todavía.</p>
+          )}
         </div>
 
         {/* Físico */}
@@ -413,7 +425,9 @@ export default function FichaJugadora() {
         </div>
       </div>
 
-      {/* Evaluación técnica */}
+      {/* Evaluación técnica y final (última valoración) */}
+      {tieneValoraciones && (
+      <>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="card">
           <h2 className="text-base font-bold text-gray-700 mb-3">
@@ -497,21 +511,33 @@ export default function FichaJugadora() {
           </div>
         )}
       </div>
+      </>
+      )}
 
-      {/* Historial de observaciones */}
+      {/* Historial de valoraciones */}
       <div className="card">
-        <h2 className="text-base font-bold text-gray-700 mb-1">Historial de Observaciones</h2>
+        <div className="flex items-center justify-between mb-1">
+          <h2 className="text-base font-bold text-gray-700">Historial de Observaciones</h2>
+          <button
+            onClick={() => navigate(`/ficha/${ficha.id}/valorar`)}
+            className="btn-primary flex items-center gap-2 text-sm"
+          >
+            <PlusCircle className="w-4 h-4" />
+            Nueva valoración
+          </button>
+        </div>
         <p className="text-xs text-gray-400 mb-4">
           {ficha.nombre} {ficha.primerApellido} {ficha.segundoApellido} ·{' '}
           {calcularEdad(ficha.fechaNacimiento)} años · {clubNombre}
         </p>
-        {fichasJugadora.length === 0 ? (
-          <p className="text-sm text-gray-400">Sin observaciones registradas.</p>
+        {historial.length === 0 ? (
+          <p className="text-sm text-gray-400">Sin valoraciones aún.</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b bg-gray-50 text-xs text-gray-500 uppercase tracking-wide">
+                  <th className="px-3 py-2 text-left font-semibold"></th>
                   <th className="px-3 py-2 text-left font-semibold">Fecha</th>
                   <th className="px-3 py-2 text-left font-semibold">Partido</th>
                   <th className="px-3 py-2 text-left font-semibold">Categoría</th>
@@ -522,45 +548,121 @@ export default function FichaJugadora() {
                 </tr>
               </thead>
               <tbody>
-                {fichasJugadora.map((f) => {
-                  const obsNom = observadores.find((o) => o.id === f.observador)?.nombre ?? f.observador
+                {historial.map((v) => {
+                  const obsNom = observadores.find((o) => o.id === v.observador)?.nombre ?? v.observador
                   const propMap: Record<string, string> = {
                     'SELECCIÓN': 'bg-green-100 text-green-800',
                     'INCORPORAR': 'bg-blue-100 text-blue-800',
                     'SEGUIR': 'bg-yellow-100 text-yellow-800',
                     'DESCARTAR': 'bg-red-100 text-red-800',
                   }
+                  const isExpanded = expandedId === v.id
+                  const vTecValues = [
+                    v.evaluacionTecnica?.item1 ?? 0,
+                    v.evaluacionTecnica?.item2 ?? 0,
+                    v.evaluacionTecnica?.item3 ?? 0,
+                    v.evaluacionTecnica?.item4 ?? 0,
+                    v.evaluacionTecnica?.item5 ?? 0,
+                    v.evaluacionTecnica?.item6 ?? 0,
+                  ]
                   return (
-                    <tr key={f.id} className={`border-b last:border-0 hover:bg-blue-50/30 transition-colors ${f.id === ficha.id ? 'bg-blue-50' : ''}`}>
-                      <td className="px-3 py-2 whitespace-nowrap text-gray-600">
-                        {new Date(f.fechaPartido).toLocaleDateString('es-ES')}
-                      </td>
-                      <td className="px-3 py-2 whitespace-nowrap font-medium text-gray-800">
-                        {f.local} <span className="text-gray-400 font-normal">vs</span> {f.visitante}
-                      </td>
-                      <td className="px-3 py-2 text-gray-600 whitespace-nowrap">{f.categoria}</td>
-                      <td className="px-3 py-2 text-gray-600 whitespace-nowrap">{obsNom}</td>
-                      <td className="px-3 py-2 whitespace-nowrap">
-                        <span className="text-yellow-500">{'★'.repeat(f.valoracionGeneral ?? 0)}</span>
-                        <span className="text-gray-300">{'★'.repeat(5 - (f.valoracionGeneral ?? 0))}</span>
-                      </td>
-                      <td className="px-3 py-2">
-                        <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${propMap[f.propuesta] ?? 'bg-gray-100 text-gray-600'}`}>
-                          {f.propuesta}
-                        </span>
-                      </td>
-                      <td className="px-3 py-2">
-                        {f.id !== ficha.id && (
-                          <button
-                            onClick={() => navigate(`/ficha/${f.id}`)}
-                            className="text-rfpaf-blue hover:text-rfpaf-blue-light"
-                            title="Ver ficha"
-                          >
-                            <Eye className="w-4 h-4" />
-                          </button>
-                        )}
-                      </td>
-                    </tr>
+                    <Fragment key={v.id}>
+                      <tr
+                        onClick={() => setExpandedId(isExpanded ? null : v.id)}
+                        className={`border-b last:border-0 hover:bg-blue-50/30 transition-colors cursor-pointer ${isExpanded ? 'bg-blue-50' : ''}`}
+                      >
+                        <td className="px-3 py-2 text-gray-400">
+                          {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                        </td>
+                        <td className="px-3 py-2 whitespace-nowrap text-gray-600">
+                          {new Date(v.fechaPartido).toLocaleDateString('es-ES')}
+                        </td>
+                        <td className="px-3 py-2 whitespace-nowrap font-medium text-gray-800">
+                          {v.local} <span className="text-gray-400 font-normal">vs</span> {v.visitante}
+                        </td>
+                        <td className="px-3 py-2 text-gray-600 whitespace-nowrap">{v.categoria}</td>
+                        <td className="px-3 py-2 text-gray-600 whitespace-nowrap">{obsNom}</td>
+                        <td className="px-3 py-2 whitespace-nowrap">
+                          <span className="text-yellow-500">{'★'.repeat(v.valoracionGeneral ?? 0)}</span>
+                          <span className="text-gray-300">{'★'.repeat(5 - (v.valoracionGeneral ?? 0))}</span>
+                        </td>
+                        <td className="px-3 py-2">
+                          <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${propMap[v.propuesta] ?? 'bg-gray-100 text-gray-600'}`}>
+                            {v.propuesta}
+                          </span>
+                        </td>
+                        <td className="px-3 py-2">
+                          <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                            <button
+                              onClick={() => navigate(`/ficha/${ficha.id}/valorar/${v.id}`)}
+                              className="text-rfpaf-blue hover:text-rfpaf-blue-light"
+                              title="Editar valoración"
+                            >
+                              <Edit className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => {
+                                if (confirm('¿Eliminar esta valoración? Esta acción no se puede deshacer.')) {
+                                  deleteValoracion(ficha.id, v.id)
+                                }
+                              }}
+                              className="text-red-400 hover:text-red-600"
+                              title="Eliminar valoración"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                      {isExpanded && (
+                        <tr className="bg-gray-50/60 border-b">
+                          <td colSpan={8} className="px-4 py-4">
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                              <div>
+                                <p className="text-xs font-semibold text-gray-500 uppercase mb-2">
+                                  Evaluación Técnica · {ficha.demarcacion}
+                                </p>
+                                {itemsDemarc.map((item, i) => {
+                                  const colors = ['#1a3a6b', '#c0392b', '#16a34a', '#f59e0b', '#8b5cf6', '#06b6d4']
+                                  const color = colors[i % colors.length]
+                                  return (
+                                    <div key={i} className="mb-2">
+                                      <div className="flex justify-between text-xs mb-0.5">
+                                        <span className="text-gray-600">{item}</span>
+                                        <span className="font-bold" style={{ color }}>{vTecValues[i]}/5</span>
+                                      </div>
+                                      <div className="w-full bg-gray-200 rounded-full h-1.5">
+                                        <div className="h-1.5 rounded-full" style={{ width: `${(vTecValues[i] / 5) * 100}%`, backgroundColor: color }} />
+                                      </div>
+                                    </div>
+                                  )
+                                })}
+                              </div>
+                              <div className="space-y-3">
+                                {v.descripcionJugadora && (
+                                  <div>
+                                    <p className="text-xs font-semibold text-gray-500 uppercase mb-1">Descripción</p>
+                                    <p className="text-sm text-gray-700 bg-white rounded-lg p-3 border border-gray-100">{v.descripcionJugadora}</p>
+                                  </div>
+                                )}
+                                {v.observaciones && (
+                                  <div>
+                                    <p className="text-xs font-semibold text-gray-500 uppercase mb-1">Observaciones</p>
+                                    <p className="text-sm text-gray-700 bg-white rounded-lg p-3 border border-gray-100">{v.observaciones}</p>
+                                  </div>
+                                )}
+                                {v.cierre && (
+                                  <div>
+                                    <p className="text-xs font-semibold text-gray-500 uppercase mb-1">Cierre</p>
+                                    <p className="text-sm text-gray-700 bg-white rounded-lg p-3 border border-gray-100">{v.cierre}</p>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
                   )
                 })}
               </tbody>
@@ -636,7 +738,8 @@ export default function FichaJugadora() {
           ficha={ficha}
           obsNombre={obsNombre}
           clubNombre={clubNombre}
-          fichasJugadora={fichasJugadora}
+          valoraciones={historial}
+          currentValoracionId={historial[0]?.id}
           observadores={observadores}
           fedLogoUrl={pdfImgs.fed}
           clubEscudoUrl={pdfImgs.escudo}

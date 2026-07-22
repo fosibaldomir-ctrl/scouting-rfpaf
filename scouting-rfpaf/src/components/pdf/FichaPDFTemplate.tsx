@@ -1,4 +1,4 @@
-import type { FichaJugadora, Observador } from '../../types'
+import type { FichaJugadora, Observador, Valoracion } from '../../types'
 import RadarSVG from './RadarSVG'
 import { DEMARCACIONES_ITEMS } from '../../data/masterData'
 
@@ -6,7 +6,8 @@ interface Props {
   ficha: FichaJugadora
   obsNombre: string
   clubNombre: string
-  fichasJugadora?: FichaJugadora[]
+  valoraciones?: Valoracion[]
+  currentValoracionId?: string
   observadores?: Observador[]
   fedLogoUrl?: string | null
   clubEscudoUrl?: string | null
@@ -30,7 +31,7 @@ const PROPUESTA_STYLES: Record<string, { bg: string; color: string; border: stri
 
 const BAR_COLORS = ['#1a3a6b', '#c0392b', '#16a34a', '#f59e0b', '#8b5cf6', '#06b6d4']
 
-export default function FichaPDFTemplate({ ficha, obsNombre, clubNombre, fichasJugadora = [], observadores = [], fedLogoUrl, clubEscudoUrl }: Props) {
+export default function FichaPDFTemplate({ ficha, obsNombre, clubNombre, valoraciones = [], currentValoracionId, observadores = [], fedLogoUrl, clubEscudoUrl }: Props) {
   const itemsDemarc = DEMARCACIONES_ITEMS.find((d) => d.posicion === ficha.demarcacion)?.items ?? []
   const tecValues = [
     ficha.evaluacionTecnica?.item1 ?? 0,
@@ -361,7 +362,7 @@ export default function FichaPDFTemplate({ ficha, obsNombre, clubNombre, fichasJ
         </SectionCard>
 
         {/* ── Historial de observaciones ──── */}
-        {fichasJugadora.length > 0 && (
+        {valoraciones.length > 0 && (
           <SectionCard blockId="historial" title={`Historial de Observaciones · ${ficha.nombre} ${ficha.primerApellido} ${ficha.segundoApellido} · ${edad} años · ${clubNombre}`}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 10.5 }}>
               <thead>
@@ -374,29 +375,29 @@ export default function FichaPDFTemplate({ ficha, obsNombre, clubNombre, fichasJ
                 </tr>
               </thead>
               <tbody>
-                {fichasJugadora.map((f, idx) => {
-                  const obsNom = observadores.find((o) => o.id === f.observador)?.nombre ?? f.observador
+                {valoraciones.map((v, idx) => {
+                  const obsNom = observadores.find((o) => o.id === v.observador)?.nombre ?? v.observador
                   const propColors: Record<string, { bg: string; color: string }> = {
                     'SELECCIÓN':  { bg: '#dcfce7', color: '#166534' },
                     'INCORPORAR': { bg: '#dbeafe', color: '#1e40af' },
                     'SEGUIR':     { bg: '#fef9c3', color: '#854d0e' },
                     'DESCARTAR':  { bg: '#fee2e2', color: '#991b1b' },
                   }
-                  const pc = propColors[f.propuesta] ?? { bg: '#f1f5f9', color: '#475569' }
-                  const isCurrent = f.id === ficha.id
+                  const pc = propColors[v.propuesta] ?? { bg: '#f1f5f9', color: '#475569' }
+                  const isCurrent = v.id === currentValoracionId
                   return (
-                    <tr key={f.id} style={{ borderBottom: '1px solid #f1f5f9', background: isCurrent ? '#eff6ff' : idx % 2 === 0 ? '#ffffff' : '#fafafa' }}>
+                    <tr key={v.id} style={{ borderBottom: '1px solid #f1f5f9', background: isCurrent ? '#eff6ff' : idx % 2 === 0 ? '#ffffff' : '#fafafa' }}>
                       <td style={{ padding: '5px 8px', color: '#374151', whiteSpace: 'nowrap' }}>
-                        {new Date(f.fechaPartido).toLocaleDateString('es-ES')}
+                        {new Date(v.fechaPartido).toLocaleDateString('es-ES')}
                       </td>
                       <td style={{ padding: '5px 8px', fontWeight: 600, color: '#1e293b' }}>
-                        {f.local} <span style={{ color: '#94a3b8', fontWeight: 400 }}>vs</span> {f.visitante}
+                        {v.local} <span style={{ color: '#94a3b8', fontWeight: 400 }}>vs</span> {v.visitante}
                       </td>
-                      <td style={{ padding: '5px 8px', color: '#64748b', whiteSpace: 'nowrap' }}>{f.categoria}</td>
+                      <td style={{ padding: '5px 8px', color: '#64748b', whiteSpace: 'nowrap' }}>{v.categoria}</td>
                       <td style={{ padding: '5px 8px', color: '#64748b', whiteSpace: 'nowrap' }}>{obsNom}</td>
                       <td style={{ padding: '5px 8px', color: '#f59e0b', whiteSpace: 'nowrap', fontSize: 12 }}>
-                        {'★'.repeat(f.valoracionGeneral ?? 0)}
-                        <span style={{ color: '#e5e7eb' }}>{'★'.repeat(5 - (f.valoracionGeneral ?? 0))}</span>
+                        {'★'.repeat(v.valoracionGeneral ?? 0)}
+                        <span style={{ color: '#e5e7eb' }}>{'★'.repeat(5 - (v.valoracionGeneral ?? 0))}</span>
                       </td>
                       <td style={{ padding: '5px 8px' }}>
                         <span
@@ -412,7 +413,7 @@ export default function FichaPDFTemplate({ ficha, obsNombre, clubNombre, fichasJ
                             whiteSpace: 'nowrap',
                           }}
                         >
-                          {f.propuesta}
+                          {v.propuesta}
                         </span>
                       </td>
                     </tr>

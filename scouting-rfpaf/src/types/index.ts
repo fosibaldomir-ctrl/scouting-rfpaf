@@ -32,6 +32,22 @@ export interface EvaluacionDemarcacion {
   item6: number
 }
 
+export interface Valoracion {
+  id: string
+  fechaPartido: string
+  local: string
+  visitante: string
+  categoria: Categoria
+  observador: string
+  evaluacionTecnica: EvaluacionDemarcacion
+  valoracionGeneral: number
+  propuesta: Propuesta
+  descripcionJugadora: string
+  observaciones: string
+  cierre: string
+  creadoEn: string
+}
+
 export interface FichaJugadora {
   id: string
   registro: string
@@ -75,6 +91,12 @@ export interface FichaJugadora {
   descripcionJugadora: string
   observaciones: string
   cierre: string
+  // Historial de valoraciones (una por partido observado). Los campos de
+  // valoración de arriba (fechaPartido, local, visitante, categoria,
+  // observador, evaluacionTecnica, valoracionGeneral, propuesta,
+  // descripcionJugadora, observaciones, cierre) reflejan siempre la entrada
+  // más reciente de este array — se mantienen sincronizados automáticamente.
+  valoraciones: Valoracion[]
   // Meta
   creadoEn: string
   actualizadoEn: string

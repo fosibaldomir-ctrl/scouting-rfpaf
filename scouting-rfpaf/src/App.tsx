@@ -6,6 +6,7 @@ import SplashScreen from './components/SplashScreen'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import NuevaFicha from './pages/NuevaFicha'
+import NuevaValoracion from './pages/NuevaValoracion'
 import BaseDatos from './pages/BaseDatos'
 import FichaJugadora from './pages/FichaJugadora'
 import Campograma from './pages/Campograma'
@@ -46,6 +47,8 @@ function AppContent() {
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/nueva-ficha" element={<NuevaFicha />} />
           <Route path="/editar/:id" element={<NuevaFicha />} />
+          <Route path="/ficha/:fichaId/valorar" element={<NuevaValoracion />} />
+          <Route path="/ficha/:fichaId/valorar/:valoracionId" element={<NuevaValoracion />} />
           <Route path="/base-datos" element={<BaseDatos />} />
           <Route path="/campograma" element={<Campograma />} />
           <Route path="/calendario" element={<Calendario />} />

@@ -3,14 +3,22 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { v4 as uuidv4 } from 'uuid'
 import { ChevronRight, ChevronLeft, Save, CheckCircle } from 'lucide-react'
 import { useStore } from '../store/useStore'
-import { DEMARCACIONES_ITEMS, ALTURAS, TIPOLOGIAS, LATERALIDADES, PROPUESTAS } from '../data/masterData'
+import { DEMARCACIONES_ITEMS, ALTURAS, TIPOLOGIAS, LATERALIDADES } from '../data/masterData'
 import ScoreSlider from '../components/forms/ScoreSlider'
 import RadarChart from '../components/charts/RadarChart'
-import type { FichaJugadora, Demarcacion, EvaluacionDemarcacion } from '../types'
+import { DatosPartidoFields, EvaluacionTecnicaFields, CierreFields } from '../components/ficha/ValoracionFields'
+import type { FichaJugadora, Demarcacion, EvaluacionDemarcacion, Valoracion } from '../types'
 import { genRegistro } from '../utils/registro'
 import { defaultFichaFields as defaultForm } from '../utils/fichaDefaults'
 
-const STEPS = ['Partido', 'Jugadora', 'Físico', 'Técnica', 'Evaluación']
+const STEPS_CREATE = ['Partido', 'Jugadora', 'Físico', 'Técnica', 'Evaluación']
+const STEPS_EDIT = ['Jugadora', 'Físico', 'Demarcación']
+// Fases originales que representa cada paso visible: en modo creación se
+// muestran las 5 fases; en edición solo identidad+físico+demarcación (2,3,4)
+// — las fases 1 (Partido) y 5 (Evaluación) pasan a gestionarse por partido
+// desde la pantalla de valoraciones, no aquí.
+const PHASES_CREATE = [1, 2, 3, 4, 5]
+const PHASES_EDIT = [2, 3, 4]
 
 function calcularEdad(fecha: string): number {
   if (!fecha) return 0
@@ -26,12 +34,16 @@ export default function NuevaFicha() {
   const navigate = useNavigate()
   const { fichas, addFicha, updateFicha, getFicha, observadores, categorias, clubes, currentObservador, borrador, saveBorrador, clearBorrador } = useStore()
 
+  const isEdit = Boolean(id)
+  const STEPS = isEdit ? STEPS_EDIT : STEPS_CREATE
+  const phases = isEdit ? PHASES_EDIT : PHASES_CREATE
+
   const [step, setStep] = useState(1)
   const [form, setForm] = useState<Partial<FichaJugadora>>(defaultForm())
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [saved, setSaved] = useState(false)
 
-  const isEdit = Boolean(id)
+  const phase = phases[step - 1]
 
   useEffect(() => {
     if (isEdit && id) {
@@ -56,6 +68,15 @@ export default function NuevaFicha() {
     setErrors((e) => { const n = { ...e }; delete n[field]; return n })
   }
 
+  const setPatch = (patch: Record<string, unknown>) => {
+    setForm((f) => ({ ...f, ...patch }))
+    setErrors((e) => {
+      const n = { ...e }
+      for (const k of Object.keys(patch)) delete n[k]
+      return n
+    })
+  }
+
   const setTec = (key: keyof EvaluacionDemarcacion, val: number) => {
     setForm((f) => ({
       ...f,
@@ -78,7 +99,7 @@ export default function NuevaFicha() {
 
   const validate = (): boolean => {
     const errs: Record<string, string> = {}
-    if (step === 1) {
+    if (phase === 1) {
       if (!form.fechaPartido) errs.fechaPartido = 'Obligatorio'
       if (!form.equipo?.trim()) errs.equipo = 'Obligatorio'
       if (!form.categoria) errs.categoria = 'Obligatorio'
@@ -86,7 +107,7 @@ export default function NuevaFicha() {
       if (!form.visitante?.trim()) errs.visitante = 'Obligatorio'
       if (!form.observador) errs.observador = 'Obligatorio'
     }
-    if (step === 2) {
+    if (phase === 2) {
       if (!form.nombre?.trim()) errs.nombre = 'Obligatorio'
       if (!form.primerApellido?.trim()) errs.primerApellido = 'Obligatorio'
       if (!form.fechaNacimiento) errs.fechaNacimiento = 'Obligatorio'
@@ -99,29 +120,71 @@ export default function NuevaFicha() {
   const nextStep = () => {
     if (validate()) {
       saveBorrador(form)
-      setStep((s) => Math.min(5, s + 1) as 1|2|3|4|5)
+      setStep((s) => Math.min(phases.length, s + 1))
     }
   }
 
-  const prevStep = () => setStep((s) => Math.max(1, s - 1) as 1|2|3|4|5)
+  const prevStep = () => setStep((s) => Math.max(1, s - 1))
 
   const handleSubmit = () => {
-    const obs = observadores.find((o) => o.id === form.observador)
     const now = new Date().toISOString()
-    const ficha: FichaJugadora = {
-      ...defaultForm(),
-      ...form,
-      id: isEdit ? (id as string) : uuidv4(),
-      registro: isEdit ? (form.registro ?? genRegistro(obs?.nombre ?? '', fichas.length)) : genRegistro(obs?.nombre ?? '', fichas.length),
-      creadoEn: isEdit ? (form.creadoEn ?? now) : now,
-      actualizadoEn: now,
-    } as FichaJugadora
 
     if (isEdit) {
-      updateFicha(id as string, ficha)
+      const clubNombre = clubes.find((c) => c.id === form.club)?.nombre ?? form.equipo ?? ''
+      const patch: Partial<FichaJugadora> = {
+        nombre: form.nombre,
+        primerApellido: form.primerApellido,
+        segundoApellido: form.segundoApellido,
+        fechaNacimiento: form.fechaNacimiento,
+        dorsal: form.dorsal,
+        foto: form.foto,
+        lateralidad: form.lateralidad,
+        tipologia: form.tipologia,
+        altura: form.altura,
+        club: form.club,
+        equipo: clubNombre,
+        fuerza: form.fuerza,
+        velocidad: form.velocidad,
+        resistencia: form.resistencia,
+        minutosJugados: form.minutosJugados,
+        partidosTitular: form.partidosTitular,
+        partidosSuplente: form.partidosSuplente,
+        goles: form.goles,
+        tarjetasAmarillas: form.tarjetasAmarillas,
+        tarjetasRojas: form.tarjetasRojas,
+        demarcacion: form.demarcacion,
+        otraDemarcacion: form.otraDemarcacion,
+      }
+      updateFicha(id as string, patch)
     } else {
+      const obs = observadores.find((o) => o.id === form.observador)
+      const primeraValoracion: Valoracion = {
+        id: uuidv4(),
+        fechaPartido: form.fechaPartido ?? '',
+        local: form.local ?? '',
+        visitante: form.visitante ?? '',
+        categoria: (form.categoria ?? '1ª REF') as FichaJugadora['categoria'],
+        observador: form.observador ?? '',
+        evaluacionTecnica: form.evaluacionTecnica ?? { item1: 3, item2: 3, item3: 3, item4: 3, item5: 3, item6: 3 },
+        valoracionGeneral: form.valoracionGeneral ?? 3,
+        propuesta: (form.propuesta ?? 'SEGUIR') as FichaJugadora['propuesta'],
+        descripcionJugadora: form.descripcionJugadora ?? '',
+        observaciones: form.observaciones ?? '',
+        cierre: form.cierre ?? '',
+        creadoEn: now,
+      }
+      const ficha: FichaJugadora = {
+        ...defaultForm(),
+        ...form,
+        id: uuidv4(),
+        registro: genRegistro(obs?.nombre ?? '', fichas.length),
+        valoraciones: [primeraValoracion],
+        creadoEn: now,
+        actualizadoEn: now,
+      } as FichaJugadora
       addFicha(ficha)
     }
+
     clearBorrador()
     setSaved(true)
     setTimeout(() => navigate('/base-datos'), 1500)
@@ -152,7 +215,9 @@ export default function NuevaFicha() {
       {/* Header */}
       <div className="mb-6">
         <h1 className="text-xl sm:text-2xl font-bold text-rfpaf-blue">{isEdit ? 'Editar Ficha' : 'Nueva Ficha'}</h1>
-        <p className="text-gray-500 text-sm">Completa todos los pasos para registrar la jugadora</p>
+        <p className="text-gray-500 text-sm">
+          {isEdit ? 'Identidad, físico y estadísticas de temporada de la jugadora' : 'Completa todos los pasos para registrar la jugadora'}
+        </p>
       </div>
 
       {/* Progress */}
@@ -181,25 +246,10 @@ export default function NuevaFicha() {
       <div className="flex gap-6">
         {/* Form */}
         <div className="flex-1 card">
-          {/* PASO 1: Partido */}
-          {step === 1 && (
+          {/* FASE 1: Partido (solo creación) */}
+          {phase === 1 && (
             <div className="space-y-4">
               <h2 className="text-lg font-bold text-gray-700 mb-4">Datos del Partido</h2>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="form-label">Fecha del Partido *</label>
-                  <input type="date" className={`form-input ${errors.fechaPartido ? 'border-red-400' : ''}`}
-                    value={form.fechaPartido ?? ''} onChange={(e) => set('fechaPartido', e.target.value)} />
-                  {errors.fechaPartido && <p className="text-red-500 text-xs mt-1">{errors.fechaPartido}</p>}
-                </div>
-                <div>
-                  <label className="form-label">Categoría *</label>
-                  <select className={`form-select ${errors.categoria ? 'border-red-400' : ''}`}
-                    value={form.categoria ?? ''} onChange={(e) => set('categoria', e.target.value)}>
-                    {categorias.map((c) => <option key={c.id} value={c.nombre}>{c.nombre}</option>)}
-                  </select>
-                </div>
-              </div>
               <div>
                 <label className="form-label">Equipo Observado *</label>
                 <select className={`form-select ${errors.equipo ? 'border-red-400' : ''}`}
@@ -209,40 +259,25 @@ export default function NuevaFicha() {
                 </select>
                 {errors.equipo && <p className="text-red-500 text-xs mt-1">{errors.equipo}</p>}
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="form-label">Equipo Local *</label>
-                  <select className={`form-select ${errors.local ? 'border-red-400' : ''}`}
-                    value={form.local ?? ''} onChange={(e) => set('local', e.target.value)}>
-                    <option value="">— Seleccionar —</option>
-                    {clubes.map((c) => <option key={c.id} value={c.nombre}>{c.nombre}</option>)}
-                  </select>
-                  {errors.local && <p className="text-red-500 text-xs mt-1">{errors.local}</p>}
-                </div>
-                <div>
-                  <label className="form-label">Equipo Visitante *</label>
-                  <select className={`form-select ${errors.visitante ? 'border-red-400' : ''}`}
-                    value={form.visitante ?? ''} onChange={(e) => set('visitante', e.target.value)}>
-                    <option value="">— Seleccionar —</option>
-                    {clubes.map((c) => <option key={c.id} value={c.nombre}>{c.nombre}</option>)}
-                  </select>
-                  {errors.visitante && <p className="text-red-500 text-xs mt-1">{errors.visitante}</p>}
-                </div>
-              </div>
-              <div>
-                <label className="form-label">Observador *</label>
-                <select className={`form-select ${errors.observador ? 'border-red-400' : ''}`}
-                  value={form.observador ?? ''} onChange={(e) => set('observador', e.target.value)}>
-                  <option value="">— Seleccionar —</option>
-                  {observadores.map((o) => <option key={o.id} value={o.id}>{o.nombre}</option>)}
-                </select>
-                {errors.observador && <p className="text-red-500 text-xs mt-1">{errors.observador}</p>}
-              </div>
+              <DatosPartidoFields
+                value={{
+                  fechaPartido: form.fechaPartido ?? '',
+                  categoria: form.categoria ?? '',
+                  local: form.local ?? '',
+                  visitante: form.visitante ?? '',
+                  observador: form.observador ?? '',
+                }}
+                onChange={setPatch}
+                errors={errors}
+                categorias={categorias}
+                clubes={clubes}
+                observadores={observadores}
+              />
             </div>
           )}
 
-          {/* PASO 2: Jugadora */}
-          {step === 2 && (
+          {/* FASE 2: Jugadora */}
+          {phase === 2 && (
             <div className="space-y-4">
               <h2 className="text-lg font-bold text-gray-700 mb-4">Datos de la Jugadora</h2>
               <div className="grid grid-cols-3 gap-4">
@@ -331,8 +366,8 @@ export default function NuevaFicha() {
             </div>
           )}
 
-          {/* PASO 3: Físico */}
-          {step === 3 && (
+          {/* FASE 3: Físico */}
+          {phase === 3 && (
             <div className="space-y-6">
               <h2 className="text-lg font-bold text-gray-700 mb-4">Cualidades Físicas (1-10)</h2>
               <ScoreSlider label="Fuerza" value={form.fuerza ?? 5} onChange={(v) => set('fuerza', v)} />
@@ -375,10 +410,12 @@ export default function NuevaFicha() {
             </div>
           )}
 
-          {/* PASO 4: Técnica */}
-          {step === 4 && (
+          {/* FASE 4: Demarcación (+ evaluación técnica solo en creación) */}
+          {phase === 4 && (
             <div className="space-y-4">
-              <h2 className="text-lg font-bold text-gray-700 mb-4">Evaluación Técnica por Demarcación</h2>
+              <h2 className="text-lg font-bold text-gray-700 mb-4">
+                {isEdit ? 'Demarcación' : 'Evaluación Técnica por Demarcación'}
+              </h2>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="form-label">Demarcación Principal</label>
@@ -395,87 +432,30 @@ export default function NuevaFicha() {
                     value={form.otraDemarcacion ?? ''} onChange={(e) => set('otraDemarcacion', e.target.value)} />
                 </div>
               </div>
-              {itemsDemarc.length > 0 && (
-                <div className="space-y-4 pt-2">
-                  <p className="text-sm text-gray-500 font-medium">Evalúa cada ítem (1-5):</p>
-                  {itemsDemarc.map((item, i) => {
-                    const colors = ['#1a3a6b', '#c0392b', '#16a34a', '#f59e0b', '#8b5cf6', '#06b6d4']
-                    return (
-                      <ScoreSlider
-                        key={i}
-                        label={item}
-                        value={tecValues[i]}
-                        max={5}
-                        onChange={(v) => setTec(`item${i + 1}` as keyof EvaluacionDemarcacion, v)}
-                        color={colors[i % colors.length]}
-                      />
-                    )
-                  })}
-                </div>
+              {!isEdit && (
+                <EvaluacionTecnicaFields
+                  itemsDemarc={itemsDemarc}
+                  values={form.evaluacionTecnica ?? { item1: 3, item2: 3, item3: 3, item4: 3, item5: 3, item6: 3 }}
+                  onChange={setTec}
+                />
               )}
             </div>
           )}
 
-          {/* PASO 5: Evaluación Final */}
-          {step === 5 && (
+          {/* FASE 5: Evaluación Final (solo creación) */}
+          {phase === 5 && (
             <div className="space-y-5">
               <h2 className="text-lg font-bold text-gray-700 mb-4">Evaluación Final</h2>
-              <div>
-                <label className="form-label">Valoración General</label>
-                <div className="flex gap-2 mt-1">
-                  {[1, 2, 3, 4, 5].map((n) => (
-                    <button
-                      key={n}
-                      onClick={() => set('valoracionGeneral', n)}
-                      className={`text-2xl transition-transform hover:scale-110 ${n <= (form.valoracionGeneral ?? 3) ? 'text-yellow-400' : 'text-gray-300'}`}
-                    >
-                      ★
-                    </button>
-                  ))}
-                  <span className="text-sm text-gray-500 ml-2 self-center">
-                    {form.valoracionGeneral ?? 3}/5
-                  </span>
-                </div>
-              </div>
-              <div>
-                <label className="form-label">Propuesta</label>
-                <div className="grid grid-cols-2 gap-3 mt-1">
-                  {PROPUESTAS.map((p) => (
-                    <button
-                      key={p.value}
-                      onClick={() => set('propuesta', p.value)}
-                      className={`py-3 rounded-xl border-2 font-semibold text-sm transition-all ${
-                        form.propuesta === p.value
-                          ? p.color === 'green' ? 'border-green-500 bg-green-50 text-green-700'
-                          : p.color === 'blue' ? 'border-blue-500 bg-blue-50 text-blue-700'
-                          : p.color === 'yellow' ? 'border-yellow-500 bg-yellow-50 text-yellow-700'
-                          : 'border-red-500 bg-red-50 text-red-700'
-                          : 'border-gray-200 text-gray-500 hover:border-gray-300'
-                      }`}
-                    >
-                      {p.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div>
-                <label className="form-label">Descripción de la Jugadora</label>
-                <textarea rows={3} className="form-input resize-none"
-                  placeholder="Describe las características principales de la jugadora..."
-                  value={form.descripcionJugadora ?? ''} onChange={(e) => set('descripcionJugadora', e.target.value)} />
-              </div>
-              <div>
-                <label className="form-label">Observaciones</label>
-                <textarea rows={2} className="form-input resize-none"
-                  placeholder="Notas adicionales..."
-                  value={form.observaciones ?? ''} onChange={(e) => set('observaciones', e.target.value)} />
-              </div>
-              <div>
-                <label className="form-label">Cierre</label>
-                <textarea rows={2} className="form-input resize-none"
-                  placeholder="Resumen final..."
-                  value={form.cierre ?? ''} onChange={(e) => set('cierre', e.target.value)} />
-              </div>
+              <CierreFields
+                value={{
+                  valoracionGeneral: form.valoracionGeneral ?? 3,
+                  propuesta: form.propuesta ?? 'SEGUIR',
+                  descripcionJugadora: form.descripcionJugadora ?? '',
+                  observaciones: form.observaciones ?? '',
+                  cierre: form.cierre ?? '',
+                }}
+                onChange={setPatch}
+              />
             </div>
           )}
 
@@ -489,7 +469,7 @@ export default function NuevaFicha() {
               <ChevronLeft className="w-4 h-4" />
               Anterior
             </button>
-            {step < 5 ? (
+            {step < phases.length ? (
               <button onClick={nextStep} className="btn-primary flex items-center gap-2">
                 Siguiente
                 <ChevronRight className="w-4 h-4" />
@@ -505,7 +485,7 @@ export default function NuevaFicha() {
 
         {/* Sidebar radar */}
         <div className="hidden lg:block w-56 space-y-4">
-          {step === 3 && (
+          {phase === 3 && (
             <div className="card">
               <p className="text-xs font-semibold text-gray-500 mb-2 text-center">Físico</p>
               <RadarChart
@@ -516,7 +496,7 @@ export default function NuevaFicha() {
               />
             </div>
           )}
-          {step === 4 && itemsDemarc.length > 0 && (
+          {phase === 4 && !isEdit && itemsDemarc.length > 0 && (
             <div className="card">
               <p className="text-xs font-semibold text-gray-500 mb-2 text-center">{form.demarcacion}</p>
               <RadarChart
@@ -527,7 +507,7 @@ export default function NuevaFicha() {
               />
             </div>
           )}
-          {(step === 1 || step === 2 || step === 5) && (
+          {(phase === 1 || phase === 2 || phase === 5 || (phase === 4 && isEdit)) && (
             <div className="card text-center text-gray-400 text-xs p-4">
               <p>Los gráficos radar aparecerán en los pasos de evaluación física y técnica.</p>
             </div>

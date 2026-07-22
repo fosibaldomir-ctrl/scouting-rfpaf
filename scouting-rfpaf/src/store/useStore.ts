@@ -1,9 +1,11 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { FichaJugadora, Observador, Club, CategoriaItem, PartidoCalendario, Convocatoria, JugadoraConvocada, Sesion, VideoSesion, Evento, AnalisisPartido, RegistroRPE, RegistroLesion, AccionBalonParado, Informe, PartidoInforme, EvaluacionJugadora, CompeticionMapeo, SyncRun } from '../types'
+import type { FichaJugadora, Valoracion, Observador, Club, CategoriaItem, PartidoCalendario, Convocatoria, JugadoraConvocada, Sesion, VideoSesion, Evento, AnalisisPartido, RegistroRPE, RegistroLesion, AccionBalonParado, Informe, PartidoInforme, EvaluacionJugadora, CompeticionMapeo, SyncRun } from '../types'
 import type { EjercicioDB } from '../lib/supabase'
 import { OBSERVADORES, CATEGORIAS, CLUBES } from '../data/masterData'
 import { supabaseService } from '../services/supabaseService'
+import { defaultFichaFields } from '../utils/fichaDefaults'
+import { pickSnapshot } from '../utils/valoracionSync'
 import {
   fetchAnalisis, saveAnalisis, deleteAnalisisFromDB,
   fetchAbpAcciones, createAbpAccion,
@@ -118,6 +120,9 @@ interface AppState {
   updateFicha: (id: string, ficha: Partial<FichaJugadora>) => Promise<void>
   deleteFicha: (id: string) => Promise<void>
   getFicha: (id: string) => FichaJugadora | undefined
+  addValoracion: (fichaId: string, valoracion: Valoracion) => Promise<void>
+  updateValoracion: (fichaId: string, valoracionId: string, patch: Partial<Valoracion>) => Promise<void>
+  deleteValoracion: (fichaId: string, valoracionId: string) => Promise<void>
   saveBorrador: (data: Partial<FichaJugadora>) => void
   clearBorrador: () => void
   addObservador: (obs: Observador) => Promise<void>
@@ -320,6 +325,40 @@ export const useStore = create<AppState>()(
       },
 
       getFicha: (id) => get().fichas.find((f) => f.id === id),
+
+      addValoracion: async (fichaId, valoracion) => {
+        const ficha = get().fichas.find((f) => f.id === fichaId)
+        if (!ficha) return
+        const valoraciones = [...ficha.valoraciones, valoracion]
+        const snapshot = pickSnapshot(valoraciones)
+        await get().updateFicha(fichaId, { valoraciones, ...(snapshot ?? {}) })
+      },
+
+      updateValoracion: async (fichaId, valoracionId, patch) => {
+        const ficha = get().fichas.find((f) => f.id === fichaId)
+        if (!ficha) return
+        const valoraciones = ficha.valoraciones.map((v) => (v.id === valoracionId ? { ...v, ...patch } : v))
+        const snapshot = pickSnapshot(valoraciones)
+        await get().updateFicha(fichaId, { valoraciones, ...(snapshot ?? {}) })
+      },
+
+      deleteValoracion: async (fichaId, valoracionId) => {
+        const ficha = get().fichas.find((f) => f.id === fichaId)
+        if (!ficha) return
+        const valoraciones = ficha.valoraciones.filter((v) => v.id !== valoracionId)
+        const snapshot = pickSnapshot(valoraciones)
+        const defaults = defaultFichaFields()
+        await get().updateFicha(fichaId, {
+          valoraciones,
+          ...(snapshot ?? {
+            fechaPartido: defaults.fechaPartido, local: defaults.local, visitante: defaults.visitante,
+            categoria: defaults.categoria, observador: defaults.observador,
+            evaluacionTecnica: defaults.evaluacionTecnica, valoracionGeneral: defaults.valoracionGeneral,
+            propuesta: defaults.propuesta, descripcionJugadora: defaults.descripcionJugadora,
+            observaciones: defaults.observaciones, cierre: defaults.cierre,
+          }),
+        })
+      },
 
       saveBorrador: (data) =>
         set((state) => ({ borrador: { ...state.borrador, ...data } })),

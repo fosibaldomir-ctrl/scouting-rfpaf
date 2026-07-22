@@ -34,4 +34,5 @@ export const defaultFichaFields = (): Partial<FichaJugadora> => ({
   descripcionJugadora: '',
   observaciones: '',
   cierre: '',
+  valoraciones: [],
 })
