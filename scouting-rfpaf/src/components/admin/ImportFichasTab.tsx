@@ -10,16 +10,14 @@ import type { FichaJugadora } from '../../types'
 
 interface BatchFields {
   categoria: string
-  observador: string
   clubId: string
 }
 
 export default function ImportFichasTab() {
-  const { fichas, addFicha, updateFicha, observadores, categorias, clubes, currentObservador } = useStore()
+  const { fichas, addFicha, updateFicha, categorias, clubes } = useStore()
 
   const [batch, setBatch] = useState<BatchFields>({
     categoria: categorias[0]?.nombre ?? '1ª REF',
-    observador: currentObservador ?? '',
     clubId: '',
   })
 
@@ -67,7 +65,6 @@ export default function ImportFichasTab() {
   const handleImport = async () => {
     const toImport = rows.filter((r) => r.included)
     if (toImport.length === 0) return
-    if (!batch.observador) { alert('Selecciona un observador para el lote.'); return }
     if (!batch.clubId) { alert('Selecciona el club de la plantilla.'); return }
 
     setImporting(true)
@@ -94,12 +91,11 @@ export default function ImportFichasTab() {
           updated++
         } else {
           const now = new Date().toISOString()
-          const obsNombre = observadores.find((o) => o.id === batch.observador)?.nombre ?? ''
           const ficha: FichaJugadora = {
             ...defaultFichaFields(),
             fechaPartido: now.split('T')[0],
             categoria: batch.categoria as FichaJugadora['categoria'],
-            observador: batch.observador,
+            observador: '',
             equipo: clubNombre,
             local: '',
             visitante: '',
@@ -117,7 +113,7 @@ export default function ImportFichasTab() {
             tarjetasAmarillas: row.tarjetasAmarillas,
             tarjetasRojas: row.tarjetasRojas,
             id: uuidv4(),
-            registro: genRegistro(obsNombre, fichasCount),
+            registro: genRegistro(clubNombre, fichasCount),
             creadoEn: now,
             actualizadoEn: now,
           } as FichaJugadora
@@ -151,7 +147,7 @@ export default function ImportFichasTab() {
       </div>
 
       {/* Batch fields */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 gap-4">
         <div>
           <label className="form-label">Club (plantilla a importar)</label>
           <select className="form-select" value={batch.clubId}
@@ -165,14 +161,6 @@ export default function ImportFichasTab() {
           <select className="form-select" value={batch.categoria}
             onChange={(e) => setBatch((b) => ({ ...b, categoria: e.target.value }))}>
             {categorias.map((c) => <option key={c.id} value={c.nombre}>{c.nombre}</option>)}
-          </select>
-        </div>
-        <div>
-          <label className="form-label">Observador</label>
-          <select className="form-select" value={batch.observador}
-            onChange={(e) => setBatch((b) => ({ ...b, observador: e.target.value }))}>
-            <option value="">— Seleccionar —</option>
-            {observadores.map((o) => <option key={o.id} value={o.id}>{o.nombre}</option>)}
           </select>
         </div>
       </div>
