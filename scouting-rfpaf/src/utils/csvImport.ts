@@ -1,11 +1,8 @@
 import * as XLSX from 'xlsx'
-import type { Club, Demarcacion, FichaJugadora } from '../types'
+import type { Demarcacion, FichaJugadora } from '../types'
 import { normalizeText } from './textNormalize'
-import { findBestClubMatch } from './fuzzyMatch'
 import { matchDemarcacion } from './demarcacionSynonyms'
 import { splitNombreCompleto } from './nombreSplit'
-
-const CLUB_MATCH_THRESHOLD = 0.6
 
 const HEADER_ALIASES: Record<string, string> = {
   'nombre': 'nombreCompleto',
@@ -14,8 +11,6 @@ const HEADER_ALIASES: Record<string, string> = {
   'apellidos': 'apellidos',
   'primer apellido': 'primerApellido',
   'segundo apellido': 'segundoApellido',
-  'club': 'club',
-  'equipo': 'club',
   'fecha nacimiento': 'fechaNacimiento',
   'f nacimiento': 'fechaNacimiento',
   'fecha de nacimiento': 'fechaNacimiento',
@@ -101,9 +96,6 @@ export interface ImportRow {
   segundoApellido: string
   fechaNacimiento: string
   dorsal: number
-  clubId: string
-  clubRawText: string
-  clubScore: number
   demarcacion: Demarcacion | ''
   demarcacionRaw: string
   minutosJugados: number
@@ -124,20 +116,17 @@ function fichaFullName(f: Pick<FichaJugadora, 'nombre' | 'primerApellido' | 'seg
   return normalizeText(`${f.nombre} ${f.primerApellido} ${f.segundoApellido}`.replace(/\s+/g, ' '))
 }
 
-function clubDisplayName(clubId: string, clubRawText: string, clubes: Club[]): string {
-  return normalizeText(clubes.find((c) => c.id === clubId)?.nombre || clubRawText)
-}
-
+// La carga es "por equipo": todas las filas del lote comparten el mismo club (elegido una
+// vez en el formulario), así que el matching solo necesita comparar nombre + ese club fijo.
 function findMatchingFichas(
-  row: Pick<ImportRow, 'nombre' | 'primerApellido' | 'segundoApellido' | 'clubId' | 'clubRawText'>,
-  fichas: FichaJugadora[],
-  clubes: Club[]
+  row: Pick<ImportRow, 'nombre' | 'primerApellido' | 'segundoApellido'>,
+  batchClubId: string,
+  fichas: FichaJugadora[]
 ): string[] {
   const rowName = fichaFullName(row)
-  const rowClub = clubDisplayName(row.clubId, row.clubRawText, clubes)
-  if (!rowName || !rowClub) return []
+  if (!rowName || !batchClubId) return []
   return fichas
-    .filter((f) => fichaFullName(f) === rowName && clubDisplayName(f.club, f.club, clubes) === rowClub)
+    .filter((f) => fichaFullName(f) === rowName && f.club === batchClubId)
     .map((f) => f.id)
 }
 
@@ -146,7 +135,11 @@ function toInt(raw: string | undefined): number {
   return Number.isFinite(n) ? Math.round(n) : 0
 }
 
-export function buildImportRows(rawRows: Record<string, string>[], clubes: Club[], fichas: FichaJugadora[] = []): ImportRow[] {
+export function buildImportRows(
+  rawRows: Record<string, string>[],
+  batchClubId: string,
+  fichas: FichaJugadora[] = []
+): ImportRow[] {
   return rawRows.map((raw, i) => {
     const row = mapHeaders(raw)
 
@@ -165,14 +158,10 @@ export function buildImportRows(rawRows: Record<string, string>[], clubes: Club[
       segundoApellido = split.segundoApellido
     }
 
-    const clubRawText = row.club ?? ''
-    const { club, score } = clubRawText ? findBestClubMatch(clubRawText, clubes) : { club: null, score: 0 }
-    const clubId = club && score >= CLUB_MATCH_THRESHOLD ? club.id : ''
-
     const demarcacionRaw = row.posicion ?? ''
     const demarcacion = matchDemarcacion(demarcacionRaw) ?? ''
 
-    const matchingFichaIds = findMatchingFichas({ nombre, primerApellido, segundoApellido, clubId, clubRawText }, fichas, clubes)
+    const matchingFichaIds = findMatchingFichas({ nombre, primerApellido, segundoApellido }, batchClubId, fichas)
 
     return {
       rowIndex: i,
@@ -181,9 +170,6 @@ export function buildImportRows(rawRows: Record<string, string>[], clubes: Club[
       segundoApellido,
       fechaNacimiento: parseFechaFlexible(row.fechaNacimiento ?? ''),
       dorsal: toInt(row.dorsal),
-      clubId,
-      clubRawText,
-      clubScore: score,
       demarcacion,
       demarcacionRaw,
       matchingFichaIds,

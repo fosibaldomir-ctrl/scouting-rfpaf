@@ -8,27 +8,19 @@ import { genRegistro } from '../../utils/registro'
 import { parseFichasFile, buildImportRows, type ImportRow } from '../../utils/csvImport'
 import type { FichaJugadora } from '../../types'
 
-const CLUB_MATCH_WARN_THRESHOLD = 0.6
-
 interface BatchFields {
-  fechaPartido: string
   categoria: string
   observador: string
-  equipo: string
-  local: string
-  visitante: string
+  clubId: string
 }
 
 export default function ImportFichasTab() {
   const { fichas, addFicha, updateFicha, observadores, categorias, clubes, currentObservador } = useStore()
 
   const [batch, setBatch] = useState<BatchFields>({
-    fechaPartido: new Date().toISOString().split('T')[0],
     categoria: categorias[0]?.nombre ?? '1ª REF',
     observador: currentObservador ?? '',
-    equipo: '',
-    local: '',
-    visitante: '',
+    clubId: '',
   })
 
   const [rows, setRows] = useState<ImportRow[]>([])
@@ -38,14 +30,17 @@ export default function ImportFichasTab() {
   const [progress, setProgress] = useState({ done: 0, total: 0 })
   const [result, setResult] = useState<{ created: number; updated: number; failed: number } | null>(null)
 
+  const clubNombre = clubes.find((c) => c.id === batch.clubId)?.nombre ?? ''
+
   const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
+    if (!batch.clubId) { alert('Selecciona primero el club de la plantilla que vas a importar.'); e.target.value = ''; return }
     setParsing(true)
     setResult(null)
     try {
       const raw = await parseFichasFile(file)
-      setRows(buildImportRows(raw, clubes, fichas))
+      setRows(buildImportRows(raw, batch.clubId, fichas))
       setFileName(file.name)
     } catch (err) {
       console.error('Error al leer el archivo:', err)
@@ -73,6 +68,7 @@ export default function ImportFichasTab() {
     const toImport = rows.filter((r) => r.included)
     if (toImport.length === 0) return
     if (!batch.observador) { alert('Selecciona un observador para el lote.'); return }
+    if (!batch.clubId) { alert('Selecciona el club de la plantilla.'); return }
 
     setImporting(true)
     setProgress({ done: 0, total: toImport.length })
@@ -101,18 +97,18 @@ export default function ImportFichasTab() {
           const obsNombre = observadores.find((o) => o.id === batch.observador)?.nombre ?? ''
           const ficha: FichaJugadora = {
             ...defaultFichaFields(),
-            fechaPartido: batch.fechaPartido,
+            fechaPartido: now.split('T')[0],
             categoria: batch.categoria as FichaJugadora['categoria'],
             observador: batch.observador,
-            equipo: batch.equipo,
-            local: batch.local,
-            visitante: batch.visitante,
+            equipo: clubNombre,
+            local: '',
+            visitante: '',
             nombre: row.nombre,
             primerApellido: row.primerApellido,
             segundoApellido: row.segundoApellido,
             fechaNacimiento: row.fechaNacimiento,
             dorsal: row.dorsal,
-            club: row.clubId || row.clubRawText,
+            club: batch.clubId,
             demarcacion: (row.demarcacion || 'CENTRAL') as FichaJugadora['demarcacion'],
             minutosJugados: row.minutosJugados,
             partidosTitular: row.partidosTitular,
@@ -144,22 +140,25 @@ export default function ImportFichasTab() {
   return (
     <div className="card space-y-5">
       <div>
-        <h2 className="text-base font-bold text-gray-700">Importar fichas desde CSV/Excel</h2>
+        <h2 className="text-base font-bold text-gray-700">Importar plantilla desde CSV/Excel</h2>
         <p className="text-xs text-gray-500 mt-1">
-          Crea una ficha por jugadora con los datos identificativos del archivo. Los datos de partido de abajo se
-          aplican a todas las fichas nuevas; el resto (evaluación técnica, valoración) queda en blanco para que lo
-          complete el observador. Si una jugadora ya tiene ficha (mismo nombre y club), en vez de crear un
-          duplicado se actualizan solo sus estadísticas de temporada — pulsa la etiqueta "Estado" de la fila para
-          forzar una ficha nueva si lo prefieres.
+          Crea una ficha por jugadora de la plantilla del club elegido abajo, lista para que luego, desde Scouting,
+          se rellene la evaluación técnica y la valoración del partido concreto que se vea de cada una. Si una
+          jugadora ya tiene ficha en ese club (mismo nombre), en vez de crear un duplicado se actualizan solo sus
+          estadísticas de temporada — pulsa la etiqueta "Estado" de la fila para forzar una ficha nueva si lo
+          prefieres.
         </p>
       </div>
 
       {/* Batch fields */}
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
         <div>
-          <label className="form-label">Fecha de partido</label>
-          <input type="date" className="form-input" value={batch.fechaPartido}
-            onChange={(e) => setBatch((b) => ({ ...b, fechaPartido: e.target.value }))} />
+          <label className="form-label">Club (plantilla a importar)</label>
+          <select className="form-select" value={batch.clubId}
+            onChange={(e) => setBatch((b) => ({ ...b, clubId: e.target.value }))}>
+            <option value="">— Seleccionar —</option>
+            {clubes.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+          </select>
         </div>
         <div>
           <label className="form-label">Categoría</label>
@@ -176,44 +175,25 @@ export default function ImportFichasTab() {
             {observadores.map((o) => <option key={o.id} value={o.id}>{o.nombre}</option>)}
           </select>
         </div>
-        <div>
-          <label className="form-label">Equipo observado</label>
-          <select className="form-select" value={batch.equipo}
-            onChange={(e) => setBatch((b) => ({ ...b, equipo: e.target.value }))}>
-            <option value="">— Seleccionar —</option>
-            {clubes.map((c) => <option key={c.id} value={c.nombre}>{c.nombre}</option>)}
-          </select>
-        </div>
-        <div>
-          <label className="form-label">Local</label>
-          <select className="form-select" value={batch.local}
-            onChange={(e) => setBatch((b) => ({ ...b, local: e.target.value }))}>
-            <option value="">— Seleccionar —</option>
-            {clubes.map((c) => <option key={c.id} value={c.nombre}>{c.nombre}</option>)}
-          </select>
-        </div>
-        <div>
-          <label className="form-label">Visitante</label>
-          <select className="form-select" value={batch.visitante}
-            onChange={(e) => setBatch((b) => ({ ...b, visitante: e.target.value }))}>
-            <option value="">— Seleccionar —</option>
-            {clubes.map((c) => <option key={c.id} value={c.nombre}>{c.nombre}</option>)}
-          </select>
-        </div>
       </div>
 
       {/* File input */}
       <div>
-        <label className="flex items-center gap-2 justify-center w-full border-2 border-dashed border-gray-300 rounded-xl py-4 cursor-pointer hover:border-rfpaf-blue hover:bg-blue-50 transition-colors text-sm text-gray-500">
-          <input type="file" accept=".csv,.xlsx,.xls" className="hidden" onChange={handleFile} disabled={parsing} />
+        <label className={`flex items-center gap-2 justify-center w-full border-2 border-dashed rounded-xl py-4 text-sm transition-colors ${
+          batch.clubId ? 'border-gray-300 cursor-pointer hover:border-rfpaf-blue hover:bg-blue-50 text-gray-500' : 'border-gray-200 text-gray-300 cursor-not-allowed'
+        }`}>
+          <input type="file" accept=".csv,.xlsx,.xls" className="hidden" onChange={handleFile} disabled={parsing || !batch.clubId} />
           {parsing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
-          {fileName ? `Archivo: ${fileName} (elegir otro)` : 'Seleccionar archivo CSV o Excel'}
+          {fileName ? `Archivo: ${fileName} (elegir otro)` : batch.clubId ? 'Seleccionar archivo CSV o Excel' : 'Selecciona primero el club de arriba'}
         </label>
       </div>
 
       {/* Review table */}
       {rows.length > 0 && (
         <div className="space-y-3">
+          <p className="text-xs text-gray-500">
+            Plantilla de <strong>{clubNombre}</strong> — {rows.length} jugadora{rows.length !== 1 ? 's' : ''} en el archivo.
+          </p>
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
               <thead>
@@ -224,7 +204,6 @@ export default function ImportFichasTab() {
                   <th className="py-2 pr-2">2º Apellido</th>
                   <th className="py-2 pr-2">F. Nacimiento</th>
                   <th className="py-2 pr-2">Dorsal</th>
-                  <th className="py-2 pr-2">Club</th>
                   <th className="py-2 pr-2">Posición</th>
                   <th className="py-2 pr-2">Estado</th>
                   <th className="py-2 pr-2"></th>
@@ -256,18 +235,6 @@ export default function ImportFichasTab() {
                     <td className="py-1.5 pr-2">
                       <input type="number" className="form-input !py-1 !text-xs w-16" value={r.dorsal}
                         onChange={(e) => updateRow(r.rowIndex, { dorsal: Number(e.target.value) })} />
-                    </td>
-                    <td className="py-1.5 pr-2">
-                      <div className="flex items-center gap-1">
-                        <select className="form-select !py-1 !text-xs" value={r.clubId}
-                          onChange={(e) => updateRow(r.rowIndex, { clubId: e.target.value })}>
-                          <option value="">— usar texto tal cual: {r.clubRawText || 'vacío'} —</option>
-                          {clubes.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
-                        </select>
-                        {r.clubRawText && r.clubScore < CLUB_MATCH_WARN_THRESHOLD && (
-                          <AlertTriangle className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" />
-                        )}
-                      </div>
                     </td>
                     <td className="py-1.5 pr-2">
                       <div className="flex items-center gap-1">
