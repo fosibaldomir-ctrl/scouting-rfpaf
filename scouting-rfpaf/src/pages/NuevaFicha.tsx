@@ -143,9 +143,6 @@ export default function NuevaFicha() {
         altura: form.altura,
         club: form.club,
         equipo: clubNombre,
-        fuerza: form.fuerza,
-        velocidad: form.velocidad,
-        resistencia: form.resistencia,
         minutosJugados: form.minutosJugados,
         partidosTitular: form.partidosTitular,
         partidosSuplente: form.partidosSuplente,
@@ -165,6 +162,9 @@ export default function NuevaFicha() {
         visitante: form.visitante ?? '',
         categoria: (form.categoria ?? '1ª REF') as FichaJugadora['categoria'],
         observador: form.observador ?? '',
+        fuerza: form.fuerza ?? 5,
+        velocidad: form.velocidad ?? 5,
+        resistencia: form.resistencia ?? 5,
         evaluacionTecnica: form.evaluacionTecnica ?? { item1: 3, item2: 3, item3: 3, item4: 3, item5: 3, item6: 3 },
         valoracionGeneral: form.valoracionGeneral ?? 3,
         propuesta: (form.propuesta ?? 'SEGUIR') as FichaJugadora['propuesta'],
@@ -366,15 +366,19 @@ export default function NuevaFicha() {
             </div>
           )}
 
-          {/* FASE 3: Físico */}
+          {/* FASE 3: Físico + estadísticas de temporada */}
           {phase === 3 && (
             <div className="space-y-6">
-              <h2 className="text-lg font-bold text-gray-700 mb-4">Cualidades Físicas (1-10)</h2>
-              <ScoreSlider label="Fuerza" value={form.fuerza ?? 5} onChange={(v) => set('fuerza', v)} />
-              <ScoreSlider label="Velocidad" value={form.velocidad ?? 5} onChange={(v) => set('velocidad', v)} color="#c0392b" />
-              <ScoreSlider label="Resistencia" value={form.resistencia ?? 5} onChange={(v) => set('resistencia', v)} color="#16a34a" />
+              {!isEdit && (
+                <>
+                  <h2 className="text-lg font-bold text-gray-700 mb-4">Cualidades Físicas (1-10)</h2>
+                  <ScoreSlider label="Fuerza" value={form.fuerza ?? 5} onChange={(v) => set('fuerza', v)} />
+                  <ScoreSlider label="Velocidad" value={form.velocidad ?? 5} onChange={(v) => set('velocidad', v)} color="#c0392b" />
+                  <ScoreSlider label="Resistencia" value={form.resistencia ?? 5} onChange={(v) => set('resistencia', v)} color="#16a34a" />
+                </>
+              )}
 
-              <h2 className="text-lg font-bold text-gray-700 mb-4 pt-4 border-t border-gray-100">Estadísticas de Temporada</h2>
+              <h2 className={`text-lg font-bold text-gray-700 mb-4 ${!isEdit ? 'pt-4 border-t border-gray-100' : ''}`}>Estadísticas de Temporada</h2>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                 <div>
                   <label className="form-label">Minutos jugados</label>
@@ -485,7 +489,7 @@ export default function NuevaFicha() {
 
         {/* Sidebar radar */}
         <div className="hidden lg:block w-56 space-y-4">
-          {phase === 3 && (
+          {phase === 3 && !isEdit && (
             <div className="card">
               <p className="text-xs font-semibold text-gray-500 mb-2 text-center">Físico</p>
               <RadarChart
@@ -507,7 +511,7 @@ export default function NuevaFicha() {
               />
             </div>
           )}
-          {(phase === 1 || phase === 2 || phase === 5 || (phase === 4 && isEdit)) && (
+          {(phase === 1 || phase === 2 || phase === 5 || (phase === 3 && isEdit) || (phase === 4 && isEdit)) && (
             <div className="card text-center text-gray-400 text-xs p-4">
               <p>Los gráficos radar aparecerán en los pasos de evaluación física y técnica.</p>
             </div>

@@ -4,7 +4,7 @@ import { v4 as uuidv4 } from 'uuid'
 import { ArrowLeft, Save, CheckCircle } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import { DEMARCACIONES_ITEMS } from '../data/masterData'
-import { DatosPartidoFields, EvaluacionTecnicaFields, CierreFields, type DatosPartidoValue, type CierreValue } from '../components/ficha/ValoracionFields'
+import { DatosPartidoFields, FisicoFields, EvaluacionTecnicaFields, CierreFields, type DatosPartidoValue, type CierreValue } from '../components/ficha/ValoracionFields'
 import type { Valoracion, EvaluacionDemarcacion } from '../types'
 
 const emptyValoracion = (): Partial<Valoracion> => ({
@@ -13,6 +13,9 @@ const emptyValoracion = (): Partial<Valoracion> => ({
   visitante: '',
   categoria: undefined,
   observador: '',
+  fuerza: 5,
+  velocidad: 5,
+  resistencia: 5,
   evaluacionTecnica: { item1: 3, item2: 3, item3: 3, item4: 3, item5: 3, item6: 3 },
   valoracionGeneral: 3,
   propuesta: 'SEGUIR',
@@ -101,6 +104,9 @@ export default function NuevaValoracion() {
         visitante: form.visitante ?? '',
         categoria: form.categoria ?? ficha.categoria,
         observador: form.observador ?? '',
+        fuerza: form.fuerza ?? 5,
+        velocidad: form.velocidad ?? 5,
+        resistencia: form.resistencia ?? 5,
         evaluacionTecnica: form.evaluacionTecnica ?? { item1: 3, item2: 3, item3: 3, item4: 3, item5: 3, item6: 3 },
         valoracionGeneral: form.valoracionGeneral ?? 3,
         propuesta: form.propuesta ?? 'SEGUIR',
@@ -167,6 +173,18 @@ export default function NuevaValoracion() {
           categorias={categorias}
           clubes={clubes}
           observadores={observadores}
+        />
+      </div>
+
+      <div className="card space-y-4">
+        <h2 className="text-lg font-bold text-gray-700">Valoración Física (1-10)</h2>
+        <FisicoFields
+          value={{
+            fuerza: form.fuerza ?? 5,
+            velocidad: form.velocidad ?? 5,
+            resistencia: form.resistencia ?? 5,
+          }}
+          onChange={setPatch}
         />
       </div>
 

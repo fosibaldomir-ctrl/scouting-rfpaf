@@ -69,6 +69,25 @@ export function DatosPartidoFields({ value, onChange, errors, categorias, clubes
   )
 }
 
+export interface FisicoValue {
+  fuerza: number
+  velocidad: number
+  resistencia: number
+}
+
+export function FisicoFields({ value, onChange }: {
+  value: FisicoValue
+  onChange: (patch: Partial<FisicoValue>) => void
+}) {
+  return (
+    <div className="space-y-6">
+      <ScoreSlider label="Fuerza" value={value.fuerza} onChange={(v) => onChange({ fuerza: v })} />
+      <ScoreSlider label="Velocidad" value={value.velocidad} onChange={(v) => onChange({ velocidad: v })} color="#c0392b" />
+      <ScoreSlider label="Resistencia" value={value.resistencia} onChange={(v) => onChange({ resistencia: v })} color="#16a34a" />
+    </div>
+  )
+}
+
 export function EvaluacionTecnicaFields({ itemsDemarc, values, onChange }: {
   itemsDemarc: string[]
   values: EvaluacionDemarcacion

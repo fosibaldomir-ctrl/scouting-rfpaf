@@ -619,7 +619,23 @@ export default function FichaJugadora() {
                           <td colSpan={8} className="px-4 py-4">
                             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                               <div>
-                                <p className="text-xs font-semibold text-gray-500 uppercase mb-2">
+                                <p className="text-xs font-semibold text-gray-500 uppercase mb-2">Valoración Física</p>
+                                {[
+                                  { label: 'Fuerza', value: v.fuerza ?? 0, color: '#1a3a6b' },
+                                  { label: 'Velocidad', value: v.velocidad ?? 0, color: '#c0392b' },
+                                  { label: 'Resistencia', value: v.resistencia ?? 0, color: '#16a34a' },
+                                ].map(({ label, value, color }) => (
+                                  <div key={label} className="mb-2">
+                                    <div className="flex justify-between text-xs mb-0.5">
+                                      <span className="text-gray-600">{label}</span>
+                                      <span className="font-bold" style={{ color }}>{value}/10</span>
+                                    </div>
+                                    <div className="w-full bg-gray-200 rounded-full h-1.5">
+                                      <div className="h-1.5 rounded-full" style={{ width: `${(value / 10) * 100}%`, backgroundColor: color }} />
+                                    </div>
+                                  </div>
+                                ))}
+                                <p className="text-xs font-semibold text-gray-500 uppercase mb-2 mt-4">
                                   Evaluación Técnica · {ficha.demarcacion}
                                 </p>
                                 {itemsDemarc.map((item, i) => {

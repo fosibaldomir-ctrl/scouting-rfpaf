@@ -7,6 +7,9 @@ type ValoracionSnapshot = Pick<
   | 'visitante'
   | 'categoria'
   | 'observador'
+  | 'fuerza'
+  | 'velocidad'
+  | 'resistencia'
   | 'evaluacionTecnica'
   | 'valoracionGeneral'
   | 'propuesta'
@@ -32,6 +35,9 @@ export function pickSnapshot(valoraciones: Valoracion[]): ValoracionSnapshot | n
     visitante: latest.visitante,
     categoria: latest.categoria,
     observador: latest.observador,
+    fuerza: latest.fuerza,
+    velocidad: latest.velocidad,
+    resistencia: latest.resistencia,
     evaluacionTecnica: latest.evaluacionTecnica,
     valoracionGeneral: latest.valoracionGeneral,
     propuesta: latest.propuesta,

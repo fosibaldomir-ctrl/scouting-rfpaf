@@ -39,6 +39,9 @@ export interface Valoracion {
   visitante: string
   categoria: Categoria
   observador: string
+  fuerza: number
+  velocidad: number
+  resistencia: number
   evaluacionTecnica: EvaluacionDemarcacion
   valoracionGeneral: number
   propuesta: Propuesta
