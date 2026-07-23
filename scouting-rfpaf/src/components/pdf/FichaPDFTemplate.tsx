@@ -429,21 +429,28 @@ export default function FichaPDFTemplate({ ficha, obsNombre, clubNombre, valorac
                         {new Date(v.fechaPartido).toLocaleDateString('es-ES')}
                       </td>
                       <td style={{ padding: '5px 6px', fontWeight: 600, color: '#1e293b' }}>
-                        {/* Un equipo por línea: así el escudo nunca queda suelto
-                            en su propia línea al partirse el nombre. */}
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap' }}>
-                          {escudosPorClub[v.local] && (
-                            <img src={escudosPorClub[v.local]} alt="" style={{ width: 13, height: 16, objectFit: 'contain', flexShrink: 0 }} />
-                          )}
-                          {v.local}
-                        </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap' }}>
-                          <span style={{ color: '#94a3b8', fontWeight: 400, fontSize: 9 }}>vs</span>
-                          {escudosPorClub[v.visitante] && (
-                            <img src={escudosPorClub[v.visitante]} alt="" style={{ width: 13, height: 16, objectFit: 'contain', flexShrink: 0 }} />
-                          )}
-                          {v.visitante}
-                        </div>
+                        {/* Un equipo por línea (la columna es estrecha para una sola).
+                            El escudo va en una columna de ancho fijo para que los
+                            nombres queden alineados aunque un club no tenga escudo.
+                            El local va arriba y en tono más fuerte que el visitante. */}
+                        {[v.local, v.visitante].map((equipo, k) => (
+                          <div
+                            key={k}
+                            style={{
+                              display: 'flex', alignItems: 'center', gap: 5,
+                              whiteSpace: 'nowrap', marginTop: k === 0 ? 0 : 4,
+                            }}
+                          >
+                            <span style={{ width: 14, flexShrink: 0, display: 'flex', justifyContent: 'center' }}>
+                              {escudosPorClub[equipo] && (
+                                <img src={escudosPorClub[equipo]} alt="" style={{ width: 14, height: 14, objectFit: 'contain' }} />
+                              )}
+                            </span>
+                            <span style={{ fontWeight: k === 0 ? 700 : 500, color: k === 0 ? '#1e293b' : '#64748b' }}>
+                              {equipo}
+                            </span>
+                          </div>
+                        ))}
                       </td>
                       <td style={{ padding: '5px 6px', color: '#64748b', whiteSpace: 'nowrap' }}>{v.categoria}</td>
                       <td style={{ padding: '5px 6px', color: '#64748b', whiteSpace: 'nowrap' }}>{obsNom}</td>
