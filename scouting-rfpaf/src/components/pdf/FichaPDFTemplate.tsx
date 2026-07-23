@@ -12,6 +12,10 @@ interface Props {
   observadores?: Observador[]
   fedLogoUrl?: string | null
   clubEscudoUrl?: string | null
+  // Escudos indexados por NOMBRE de club, para el historial (local/visitante
+  // guardan el nombre, no el id). Los escudos ya son data URLs, así que
+  // html2canvas los pinta sin problemas de CORS.
+  escudosPorClub?: Record<string, string>
 }
 
 function calcularEdad(fecha: string): number {
@@ -32,7 +36,7 @@ const PROPUESTA_STYLES: Record<string, { bg: string; color: string; border: stri
 
 const BAR_COLORS = ['#1a3a6b', '#c0392b', '#16a34a', '#f59e0b', '#8b5cf6', '#06b6d4']
 
-export default function FichaPDFTemplate({ ficha, obsNombre, clubNombre, valoraciones = [], currentValoracionId, observadores = [], fedLogoUrl, clubEscudoUrl }: Props) {
+export default function FichaPDFTemplate({ ficha, obsNombre, clubNombre, valoraciones = [], currentValoracionId, observadores = [], fedLogoUrl, clubEscudoUrl, escudosPorClub = {} }: Props) {
   const itemsDemarc = DEMARCACIONES_ITEMS.find((d) => d.posicion === ficha.demarcacion)?.items ?? []
   // El perfil físico/técnico es la MEDIA de todos los partidos observados (mismo
   // criterio que la ficha en pantalla), no el del último partido.
@@ -424,8 +428,22 @@ export default function FichaPDFTemplate({ ficha, obsNombre, clubNombre, valorac
                       <td style={{ padding: '5px 8px', color: '#374151', whiteSpace: 'nowrap' }}>
                         {new Date(v.fechaPartido).toLocaleDateString('es-ES')}
                       </td>
-                      <td style={{ padding: '5px 8px', fontWeight: 600, color: '#1e293b' }}>
-                        {v.local} <span style={{ color: '#94a3b8', fontWeight: 400 }}>vs</span> {v.visitante}
+                      <td style={{ padding: '5px 6px', fontWeight: 600, color: '#1e293b' }}>
+                        {/* Un equipo por línea: así el escudo nunca queda suelto
+                            en su propia línea al partirse el nombre. */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap' }}>
+                          {escudosPorClub[v.local] && (
+                            <img src={escudosPorClub[v.local]} alt="" style={{ width: 13, height: 16, objectFit: 'contain', flexShrink: 0 }} />
+                          )}
+                          {v.local}
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap' }}>
+                          <span style={{ color: '#94a3b8', fontWeight: 400, fontSize: 9 }}>vs</span>
+                          {escudosPorClub[v.visitante] && (
+                            <img src={escudosPorClub[v.visitante]} alt="" style={{ width: 13, height: 16, objectFit: 'contain', flexShrink: 0 }} />
+                          )}
+                          {v.visitante}
+                        </div>
                       </td>
                       <td style={{ padding: '5px 6px', color: '#64748b', whiteSpace: 'nowrap' }}>{v.categoria}</td>
                       <td style={{ padding: '5px 6px', color: '#64748b', whiteSpace: 'nowrap' }}>{obsNom}</td>

@@ -26,6 +26,13 @@ function DataRow({ label, value }: { label: string; value?: string | number | nu
   )
 }
 
+// Muchos clubes aún no tienen escudo cargado: en ese caso simplemente no se
+// pinta nada y queda el nombre solo.
+function EscudoMini({ url }: { url?: string | null }) {
+  if (!url) return null
+  return <img src={url} alt="" className="w-4 h-5 object-contain flex-shrink-0" />
+}
+
 function PropuestaBadge({ propuesta }: { propuesta: string }) {
   const map: Record<string, string> = {
     'SELECCIÓN': 'bg-green-100 text-green-800 border border-green-300',
@@ -241,6 +248,8 @@ export default function FichaJugadora() {
 
   const obsNombre = observadores.find((o) => o.id === ficha.observador)?.nombre ?? ficha.observador
   const clubNombre = clubes.find((c) => c.id === ficha.club)?.nombre ?? ficha.club
+  // local/visitante guardan el NOMBRE del club (no el id), así que se busca por nombre.
+  const escudoDeClub = (nombre: string) => clubes.find((c) => c.nombre === nombre)?.escudo ?? null
 
   const historial = [...ficha.valoraciones].sort((a, b) => {
     const byFecha = new Date(b.fechaPartido).getTime() - new Date(a.fechaPartido).getTime()
@@ -591,7 +600,13 @@ export default function FichaJugadora() {
                           {new Date(v.fechaPartido).toLocaleDateString('es-ES')}
                         </td>
                         <td className="px-3 py-2 whitespace-nowrap font-medium text-gray-800">
-                          {v.local} <span className="text-gray-400 font-normal">vs</span> {v.visitante}
+                          <span className="inline-flex items-center gap-1.5">
+                            <EscudoMini url={escudoDeClub(v.local)} />
+                            {v.local}
+                            <span className="text-gray-400 font-normal">vs</span>
+                            <EscudoMini url={escudoDeClub(v.visitante)} />
+                            {v.visitante}
+                          </span>
                         </td>
                         <td className="px-3 py-2 text-gray-600 whitespace-nowrap">{v.categoria}</td>
                         <td className="px-3 py-2 text-gray-600 whitespace-nowrap">{obsNom}</td>
@@ -769,6 +784,9 @@ export default function FichaJugadora() {
           clubNombre={clubNombre}
           valoraciones={historial}
           currentValoracionId={historial[0]?.id}
+          escudosPorClub={Object.fromEntries(
+            clubes.filter((c) => c.escudo).map((c) => [c.nombre, c.escudo as string])
+          )}
           observadores={observadores}
           fedLogoUrl={pdfImgs.fed}
           clubEscudoUrl={pdfImgs.escudo}
