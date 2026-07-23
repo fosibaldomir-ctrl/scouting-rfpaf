@@ -43,10 +43,19 @@ export default function FichaPDFTemplate({ ficha, obsNombre, clubNombre, valorac
   ]
   const propStyle = PROPUESTA_STYLES[ficha.propuesta] ?? PROPUESTA_STYLES.SEGUIR
   const edad = calcularEdad(ficha.fechaNacimiento)
+  // Con fechas de nacimiento ausentes o mal introducidas la edad sale 0/negativa:
+  // mejor no mostrar un "0 años" que parece un dato real.
+  const edadTexto = edad > 0 ? `${edad} años` : '—'
 
   // Puntuación media técnica
   const avgTec = tecValues.length ? tecValues.reduce((a, b) => a + b, 0) / tecValues.length : 0
   const avgFis = ((ficha.fuerza ?? 0) + (ficha.velocidad ?? 0) + (ficha.resistencia ?? 0)) / 3
+
+  // La física, la técnica y la evaluación final de la ficha son SIEMPRE las de la
+  // valoración más reciente (ver pickSnapshot), no un dato permanente de la jugadora.
+  const fechaUltima = ficha.fechaPartido ? new Date(ficha.fechaPartido).toLocaleDateString('es-ES') : '—'
+  // El historial llega ordenado de más reciente a más antiguo; la evolución se lee al revés.
+  const valoracionesAsc = [...valoraciones].reverse()
 
   return (
     <div
@@ -63,7 +72,7 @@ export default function FichaPDFTemplate({ ficha, obsNombre, clubNombre, valorac
         data-pdf-block="header"
         style={{
           background: 'linear-gradient(135deg, #1a3a6b 0%, #2e4d8f 60%, #c0392b 100%)',
-          padding: '24px 28px',
+          padding: '18px 28px',
           display: 'flex',
           alignItems: 'flex-start',
           gap: '20px',
@@ -116,7 +125,7 @@ export default function FichaPDFTemplate({ ficha, obsNombre, clubNombre, valorac
             {[
               ficha.demarcacion,
               ficha.lateralidad,
-              `${edad} años`,
+              edadTexto,
               `${ficha.altura} m`,
               `#${ficha.dorsal}`,
             ].map((tag) => (
@@ -193,43 +202,56 @@ export default function FichaPDFTemplate({ ficha, obsNombre, clubNombre, valorac
       </div>
 
       {/* ── CUERPO ──────────────────────────────────────────────── */}
-      <div style={{ padding: '20px 28px', display: 'flex', flexDirection: 'column', gap: 18 }}>
+      <div style={{ padding: '16px 28px', display: 'flex', flexDirection: 'column', gap: 12 }}>
 
         {/* ── Fila 1: Datos personales + Contexto partido ──── */}
         <div data-pdf-block="datos" style={{ display: 'flex', gap: 16 }}>
           <SectionCard title="Datos Personales" style={{ flex: 1 }}>
             <DataTable rows={[
               ['Fecha Nacimiento', new Date(ficha.fechaNacimiento).toLocaleDateString('es-ES')],
-              ['Edad', `${edad} años`],
+              ['Edad', edadTexto],
               ['Lateralidad', ficha.lateralidad],
               ['Tipología', ficha.tipologia],
               ['Altura', `${ficha.altura} m`],
               ['Club', clubNombre],
             ]} />
           </SectionCard>
-          <SectionCard title="Contexto del Partido" style={{ flex: 1 }}>
+          <SectionCard title="Última Valoración" style={{ flex: 1 }}>
             <DataTable rows={[
-              ['Fecha', new Date(ficha.fechaPartido).toLocaleDateString('es-ES')],
-              ['Equipo observado', ficha.equipo],
+              ['Fecha', fechaUltima],
               ['Categoría', ficha.categoria],
               ['Local', ficha.local],
               ['Visitante', ficha.visitante],
               ['Observador', obsNombre],
+              ['Valoraciones', `${valoraciones.length}`],
             ]} />
           </SectionCard>
         </div>
 
         {/* ── Fila 2: Físico + Técnica con sus radares ──── */}
-        <div data-pdf-block="fisico-tecnica" style={{ display: 'flex', gap: 16, alignItems: 'stretch' }}>
+        <div data-pdf-block="fisico-tecnica" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+
+          {/* Aviso de contexto: estos datos son de un partido concreto, no permanentes */}
+          <div style={{
+            background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 6,
+            padding: '5px 10px', fontSize: 10, color: '#1e40af', lineHeight: 1.35,
+          }}>
+            <strong style={{ fontWeight: 800 }}>Física, técnica y evaluación final</strong> corresponden a la
+            valoración más reciente · <strong style={{ fontWeight: 800 }}>{fechaUltima}</strong>
+            {ficha.local && ficha.visitante ? ` · ${ficha.local} vs ${ficha.visitante}` : ''}
+            {obsNombre ? ` · Obs: ${obsNombre}` : ''}
+          </div>
+
+          <div style={{ display: 'flex', gap: 16, alignItems: 'stretch' }}>
 
           {/* Físico */}
-          <SectionCard title="Cualidades Físicas" style={{ flex: 1 }}>
+          <SectionCard title="Cualidades Físicas" style={{ flex: 0.85 }}>
             {[
               { label: 'Fuerza', value: ficha.fuerza ?? 0, color: '#1a3a6b', max: 10 },
               { label: 'Velocidad', value: ficha.velocidad ?? 0, color: '#c0392b', max: 10 },
               { label: 'Resistencia', value: ficha.resistencia ?? 0, color: '#16a34a', max: 10 },
             ].map(({ label, value, color, max }) => (
-              <div key={label} style={{ marginBottom: 10 }}>
+              <div key={label} style={{ marginBottom: 7 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4, alignItems: 'center' }}>
                   <span style={{ fontSize: 11, fontWeight: 700, color: '#374151' }}>{label}</span>
                   <span style={{ fontSize: 13, fontWeight: 900, color }}>{value}<span style={{ fontSize: 9, fontWeight: 400, color: '#9ca3af' }}>/{max}</span></span>
@@ -251,8 +273,8 @@ export default function FichaPDFTemplate({ ficha, obsNombre, clubNombre, valorac
                 max={10}
                 colorStart="#1a3a6b"
                 colorEnd="#16a34a"
-                size={180}
-                pad={44}
+                size={110}
+                pad={50}
               />
             </div>
             <div style={{
@@ -266,13 +288,13 @@ export default function FichaPDFTemplate({ ficha, obsNombre, clubNombre, valorac
           {/* Técnica */}
           <SectionCard
             title={`Evaluación Técnica · ${ficha.demarcacion}${ficha.otraDemarcacion ? ` / ${ficha.otraDemarcacion}` : ''}`}
-            style={{ flex: 1.4 }}
+            style={{ flex: 1.7 }}
           >
             <div style={{ display: 'flex', gap: 12 }}>
               {/* Barras */}
               <div style={{ flex: 1 }}>
                 {itemsDemarc.map((item, i) => (
-                  <div key={i} style={{ marginBottom: 10 }}>
+                  <div key={i} style={{ marginBottom: 7 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4, alignItems: 'center' }}>
                       <span style={{ fontSize: 10.5, fontWeight: 700, color: '#374151' }}>{item}</span>
                       <span style={{ fontSize: 13, fontWeight: 900, color: BAR_COLORS[i] }}>
@@ -292,7 +314,7 @@ export default function FichaPDFTemplate({ ficha, obsNombre, clubNombre, valorac
                   textAlign: 'center', marginTop: 8,
                   fontSize: 11, color: '#64748b', fontWeight: 600,
                 }}>
-                  Promedio técnico: <strong style={{ color: '#c0392b' }}>{avgTec.toFixed(1)}/5</strong>
+                  Promedio: <strong style={{ color: '#c0392b' }}>{avgTec.toFixed(1)}/5</strong>
                 </div>
               </div>
 
@@ -304,15 +326,17 @@ export default function FichaPDFTemplate({ ficha, obsNombre, clubNombre, valorac
                   max={5}
                   colorStart="#1a3a6b"
                   colorEnd="#c0392b"
-                  size={290}
+                  size={150}
+                  pad={80}
                 />
               </div>
             </div>
           </SectionCard>
+          </div>
         </div>
 
         {/* ── Evaluación final ──── */}
-        <SectionCard title="Evaluación Final" blockId="final">
+        <SectionCard title={`Evaluación Final · ${fechaUltima}`} blockId="final">
           <div style={{ display: 'flex', gap: 32, alignItems: 'center' }}>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 6 }}>
               <div style={{ fontSize: 11, color: '#6b7280', fontWeight: 600 }}>Valoración General</div>
@@ -350,25 +374,29 @@ export default function FichaPDFTemplate({ ficha, obsNombre, clubNombre, valorac
             </div>
           </div>
 
-          {ficha.descripcionJugadora && (
-            <TextBlock label="Descripción de la Jugadora" text={ficha.descripcionJugadora} />
-          )}
-          {ficha.observaciones && (
-            <TextBlock label="Observaciones" text={ficha.observaciones} />
-          )}
-          {ficha.cierre && (
-            <TextBlock label="Cierre" text={ficha.cierre} />
-          )}
         </SectionCard>
+
+        {/* Los textos van como bloques sueltos (no dentro de la tarjeta) para que la
+            paginación pueda repartirlos y no deje media página vacía cuando son largos. */}
+        {ficha.descripcionJugadora && (
+          <TextBlock blockId="txt-descripcion" label="Descripción de la Jugadora" text={ficha.descripcionJugadora} />
+        )}
+        {ficha.observaciones && (
+          <TextBlock blockId="txt-observaciones" label="Observaciones" text={ficha.observaciones} />
+        )}
+        {ficha.cierre && (
+          <TextBlock blockId="txt-cierre" label="Cierre" text={ficha.cierre} />
+        )}
 
         {/* ── Historial de observaciones ──── */}
         {valoraciones.length > 0 && (
-          <SectionCard blockId="historial" title={`Historial de Observaciones · ${ficha.nombre} ${ficha.primerApellido} ${ficha.segundoApellido} · ${edad} años · ${clubNombre}`}>
+          <SectionCard blockId="historial" title={`Historial de Observaciones · ${ficha.nombre} ${ficha.primerApellido} ${ficha.segundoApellido} · ${edadTexto} · ${clubNombre}`}>
+            {valoracionesAsc.length >= 2 && <EvolucionChart valoraciones={valoracionesAsc} />}
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 10.5 }}>
               <thead>
                 <tr style={{ borderBottom: '2px solid #e2e8f0', background: '#f8fafc' }}>
-                  {['Fecha', 'Partido', 'Categoría', 'Observador', 'Valoración', 'Propuesta'].map((h) => (
-                    <th key={h} style={{ padding: '5px 8px', textAlign: 'left', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: 0.3, fontSize: 9.5 }}>
+                  {['Fecha', 'Partido', 'Categoría', 'Observador', 'Físico', 'Técnica', 'Valoración', 'Propuesta'].map((h) => (
+                    <th key={h} style={{ padding: '5px 6px', textAlign: 'left', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: 0.3, fontSize: 9 }}>
                       {h}
                     </th>
                   ))}
@@ -393,13 +421,19 @@ export default function FichaPDFTemplate({ ficha, obsNombre, clubNombre, valorac
                       <td style={{ padding: '5px 8px', fontWeight: 600, color: '#1e293b' }}>
                         {v.local} <span style={{ color: '#94a3b8', fontWeight: 400 }}>vs</span> {v.visitante}
                       </td>
-                      <td style={{ padding: '5px 8px', color: '#64748b', whiteSpace: 'nowrap' }}>{v.categoria}</td>
-                      <td style={{ padding: '5px 8px', color: '#64748b', whiteSpace: 'nowrap' }}>{obsNom}</td>
-                      <td style={{ padding: '5px 8px', color: '#f59e0b', whiteSpace: 'nowrap', fontSize: 12 }}>
+                      <td style={{ padding: '5px 6px', color: '#64748b', whiteSpace: 'nowrap' }}>{v.categoria}</td>
+                      <td style={{ padding: '5px 6px', color: '#64748b', whiteSpace: 'nowrap' }}>{obsNom}</td>
+                      <td style={{ padding: '5px 6px', whiteSpace: 'nowrap', fontWeight: 800, color: '#1a3a6b' }}>
+                        {mediaFisica(v).toFixed(1)}<span style={{ fontSize: 8.5, fontWeight: 400, color: '#9ca3af' }}>/10</span>
+                      </td>
+                      <td style={{ padding: '5px 6px', whiteSpace: 'nowrap', fontWeight: 800, color: '#c0392b' }}>
+                        {mediaTecnica(v).toFixed(1)}<span style={{ fontSize: 8.5, fontWeight: 400, color: '#9ca3af' }}>/5</span>
+                      </td>
+                      <td style={{ padding: '5px 6px', color: '#f59e0b', whiteSpace: 'nowrap', fontSize: 12 }}>
                         {'★'.repeat(v.valoracionGeneral ?? 0)}
                         <span style={{ color: '#e5e7eb' }}>{'★'.repeat(5 - (v.valoracionGeneral ?? 0))}</span>
                       </td>
-                      <td style={{ padding: '5px 8px' }}>
+                      <td style={{ padding: '5px 6px' }}>
                         <span
                           style={{
                             display: 'inline-block',
@@ -426,7 +460,7 @@ export default function FichaPDFTemplate({ ficha, obsNombre, clubNombre, valorac
 
         {/* ── Footer ──── */}
         <div data-pdf-block="footer" style={{
-          borderTop: '1px solid #e2e8f0', paddingTop: 10,
+          borderTop: '1px solid #e2e8f0', paddingTop: 8,
           display: 'flex', justifyContent: 'space-between', alignItems: 'center',
         }}>
           <span style={{ fontSize: 9.5, color: '#94a3b8', fontWeight: 600 }}>
@@ -443,6 +477,73 @@ export default function FichaPDFTemplate({ ficha, obsNombre, clubNombre, valorac
 
 /* ─── Helpers ─────────────────────────────────────────────── */
 
+function mediaFisica(v: Valoracion): number {
+  return ((v.fuerza ?? 0) + (v.velocidad ?? 0) + (v.resistencia ?? 0)) / 3
+}
+
+function mediaTecnica(v: Valoracion): number {
+  const t = v.evaluacionTecnica
+  if (!t) return 0
+  return ((t.item1 ?? 0) + (t.item2 ?? 0) + (t.item3 ?? 0) + (t.item4 ?? 0) + (t.item5 ?? 0) + (t.item6 ?? 0)) / 6
+}
+
+// Evolución de la jugadora entre los partidos observados. Las tres métricas se
+// normalizan a % sobre su propio máximo (valoración /5, físico /10, técnica /5)
+// para poder compararlas en el mismo eje.
+function EvolucionChart({ valoraciones }: { valoraciones: Valoracion[] }) {
+  const W = 710, H = 132
+  const padL = 32, padR = 14, padT = 28, padB = 30
+  const innerW = W - padL - padR
+  const innerH = H - padT - padB
+  const n = valoraciones.length
+  const x = (i: number) => (n === 1 ? padL + innerW / 2 : padL + (i * innerW) / (n - 1))
+  const y = (pct: number) => padT + (1 - Math.max(0, Math.min(1, pct))) * innerH
+
+  const series = [
+    { label: 'Valoración', color: '#f59e0b', pct: (v: Valoracion) => (v.valoracionGeneral ?? 0) / 5 },
+    { label: 'Físico', color: '#1a3a6b', pct: (v: Valoracion) => mediaFisica(v) / 10 },
+    { label: 'Técnica', color: '#c0392b', pct: (v: Valoracion) => mediaTecnica(v) / 5 },
+  ]
+
+  return (
+    <div style={{ marginBottom: 10 }}>
+      <div style={{ fontSize: 10, fontWeight: 800, color: '#374151', textTransform: 'uppercase', letterSpacing: 0.3, marginBottom: 2 }}>
+        Evolución entre partidos
+      </div>
+      <svg width={W} height={H} style={{ display: 'block' }}>
+        {[0, 0.5, 1].map((g) => (
+          <g key={g}>
+            <line x1={padL} x2={W - padR} y1={y(g)} y2={y(g)} stroke="#e2e8f0" strokeWidth={1} />
+            <text x={padL - 6} y={y(g) + 3} textAnchor="end" fontSize={8} fill="#94a3b8">{Math.round(g * 100)}%</text>
+          </g>
+        ))}
+        {series.map((s) => (
+          <g key={s.label}>
+            <polyline
+              points={valoraciones.map((v, i) => `${x(i)},${y(s.pct(v))}`).join(' ')}
+              fill="none" stroke={s.color} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round"
+            />
+            {valoraciones.map((v, i) => (
+              <circle key={i} cx={x(i)} cy={y(s.pct(v))} r={3.2} fill="#ffffff" stroke={s.color} strokeWidth={2} />
+            ))}
+          </g>
+        ))}
+        {valoraciones.map((v, i) => (
+          <text key={i} x={x(i)} y={H - 10} textAnchor="middle" fontSize={8.5} fill="#64748b">
+            {new Date(v.fechaPartido).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' })}
+          </text>
+        ))}
+        {series.map((s, i) => (
+          <g key={`leg-${s.label}`}>
+            <rect x={padL + i * 108} y={7} width={9} height={9} rx={2} fill={s.color} />
+            <text x={padL + i * 108 + 14} y={15} fontSize={9} fontWeight={700} fill="#475569">{s.label}</text>
+          </g>
+        ))}
+      </svg>
+    </div>
+  )
+}
+
 function SectionCard({ title, children, style, blockId }: { title: string; children: React.ReactNode; style?: React.CSSProperties; blockId?: string }) {
   return (
     <div data-pdf-block={blockId} style={{
@@ -453,14 +554,14 @@ function SectionCard({ title, children, style, blockId }: { title: string; child
     }}>
       <div style={{
         background: 'linear-gradient(90deg, #1a3a6b, #2e4d8f)',
-        padding: '7px 14px',
+        padding: '6px 12px',
         fontSize: 11.5, fontWeight: 800, color: 'white', letterSpacing: 0.3,
         textTransform: 'uppercase',
         flexShrink: 0,
       }}>
         {title}
       </div>
-      <div style={{ padding: '12px 14px', flex: 1, display: 'flex', flexDirection: 'column' }}>
+      <div style={{ padding: '10px 12px', flex: 1, display: 'flex', flexDirection: 'column' }}>
         {children}
       </div>
     </div>
@@ -473,8 +574,8 @@ function DataTable({ rows }: { rows: [string, string][] }) {
       <tbody>
         {rows.map(([label, value]) => (
           <tr key={label} style={{ borderBottom: '1px solid #f1f5f9' }}>
-            <td style={{ padding: '4px 0', fontSize: 11, color: '#6b7280', fontWeight: 500, width: '50%' }}>{label}</td>
-            <td style={{ padding: '4px 0', fontSize: 11, fontWeight: 700, color: '#1e293b', textAlign: 'right' }}>{value || '—'}</td>
+            <td style={{ padding: '3px 0', fontSize: 11, color: '#6b7280', fontWeight: 500, width: '50%' }}>{label}</td>
+            <td style={{ padding: '3px 0', fontSize: 11, fontWeight: 700, color: '#1e293b', textAlign: 'right' }}>{value || '—'}</td>
           </tr>
         ))}
       </tbody>
@@ -482,9 +583,9 @@ function DataTable({ rows }: { rows: [string, string][] }) {
   )
 }
 
-function TextBlock({ label, text }: { label: string; text: string }) {
+function TextBlock({ label, text, blockId }: { label: string; text: string; blockId?: string }) {
   return (
-    <div style={{ marginTop: 12 }}>
+    <div data-pdf-block={blockId} style={{ marginTop: blockId ? 0 : 8 }}>
       <div style={{ fontSize: 11, fontWeight: 800, color: '#374151', marginBottom: 4, textTransform: 'uppercase', letterSpacing: 0.3 }}>
         {label}
       </div>

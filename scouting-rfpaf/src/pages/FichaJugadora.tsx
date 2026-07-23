@@ -194,7 +194,7 @@ export default function FichaJugadora() {
       const SIDE = (28 / 794) * pdfW   // margen lateral equivalente al padding del cuerpo (28px)
       const TOP = 8                     // margen superior en páginas nuevas
       const BOTTOM = 8                  // margen inferior
-      const GAP = (18 / 794) * pdfW     // separación entre bloques (gap:18px del cuerpo)
+      const GAP = (12 / 794) * pdfW     // separación entre bloques (gap:12px del cuerpo)
 
       const blocks = Array.from(el.querySelectorAll<HTMLElement>('[data-pdf-block]'))
       let y = 0
