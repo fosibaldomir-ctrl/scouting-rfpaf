@@ -600,12 +600,13 @@ export default function FichaJugadora() {
                           {new Date(v.fechaPartido).toLocaleDateString('es-ES')}
                         </td>
                         <td className="px-3 py-2 whitespace-nowrap font-medium text-gray-800">
+                          {/* Un escudo en cada extremo: se lee como un marcador. */}
                           <span className="inline-flex items-center gap-1.5">
                             <EscudoMini url={escudoDeClub(v.local)} />
                             {v.local}
                             <span className="text-gray-400 font-normal">vs</span>
-                            <EscudoMini url={escudoDeClub(v.visitante)} />
                             {v.visitante}
+                            <EscudoMini url={escudoDeClub(v.visitante)} />
                           </span>
                         </td>
                         <td className="px-3 py-2 text-gray-600 whitespace-nowrap">{v.categoria}</td>
