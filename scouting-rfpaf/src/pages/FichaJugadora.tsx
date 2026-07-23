@@ -6,6 +6,7 @@ import type { JugadoraConvocada } from '../types'
 import RadarChart from '../components/charts/RadarChart'
 import FichaPDFTemplate from '../components/pdf/FichaPDFTemplate'
 import { DEMARCACIONES_ITEMS } from '../data/masterData'
+import { mediaFisicaDe, mediaTecnicaDe, fmtMedia } from '../utils/valoracionStats'
 
 function calcularEdad(fecha: string): number {
   if (!fecha) return 0
@@ -248,14 +249,21 @@ export default function FichaJugadora() {
   })
   const tieneValoraciones = historial.length > 0
   const itemsDemarc = DEMARCACIONES_ITEMS.find((d) => d.posicion === ficha.demarcacion)?.items ?? []
+
+  // El perfil físico y técnico de la ficha es la media de TODAS las valoraciones,
+  // no la del último partido (una sola actuación no representa a la jugadora).
+  const fisicoMedio = mediaFisicaDe(historial) ?? { fuerza: 0, velocidad: 0, resistencia: 0 }
+  const tecnicaMedia = mediaTecnicaDe(historial)
   const tecValues = [
-    ficha.evaluacionTecnica?.item1 ?? 0,
-    ficha.evaluacionTecnica?.item2 ?? 0,
-    ficha.evaluacionTecnica?.item3 ?? 0,
-    ficha.evaluacionTecnica?.item4 ?? 0,
-    ficha.evaluacionTecnica?.item5 ?? 0,
-    ficha.evaluacionTecnica?.item6 ?? 0,
+    tecnicaMedia?.item1 ?? 0,
+    tecnicaMedia?.item2 ?? 0,
+    tecnicaMedia?.item3 ?? 0,
+    tecnicaMedia?.item4 ?? 0,
+    tecnicaMedia?.item5 ?? 0,
+    tecnicaMedia?.item6 ?? 0,
   ]
+  const edadTexto = calcularEdad(ficha.fechaNacimiento) > 0 ? `${calcularEdad(ficha.fechaNacimiento)} años` : '—'
+  const sufijoMedia = historial.length > 1 ? `Media de ${historial.length} valoraciones` : 'Una valoración'
 
   return (
     <div ref={contentRef} className="p-4 sm:p-6 max-w-6xl mx-auto space-y-6">
@@ -342,7 +350,7 @@ export default function FichaJugadora() {
         <div className="card">
           <h2 className="text-base font-bold text-gray-700 mb-3">Datos Personales</h2>
           <DataRow label="Fecha de Nacimiento" value={new Date(ficha.fechaNacimiento).toLocaleDateString('es-ES')} />
-          <DataRow label="Edad" value={`${calcularEdad(ficha.fechaNacimiento)} años`} />
+          <DataRow label="Edad" value={edadTexto} />
           <DataRow label="Lateralidad" value={ficha.lateralidad} />
           <DataRow label="Tipología" value={ficha.tipologia} />
           <DataRow label="Altura" value={`${ficha.altura} m`} />
@@ -375,16 +383,17 @@ export default function FichaJugadora() {
 
         {/* Físico */}
         <div className="card">
-          <h2 className="text-base font-bold text-gray-700 mb-3">Cualidades Físicas</h2>
+          <h2 className="text-base font-bold text-gray-700">Cualidades Físicas</h2>
+          <p className="text-xs text-gray-400 mb-3">{tieneValoraciones ? sufijoMedia : 'Sin valorar todavía'}</p>
           {[
-            { label: 'Fuerza', value: ficha.fuerza ?? 0, color: '#1a3a6b' },
-            { label: 'Velocidad', value: ficha.velocidad ?? 0, color: '#c0392b' },
-            { label: 'Resistencia', value: ficha.resistencia ?? 0, color: '#16a34a' },
+            { label: 'Fuerza', value: fisicoMedio.fuerza, color: '#1a3a6b' },
+            { label: 'Velocidad', value: fisicoMedio.velocidad, color: '#c0392b' },
+            { label: 'Resistencia', value: fisicoMedio.resistencia, color: '#16a34a' },
           ].map(({ label, value, color }) => (
             <div key={label} className="mb-3">
               <div className="flex justify-between text-sm mb-1">
                 <span className="text-gray-600">{label}</span>
-                <span className="font-bold" style={{ color }}>{value}/10</span>
+                <span className="font-bold" style={{ color }}>{fmtMedia(value)}/10</span>
               </div>
               <div className="w-full bg-gray-100 rounded-full h-2">
                 <div
@@ -394,14 +403,16 @@ export default function FichaJugadora() {
               </div>
             </div>
           ))}
-          <div className="mt-3 h-36">
-            <RadarChart
-              labels={['Fuerza', 'Velocidad', 'Resistencia']}
-              values={[ficha.fuerza ?? 0, ficha.velocidad ?? 0, ficha.resistencia ?? 0]}
-              max={10}
-              color="#1a3a6b"
-            />
-          </div>
+          {tieneValoraciones && (
+            <div className="mt-4 h-56">
+              <RadarChart
+                labels={['Fuerza', 'Velocidad', 'Resistencia']}
+                values={[fisicoMedio.fuerza, fisicoMedio.velocidad, fisicoMedio.resistencia]}
+                max={10}
+                color="#1a3a6b"
+              />
+            </div>
+          )}
         </div>
       </div>
 
@@ -430,10 +441,11 @@ export default function FichaJugadora() {
       <>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="card">
-          <h2 className="text-base font-bold text-gray-700 mb-3">
+          <h2 className="text-base font-bold text-gray-700">
             Evaluación Técnica · {ficha.demarcacion}
             {ficha.otraDemarcacion && <span className="text-gray-400 font-normal ml-2 text-sm">/ {ficha.otraDemarcacion}</span>}
           </h2>
+          <p className="text-xs text-gray-400 mb-3">{sufijoMedia}</p>
           {itemsDemarc.map((item, i) => {
             const colors = ['#1a3a6b', '#c0392b', '#16a34a', '#f59e0b', '#8b5cf6', '#06b6d4']
             const color = colors[i % colors.length]
@@ -441,7 +453,7 @@ export default function FichaJugadora() {
               <div key={i} className="mb-3">
                 <div className="flex justify-between text-sm mb-1">
                   <span className="text-gray-600">{item}</span>
-                  <span className="font-bold" style={{ color }}>{tecValues[i]}/5</span>
+                  <span className="font-bold" style={{ color }}>{fmtMedia(tecValues[i])}/5</span>
                 </div>
                 <div className="w-full bg-gray-100 rounded-full h-2">
                   <div
@@ -454,9 +466,10 @@ export default function FichaJugadora() {
           })}
         </div>
 
-        <div className="card flex flex-col items-center justify-center">
-          <h2 className="text-base font-bold text-gray-700 mb-3 self-start">{ficha.demarcacion} — Radar</h2>
-          <div className="w-full max-w-xs">
+        <div className="card flex flex-col">
+          <h2 className="text-base font-bold text-gray-700">{ficha.demarcacion} — Radar</h2>
+          <p className="text-xs text-gray-400 mb-3">{sufijoMedia}</p>
+          <div className="flex-1 min-h-[22rem]">
             <RadarChart
               labels={itemsDemarc}
               values={tecValues}
@@ -528,7 +541,7 @@ export default function FichaJugadora() {
         </div>
         <p className="text-xs text-gray-400 mb-4">
           {ficha.nombre} {ficha.primerApellido} {ficha.segundoApellido} ·{' '}
-          {calcularEdad(ficha.fechaNacimiento)} años · {clubNombre}
+          {edadTexto} · {clubNombre}
         </p>
         {historial.length === 0 ? (
           <p className="text-sm text-gray-400">Sin valoraciones aún.</p>

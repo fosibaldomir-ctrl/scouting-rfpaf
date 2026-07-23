@@ -1,6 +1,7 @@
 import type { FichaJugadora, Observador, Valoracion } from '../../types'
 import RadarSVG from './RadarSVG'
 import { DEMARCACIONES_ITEMS } from '../../data/masterData'
+import { mediaFisicaDe, mediaTecnicaDe, fmtMedia } from '../../utils/valoracionStats'
 
 interface Props {
   ficha: FichaJugadora
@@ -33,13 +34,18 @@ const BAR_COLORS = ['#1a3a6b', '#c0392b', '#16a34a', '#f59e0b', '#8b5cf6', '#06b
 
 export default function FichaPDFTemplate({ ficha, obsNombre, clubNombre, valoraciones = [], currentValoracionId, observadores = [], fedLogoUrl, clubEscudoUrl }: Props) {
   const itemsDemarc = DEMARCACIONES_ITEMS.find((d) => d.posicion === ficha.demarcacion)?.items ?? []
+  // El perfil físico/técnico es la MEDIA de todos los partidos observados (mismo
+  // criterio que la ficha en pantalla), no el del último partido.
+  const fisicoMedio = mediaFisicaDe(valoraciones)
+    ?? { fuerza: ficha.fuerza ?? 0, velocidad: ficha.velocidad ?? 0, resistencia: ficha.resistencia ?? 0 }
+  const tecnicaMedia = mediaTecnicaDe(valoraciones) ?? ficha.evaluacionTecnica
   const tecValues = [
-    ficha.evaluacionTecnica?.item1 ?? 0,
-    ficha.evaluacionTecnica?.item2 ?? 0,
-    ficha.evaluacionTecnica?.item3 ?? 0,
-    ficha.evaluacionTecnica?.item4 ?? 0,
-    ficha.evaluacionTecnica?.item5 ?? 0,
-    ficha.evaluacionTecnica?.item6 ?? 0,
+    tecnicaMedia?.item1 ?? 0,
+    tecnicaMedia?.item2 ?? 0,
+    tecnicaMedia?.item3 ?? 0,
+    tecnicaMedia?.item4 ?? 0,
+    tecnicaMedia?.item5 ?? 0,
+    tecnicaMedia?.item6 ?? 0,
   ]
   const propStyle = PROPUESTA_STYLES[ficha.propuesta] ?? PROPUESTA_STYLES.SEGUIR
   const edad = calcularEdad(ficha.fechaNacimiento)
@@ -47,13 +53,12 @@ export default function FichaPDFTemplate({ ficha, obsNombre, clubNombre, valorac
   // mejor no mostrar un "0 años" que parece un dato real.
   const edadTexto = edad > 0 ? `${edad} años` : '—'
 
-  // Puntuación media técnica
   const avgTec = tecValues.length ? tecValues.reduce((a, b) => a + b, 0) / tecValues.length : 0
-  const avgFis = ((ficha.fuerza ?? 0) + (ficha.velocidad ?? 0) + (ficha.resistencia ?? 0)) / 3
+  const avgFis = (fisicoMedio.fuerza + fisicoMedio.velocidad + fisicoMedio.resistencia) / 3
 
-  // La física, la técnica y la evaluación final de la ficha son SIEMPRE las de la
-  // valoración más reciente (ver pickSnapshot), no un dato permanente de la jugadora.
+  // La evaluación final (nota y propuesta) sí es la de la valoración más reciente.
   const fechaUltima = ficha.fechaPartido ? new Date(ficha.fechaPartido).toLocaleDateString('es-ES') : '—'
+  const sufijoMedia = valoraciones.length > 1 ? `media de ${valoraciones.length} valoraciones` : 'una valoración'
   // El historial llega ordenado de más reciente a más antiguo; la evolución se lee al revés.
   const valoracionesAsc = [...valoraciones].reverse()
 
@@ -236,8 +241,9 @@ export default function FichaPDFTemplate({ ficha, obsNombre, clubNombre, valorac
             background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 6,
             padding: '5px 10px', fontSize: 10, color: '#1e40af', lineHeight: 1.35,
           }}>
-            <strong style={{ fontWeight: 800 }}>Física, técnica y evaluación final</strong> corresponden a la
-            valoración más reciente · <strong style={{ fontWeight: 800 }}>{fechaUltima}</strong>
+            <strong style={{ fontWeight: 800 }}>Física y técnica</strong>: {sufijoMedia} ·{' '}
+            <strong style={{ fontWeight: 800 }}>Evaluación final</strong>: valoración más reciente,{' '}
+            <strong style={{ fontWeight: 800 }}>{fechaUltima}</strong>
             {ficha.local && ficha.visitante ? ` · ${ficha.local} vs ${ficha.visitante}` : ''}
             {obsNombre ? ` · Obs: ${obsNombre}` : ''}
           </div>
@@ -247,14 +253,14 @@ export default function FichaPDFTemplate({ ficha, obsNombre, clubNombre, valorac
           {/* Físico */}
           <SectionCard title="Cualidades Físicas" style={{ flex: 0.85 }}>
             {[
-              { label: 'Fuerza', value: ficha.fuerza ?? 0, color: '#1a3a6b', max: 10 },
-              { label: 'Velocidad', value: ficha.velocidad ?? 0, color: '#c0392b', max: 10 },
-              { label: 'Resistencia', value: ficha.resistencia ?? 0, color: '#16a34a', max: 10 },
+              { label: 'Fuerza', value: fisicoMedio.fuerza, color: '#1a3a6b', max: 10 },
+              { label: 'Velocidad', value: fisicoMedio.velocidad, color: '#c0392b', max: 10 },
+              { label: 'Resistencia', value: fisicoMedio.resistencia, color: '#16a34a', max: 10 },
             ].map(({ label, value, color, max }) => (
               <div key={label} style={{ marginBottom: 7 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4, alignItems: 'center' }}>
                   <span style={{ fontSize: 11, fontWeight: 700, color: '#374151' }}>{label}</span>
-                  <span style={{ fontSize: 13, fontWeight: 900, color }}>{value}<span style={{ fontSize: 9, fontWeight: 400, color: '#9ca3af' }}>/{max}</span></span>
+                  <span style={{ fontSize: 13, fontWeight: 900, color }}>{fmtMedia(value)}<span style={{ fontSize: 9, fontWeight: 400, color: '#9ca3af' }}>/{max}</span></span>
                 </div>
                 <div style={{ background: '#e2e8f0', borderRadius: 8, height: 10, overflow: 'hidden' }}>
                   <div style={{
@@ -269,7 +275,7 @@ export default function FichaPDFTemplate({ ficha, obsNombre, clubNombre, valorac
             <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 0 }}>
               <RadarSVG
                 labels={['Fuerza', 'Velocidad', 'Resistencia']}
-                values={[ficha.fuerza ?? 0, ficha.velocidad ?? 0, ficha.resistencia ?? 0]}
+                values={[fisicoMedio.fuerza, fisicoMedio.velocidad, fisicoMedio.resistencia]}
                 max={10}
                 colorStart="#1a3a6b"
                 colorEnd="#16a34a"
@@ -298,7 +304,7 @@ export default function FichaPDFTemplate({ ficha, obsNombre, clubNombre, valorac
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4, alignItems: 'center' }}>
                       <span style={{ fontSize: 10.5, fontWeight: 700, color: '#374151' }}>{item}</span>
                       <span style={{ fontSize: 13, fontWeight: 900, color: BAR_COLORS[i] }}>
-                        {tecValues[i]}<span style={{ fontSize: 9, fontWeight: 400, color: '#9ca3af' }}>/5</span>
+                        {fmtMedia(tecValues[i])}<span style={{ fontSize: 9, fontWeight: 400, color: '#9ca3af' }}>/5</span>
                       </span>
                     </div>
                     <div style={{ background: '#e2e8f0', borderRadius: 8, height: 10, overflow: 'hidden' }}>
