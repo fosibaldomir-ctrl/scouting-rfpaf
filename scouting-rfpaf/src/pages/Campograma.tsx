@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Users } from 'lucide-react'
 import { useStore } from '../store/useStore'
+import FichaPreviewCard from '../components/ficha/FichaPreviewCard'
 import type { Demarcacion, FichaJugadora } from '../types'
 
 /* ─────────────────────────  Utilidades  ───────────────────────── */
@@ -154,10 +155,12 @@ function NodoPosicion({
   demarcacion,
   jugadoras,
   onSelect,
+  onHover,
 }: {
   demarcacion: Demarcacion
   jugadoras: JugadoraRank[]
   onSelect: (id: string) => void
+  onHover: (j: JugadoraRank | null, e?: React.MouseEvent) => void
 }) {
   return (
     <div className="w-[108px] -translate-x-1/2 -translate-y-1/2">
@@ -173,6 +176,9 @@ function NodoPosicion({
             <button
               key={j.ficha.id}
               onClick={() => onSelect(j.ficha.id)}
+              onMouseEnter={(e) => onHover(j, e)}
+              onMouseMove={(e) => onHover(j, e)}
+              onMouseLeave={() => onHover(null)}
               className="w-full flex items-center gap-1 px-1.5 py-1 hover:bg-rfpaf-blue/5 transition-colors text-left"
             >
               <span
@@ -198,10 +204,19 @@ function NodoPosicion({
 
 export default function Campograma() {
   const navigate = useNavigate()
-  const { fichas } = useStore()
+  const { fichas, clubes } = useStore()
 
   const [categoria, setCategoria] = useState<CategoriaEdad>('sub14')
   const [sistemaId, setSistemaId] = useState('433')
+
+  // Vista previa al pasar el ratón. Se guarda la posición del cursor porque la
+  // tarjeta se pinta fuera del campo (que tiene overflow-hidden y la recortaría).
+  const [preview, setPreview] = useState<{ j: JugadoraRank; x: number; y: number } | null>(null)
+
+  const handleHover = (j: JugadoraRank | null, e?: React.MouseEvent) => {
+    if (!j || !e) { setPreview(null); return }
+    setPreview({ j, x: e.clientX, y: e.clientY })
+  }
 
   const sistema = SISTEMAS.find((s) => s.id === sistemaId) ?? SISTEMAS[0]
 
@@ -314,6 +329,7 @@ export default function Campograma() {
                   demarcacion={slot.demarcacion}
                   jugadoras={lista.slice(0, 3)}
                   onSelect={(id) => navigate(`/ficha/${id}`)}
+                  onHover={handleHover}
                 />
               </div>
             )
@@ -336,6 +352,21 @@ export default function Campograma() {
           <span className="font-bold text-rfpaf-red">00</span> Puntuación /100
         </div>
       </div>
+
+      {/* Vista previa flotante. Va fuera del campo (position: fixed) para que no
+          la recorte su overflow-hidden, y sin eventos para no robar el hover. */}
+      {preview && (() => {
+        const W = 208, H = 300, M = 12
+        let left = preview.x + 18
+        if (left + W + M > window.innerWidth) left = preview.x - W - 18
+        left = Math.max(M, left)
+        const top = Math.max(M, Math.min(preview.y - H / 2, window.innerHeight - H - M))
+        return (
+          <div className="fixed z-50 pointer-events-none" style={{ left, top }}>
+            <FichaPreviewCard ficha={preview.j.ficha} clubes={clubes} puntuacion={preview.j.puntuacion} />
+          </div>
+        )
+      })()}
     </div>
   )
 }
