@@ -162,8 +162,10 @@ function NodoPosicion({
   onSelect: (id: string) => void
   onHover: (j: JugadoraRank | null, e?: React.MouseEvent) => void
 }) {
+  // Ancho responsive: con 108px fijos, en móvil los nodos de los extremos
+  // (LAT/EXT) se salían del campo y se solapaban con los centrales.
   return (
-    <div className="w-[108px] -translate-x-1/2 -translate-y-1/2">
+    <div className="w-[80px] sm:w-[92px] lg:w-[108px] -translate-x-1/2 -translate-y-1/2">
       <div className="bg-white/95 backdrop-blur rounded-lg shadow-lg overflow-hidden border border-white/40">
         <div className="bg-rfpaf-blue text-white text-[10px] font-bold text-center py-0.5 tracking-wide">
           {ABREV[demarcacion]}
@@ -179,7 +181,11 @@ function NodoPosicion({
               onMouseEnter={(e) => onHover(j, e)}
               onMouseMove={(e) => onHover(j, e)}
               onMouseLeave={() => onHover(null)}
-              className="w-full flex items-center gap-1 px-1.5 py-1 hover:bg-rfpaf-blue/5 transition-colors text-left"
+              // En móvil se oculta la 3ª opción: con tres filas el nodo crece
+              // tanto que se solapa con el de al lado y bloquea la pulsación.
+              className={`w-full items-center gap-1 px-1.5 py-1 hover:bg-rfpaf-blue/5 transition-colors text-left ${
+                i === 2 ? 'hidden sm:flex' : 'flex'
+              }`}
             >
               <span
                 className={`flex-shrink-0 w-3.5 h-3.5 rounded-full text-[8px] font-bold text-white flex items-center justify-center ${
@@ -191,7 +197,9 @@ function NodoPosicion({
               <span className="flex-1 text-[9px] font-semibold text-gray-700 truncate leading-tight">
                 {j.ficha.nombre} {j.ficha.primerApellido}
               </span>
-              <span className="flex-shrink-0 text-[8px] font-bold text-rfpaf-red">{j.puntuacion}</span>
+              {/* En móvil el nodo es tan estrecho que la puntuación dejaba el
+                  nombre en dos letras; el número de orden ya indica el ranking. */}
+              <span className="flex-shrink-0 text-[8px] font-bold text-rfpaf-red hidden sm:inline">{j.puntuacion}</span>
             </button>
           ))}
         </div>
@@ -214,6 +222,10 @@ export default function Campograma() {
   const [preview, setPreview] = useState<{ j: JugadoraRank; x: number; y: number } | null>(null)
 
   const handleHover = (j: JugadoraRank | null, e?: React.MouseEvent) => {
+    // En móvil/tablet no hay hover: el navegador simula mouseenter al tocar y la
+    // tarjeta aparecería justo al pulsar, tapando la pantalla mientras se navega.
+    // Ahí el toque simplemente abre la ficha, como siempre.
+    if (!window.matchMedia('(hover: hover) and (pointer: fine)').matches) return
     if (!j || !e) { setPreview(null); return }
     setPreview({ j, x: e.clientX, y: e.clientY })
   }
@@ -252,7 +264,7 @@ export default function Campograma() {
             Campograma · Once Ideal
           </h1>
           <p className="text-gray-500 text-sm mt-1">
-            Las 3 mejores jugadoras por puesto según puntuación · {totalJugadoras} jugadoras en {CATEGORIAS_EDAD.find((c) => c.id === categoria)?.label}
+            Las mejores jugadoras por puesto según puntuación · {totalJugadoras} jugadoras en {CATEGORIAS_EDAD.find((c) => c.id === categoria)?.label}
           </p>
         </div>
       </div>
