@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { Users } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import FichaPreviewCard from '../components/ficha/FichaPreviewCard'
+import { mediaFisicaDe, mediaTecnicaDe, mediaValoracionGeneralDe } from '../utils/valoracionStats'
 import type { Demarcacion, FichaJugadora } from '../types'
 
 /* ─────────────────────────  Utilidades  ───────────────────────── */
@@ -16,14 +17,22 @@ function calcularEdad(fecha: string): number {
   return e
 }
 
-// Puntuación compuesta 0-100: técnica 50% · valoración 30% · físico 20%
-function calcularPuntuacion(f: FichaJugadora): number {
-  const t = f.evaluacionTecnica
-  const tecnicaAvg = t
-    ? (t.item1 + t.item2 + t.item3 + t.item4 + t.item5 + t.item6) / 6
-    : 0
-  const fisicoAvg = ((f.fuerza ?? 0) + (f.velocidad ?? 0) + (f.resistencia ?? 0)) / 3
-  const valoracion = f.valoracionGeneral ?? 0
+// Puntuación compuesta 0-100: técnica 50% · valoración general 30% · físico 20%.
+// Se calcula sobre la MEDIA de todas las valoraciones de los observadores, no
+// sobre la última: un solo partido no representa a la jugadora (y es el mismo
+// criterio que muestra su ficha).
+// Devuelve null si todavía nadie la ha valorado: sin observaciones no hay nada
+// que puntuar, y con los valores por defecto de una ficha recién importada
+// habría sacado 58/100, por encima de jugadoras realmente observadas.
+function calcularPuntuacion(f: FichaJugadora): number | null {
+  const fisico = mediaFisicaDe(f.valoraciones)
+  const tecnica = mediaTecnicaDe(f.valoraciones)
+  const valoracion = mediaValoracionGeneralDe(f.valoraciones)
+  if (!fisico || !tecnica || valoracion === null) return null
+
+  const tecnicaAvg =
+    (tecnica.item1 + tecnica.item2 + tecnica.item3 + tecnica.item4 + tecnica.item5 + tecnica.item6) / 6
+  const fisicoAvg = (fisico.fuerza + fisico.velocidad + fisico.resistencia) / 3
 
   const scoreTecnica = (tecnicaAvg / 5) * 50
   const scoreValoracion = (valoracion / 5) * 30
@@ -260,7 +269,9 @@ export default function Campograma() {
     const filtradas = fichas.filter((f) => perteneceCategoria(calcularEdad(f.fechaNacimiento), categoria))
 
     for (const f of filtradas) {
-      const rank: JugadoraRank = { ficha: f, puntuacion: calcularPuntuacion(f) }
+      const puntuacion = calcularPuntuacion(f)
+      if (puntuacion === null) continue // sin valorar: no entra en el once ideal
+      const rank: JugadoraRank = { ficha: f, puntuacion }
       const lista = map.get(f.demarcacion) ?? []
       lista.push(rank)
       map.set(f.demarcacion, lista)
@@ -272,7 +283,7 @@ export default function Campograma() {
   }, [fichas, categoria])
 
   const totalJugadoras = useMemo(
-    () => fichas.filter((f) => perteneceCategoria(calcularEdad(f.fechaNacimiento), categoria)).length,
+    () => fichas.filter((f) => perteneceCategoria(calcularEdad(f.fechaNacimiento), categoria) && f.valoraciones.length > 0).length,
     [fichas, categoria]
   )
 
@@ -286,7 +297,7 @@ export default function Campograma() {
             Campograma · Once Ideal
           </h1>
           <p className="text-gray-500 text-sm mt-1">
-            Las mejores jugadoras por puesto según puntuación · {totalJugadoras} jugadoras en {CATEGORIAS_EDAD.find((c) => c.id === categoria)?.label}
+            Las mejores jugadoras por puesto según puntuación · {totalJugadoras} jugadoras valoradas en {CATEGORIAS_EDAD.find((c) => c.id === categoria)?.label}
           </p>
         </div>
       </div>

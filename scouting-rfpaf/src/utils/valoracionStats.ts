@@ -37,6 +37,11 @@ export function mediaTecnicaDe(valoraciones: Valoracion[]): EvaluacionDemarcacio
   return out
 }
 
+export function mediaValoracionGeneralDe(valoraciones: Valoracion[]): number | null {
+  if (valoraciones.length === 0) return null
+  return valoraciones.reduce((acc, v) => acc + (v.valoracionGeneral ?? 0), 0) / valoraciones.length
+}
+
 // Las medias salen decimales; se muestran con un decimal solo cuando hace falta
 // para no ensuciar los casos en que hay una única valoración.
 export function fmtMedia(n: number): string {
