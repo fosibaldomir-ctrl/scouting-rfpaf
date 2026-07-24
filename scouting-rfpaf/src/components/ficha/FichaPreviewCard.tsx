@@ -84,12 +84,14 @@ export default function FichaPreviewCard({
           <p className="text-xs text-gray-400 truncate">{club?.nombre || ficha.equipo || '—'}</p>
         </div>
 
+        {/* La demarcación es la única que puede encogerse: si no, "15 años" se
+            partía en dos líneas al ser el nombre del puesto largo. */}
         <div className="flex items-center gap-2 text-xs text-gray-500">
-          <span className="font-medium text-gray-700">{edad > 0 ? `${edad} años` : '—'}</span>
+          <span className="font-medium text-gray-700 whitespace-nowrap">{edad > 0 ? `${edad} años` : '—'}</span>
           <span className="text-gray-300">|</span>
-          <span>Nº {ficha.dorsal || '—'}</span>
+          <span className="whitespace-nowrap">Nº {ficha.dorsal || '—'}</span>
           <span className="text-gray-300">|</span>
-          <span className="truncate">{ficha.demarcacion}</span>
+          <span className="truncate min-w-0">{ficha.demarcacion}</span>
         </div>
 
         {sinValorar ? (

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Users } from 'lucide-react'
 import { useStore } from '../store/useStore'
@@ -159,7 +159,7 @@ function NodoPosicion({
 }: {
   demarcacion: Demarcacion
   jugadoras: JugadoraRank[]
-  onSelect: (id: string) => void
+  onSelect: (j: JugadoraRank, e: React.MouseEvent) => void
   onHover: (j: JugadoraRank | null, e?: React.MouseEvent) => void
 }) {
   // Ancho responsive: con 108px fijos, en móvil los nodos de los extremos
@@ -177,7 +177,8 @@ function NodoPosicion({
           {jugadoras.map((j, i) => (
             <button
               key={j.ficha.id}
-              onClick={() => onSelect(j.ficha.id)}
+              data-jugadora={j.ficha.id}
+              onClick={(e) => onSelect(j, e)}
               onMouseEnter={(e) => onHover(j, e)}
               onMouseMove={(e) => onHover(j, e)}
               onMouseLeave={() => onHover(null)}
@@ -221,14 +222,35 @@ export default function Campograma() {
   // tarjeta se pinta fuera del campo (que tiene overflow-hidden y la recortaría).
   const [preview, setPreview] = useState<{ j: JugadoraRank; x: number; y: number } | null>(null)
 
+  // En táctil no existe "pasar por encima": el mismo gesto serviría para ver la
+  // miniatura y para abrir la ficha. Por eso ahí la miniatura se controla con el
+  // toque (1º toque = miniatura, 2º = ficha) y se ignoran los eventos de ratón,
+  // que el navegador simula al tocar.
+  const hayRaton = () => window.matchMedia('(hover: hover) and (pointer: fine)').matches
+
   const handleHover = (j: JugadoraRank | null, e?: React.MouseEvent) => {
-    // En móvil/tablet no hay hover: el navegador simula mouseenter al tocar y la
-    // tarjeta aparecería justo al pulsar, tapando la pantalla mientras se navega.
-    // Ahí el toque simplemente abre la ficha, como siempre.
-    if (!window.matchMedia('(hover: hover) and (pointer: fine)').matches) return
+    if (!hayRaton()) return
     if (!j || !e) { setPreview(null); return }
     setPreview({ j, x: e.clientX, y: e.clientY })
   }
+
+  const handleSelect = (j: JugadoraRank, e: React.MouseEvent) => {
+    if (hayRaton()) { navigate(`/ficha/${j.ficha.id}`); return }
+    // Segundo toque sobre la misma jugadora: abrir su ficha.
+    if (preview?.j.ficha.id === j.ficha.id) { navigate(`/ficha/${j.ficha.id}`); return }
+    setPreview({ j, x: e.clientX, y: e.clientY })
+  }
+
+  // Tocar fuera de cualquier jugadora cierra la miniatura.
+  useEffect(() => {
+    if (!preview || hayRaton()) return
+    const cerrarSiEsFuera = (ev: Event) => {
+      const destino = ev.target as HTMLElement | null
+      if (!destino?.closest('[data-jugadora]')) setPreview(null)
+    }
+    document.addEventListener('pointerdown', cerrarSiEsFuera)
+    return () => document.removeEventListener('pointerdown', cerrarSiEsFuera)
+  }, [preview])
 
   const sistema = SISTEMAS.find((s) => s.id === sistemaId) ?? SISTEMAS[0]
 
@@ -340,7 +362,7 @@ export default function Campograma() {
                 <NodoPosicion
                   demarcacion={slot.demarcacion}
                   jugadoras={lista.slice(0, 3)}
-                  onSelect={(id) => navigate(`/ficha/${id}`)}
+                  onSelect={handleSelect}
                   onHover={handleHover}
                 />
               </div>
