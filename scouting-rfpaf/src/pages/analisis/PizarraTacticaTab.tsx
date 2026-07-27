@@ -2,7 +2,7 @@ import { useState, useRef, useCallback, useEffect } from 'react'
 import {
   RefreshCw, Sparkles, ChevronDown, Users, UserPlus,
   Pencil, ArrowRight, Eraser, Play, Square, Camera, Trash2, Plus,
-  Spline, Link2, Download,
+  Spline, Link2, Download, Minus, Circle, Type, Video,
 } from 'lucide-react'
 import { useStore } from '../../store/useStore'
 import type {
@@ -10,6 +10,7 @@ import type {
   EquipoTactico, Convocatoria, FichaJugadora,
 } from '../../types'
 import { buildTeamJugadoras } from '../../utils/tactics'
+import { codificarFotogramasWebm, descargarBlob, soportaGrabacionVideo } from '../../utils/pizarraVideo'
 
 /* ── Types ───────────────────────────────────────────────────────── */
 
@@ -21,9 +22,10 @@ const FORMATIONS: FormacionFutbol[] = [
 interface Props { analisis: AnalisisPartido }
 type DragState = { uid: string; team: 'local' | 'visit'; startX: number; startY: number } | null
 type BenchItem = { numero: number; nombre: string; foto: string | null; fichaId: string }
-type EditorMode = 'move' | 'freehand' | 'arrow' | 'curve' | 'ball' | 'anim' | 'connect'
+type EditorMode = 'move' | 'freehand' | 'arrow' | 'curve' | 'line' | 'circle' | 'rect' | 'text' | 'ball' | 'anim' | 'connect'
+type ShapeType = 'freehand' | 'arrow' | 'curve' | 'line' | 'circle' | 'rect' | 'text'
 interface SVGPt { x: number; y: number }
-interface DrawShape { uid: string; type: 'freehand' | 'arrow' | 'curve'; color: string; width: number; pts: SVGPt[] }
+interface DrawShape { uid: string; type: ShapeType; color: string; width: number; pts: SVGPt[]; fill?: boolean; opacity?: number; dashed?: boolean; text?: string }
 interface BallToken { uid: string; posX: number; posY: number }
 interface AnimFrame { local: JugadoraTactica[]; visit: JugadoraTactica[] }
 interface Connector { uid: string; fromUid: string; toUid: string; color: string; dashed: boolean }
@@ -134,6 +136,13 @@ export default function PizarraTacticaTab({ analisis }: Props) {
   const [currentShape, setCurrentShape] = useState<DrawShape | null>(null)
   const isDrawingRef = useRef(false)
   const curveHandleDragRef = useRef<string | null>(null) // shape uid
+  // Opciones para las formas cerradas (círculo/rectángulo) y trazos
+  const [shapeFill, setShapeFill] = useState(false)
+  const [shapeDashed, setShapeDashed] = useState(false)
+  const [shapeOpacity, setShapeOpacity] = useState(1)
+  // Texto: posición del clic + texto que se está escribiendo
+  const [textPos, setTextPos] = useState<SVGPt | null>(null)
+  const [textInput, setTextInput] = useState('')
 
   // ── Connectors
   const [connectors, setConnectors] = useState<Connector[]>([])
@@ -152,6 +161,9 @@ export default function PizarraTacticaTab({ analisis }: Props) {
   const [animIdx, setAnimIdx] = useState(0)
   const [animPlaying, setAnimPlaying] = useState(false)
   const [animTransition, setAnimTransition] = useState(false)
+  const [animSpeed, setAnimSpeed] = useState(0.9) // segundos por transición entre fotogramas
+  const [recordingVideo, setRecordingVideo] = useState(false)
+  const [recordPct, setRecordPct] = useState(0)
   const animTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const animRafRef = useRef<number | null>(null)
 
@@ -302,13 +314,23 @@ export default function PizarraTacticaTab({ analisis }: Props) {
     ballDragRef.current = null
   }
 
+  // Modos de dibujo por arrastre (los demás: 'text' es por clic, 'move'/'ball'/… no dibujan)
+  const DRAG_DRAW_MODES: EditorMode[] = ['freehand', 'arrow', 'curve', 'line', 'circle', 'rect']
+  const isDragDrawMode = (m: EditorMode) => DRAG_DRAW_MODES.includes(m)
+
+  const newShapeAt = (pt: SVGPt): DrawShape => ({
+    uid: crypto.randomUUID(), type: editorMode as ShapeType, color: penColor, width: penWidth,
+    pts: [pt], fill: shapeFill, opacity: shapeOpacity, dashed: shapeDashed,
+  })
+
   // ── SVG draw handlers
   const handleSVGDown = (e: React.MouseEvent) => {
-    if (editorMode !== 'freehand' && editorMode !== 'arrow' && editorMode !== 'curve') return
+    if (editorMode === 'text') { setTextPos(getSVGPos(e)); return }
+    if (!isDragDrawMode(editorMode)) return
     e.preventDefault()
     const pt = getSVGPos(e)
     isDrawingRef.current = true
-    setCurrentShape({ uid: crypto.randomUUID(), type: editorMode as 'freehand' | 'arrow' | 'curve', color: penColor, width: penWidth, pts: [pt] })
+    setCurrentShape(newShapeAt(pt))
   }
 
   const handleSVGMove = (e: React.MouseEvent) => {
@@ -319,9 +341,12 @@ export default function PizarraTacticaTab({ analisis }: Props) {
     curveHandleDragRef.current = null
     if (!isDrawingRef.current || !currentShape) return
     isDrawingRef.current = false
+    const twoPoint = currentShape.type === 'arrow' || currentShape.type === 'line' ||
+      currentShape.type === 'circle' || currentShape.type === 'rect'
     const valid =
       (currentShape.type === 'freehand' && currentShape.pts.length >= 2) ||
-      ((currentShape.type === 'arrow') && currentShape.pts.length >= 2) ||
+      (twoPoint && currentShape.pts.length >= 2 &&
+        (Math.abs(currentShape.pts[0].x - currentShape.pts[1].x) > 0.5 || Math.abs(currentShape.pts[0].y - currentShape.pts[1].y) > 0.5)) ||
       (currentShape.type === 'curve' && currentShape.pts.length === 3)
     if (valid) setShapes(prev => [...prev, currentShape])
     setCurrentShape(null)
@@ -339,20 +364,22 @@ export default function PizarraTacticaTab({ analisis }: Props) {
     setCurrentShape(prev => {
       if (!prev) return prev
       if (prev.type === 'freehand') return { ...prev, pts: [...prev.pts, pt] }
-      if (prev.type === 'arrow') return { ...prev, pts: [prev.pts[0], pt] }
+      if (prev.type === 'arrow' || prev.type === 'line' || prev.type === 'circle' || prev.type === 'rect')
+        return { ...prev, pts: [prev.pts[0], pt] }
       if (prev.type === 'curve') return { ...prev, pts: [prev.pts[0], computeCurveCtrl(prev.pts[0], pt), pt] }
       return prev
     })
   }
 
   const handleSVGTouchStart = (e: React.TouchEvent) => {
-    if (editorMode !== 'freehand' && editorMode !== 'arrow' && editorMode !== 'curve') return
     if (!e.touches[0]) return
+    if (editorMode === 'text') { setTextPos(getSVGPosXY(e.touches[0].clientX, e.touches[0].clientY)); return }
+    if (!isDragDrawMode(editorMode)) return
     e.preventDefault(); e.stopPropagation()
     const t = e.touches[0]
     const pt = getSVGPosXY(t.clientX, t.clientY)
     isDrawingRef.current = true
-    setCurrentShape({ uid: crypto.randomUUID(), type: editorMode as 'freehand' | 'arrow' | 'curve', color: penColor, width: penWidth, pts: [pt] })
+    setCurrentShape(newShapeAt(pt))
   }
   const handleSVGTouchMove = (e: React.TouchEvent) => {
     if (!e.touches[0]) return
@@ -362,6 +389,71 @@ export default function PizarraTacticaTab({ analisis }: Props) {
   const handleSVGTouchEnd = (e: React.TouchEvent) => {
     e.stopPropagation()
     handleSVGUp()
+  }
+
+  const commitText = () => {
+    if (textPos && textInput.trim()) {
+      setShapes(prev => [...prev, {
+        uid: crypto.randomUUID(), type: 'text', color: penColor, width: penWidth,
+        pts: [textPos], text: textInput.trim(), opacity: shapeOpacity,
+      }])
+    }
+    setTextPos(null); setTextInput('')
+  }
+
+  // Render de una forma en el SVG (excepto texto, que va como overlay HTML para
+  // no deformarse con preserveAspectRatio="none"). showHandle: tirador de curva.
+  const renderShape = (s: DrawShape, showHandle: boolean) => {
+    const dash = s.dashed ? '4 3' : undefined
+    const op = s.opacity ?? 1
+    if (s.type === 'freehand') return (
+      <polyline points={s.pts.map(p => `${p.x},${p.y}`).join(' ')}
+        stroke={s.color} strokeWidth={s.width} fill="none" opacity={op}
+        strokeDasharray={dash} strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+    )
+    if ((s.type === 'arrow' || s.type === 'line') && s.pts.length >= 2) {
+      const a = s.pts[0], b = s.pts[s.pts.length - 1]
+      return (
+        <g opacity={op}>
+          <line x1={a.x} y1={a.y} x2={b.x} y2={b.y}
+            stroke={s.color} strokeWidth={s.width} strokeLinecap="round"
+            strokeDasharray={dash} vectorEffect="non-scaling-stroke" />
+          {s.type === 'arrow' && <polygon points={arrowHeadPoints(a, b, 13 + s.width, 5 + s.width * 0.6)} fill={s.color} />}
+        </g>
+      )
+    }
+    if ((s.type === 'circle' || s.type === 'rect') && s.pts.length >= 2) {
+      const a = s.pts[0], b = s.pts[1]
+      const fill = s.fill ? s.color : 'none'
+      const common = { stroke: s.color, strokeWidth: s.width, fill, fillOpacity: s.fill ? 0.22 : 1,
+        strokeDasharray: dash, vectorEffect: 'non-scaling-stroke' as const }
+      if (s.type === 'circle') {
+        return <ellipse cx={(a.x + b.x) / 2} cy={(a.y + b.y) / 2} rx={Math.abs(b.x - a.x) / 2} ry={Math.abs(b.y - a.y) / 2} opacity={op} {...common} />
+      }
+      return <rect x={Math.min(a.x, b.x)} y={Math.min(a.y, b.y)} width={Math.abs(b.x - a.x)} height={Math.abs(b.y - a.y)} opacity={op} {...common} />
+    }
+    if (s.type === 'curve' && s.pts.length === 3) {
+      const [p0, cp, p2] = s.pts
+      return (
+        <g opacity={op}>
+          <path d={`M ${p0.x} ${p0.y} Q ${cp.x} ${cp.y} ${p2.x} ${p2.y}`}
+            stroke={s.color} strokeWidth={s.width} fill="none" strokeLinecap="round"
+            strokeDasharray={dash} vectorEffect="non-scaling-stroke" />
+          <polygon points={arrowHeadPoints(cp, p2, 13 + s.width, 5 + s.width * 0.6)} fill={s.color} />
+          {showHandle && (
+            <>
+              <line x1={p0.x} y1={p0.y} x2={cp.x} y2={cp.y} stroke={s.color} strokeWidth={0.5} strokeDasharray="2 1.5" vectorEffect="non-scaling-stroke" opacity={0.5} />
+              <line x1={cp.x} y1={cp.y} x2={p2.x} y2={p2.y} stroke={s.color} strokeWidth={0.5} strokeDasharray="2 1.5" vectorEffect="non-scaling-stroke" opacity={0.5} />
+              <circle cx={cp.x} cy={cp.y} r={3} fill="white" stroke={s.color} strokeWidth={1}
+                style={{ cursor: 'grab', pointerEvents: 'all' }} vectorEffect="non-scaling-stroke"
+                onMouseDown={e => { e.stopPropagation(); curveHandleDragRef.current = s.uid }}
+                onTouchStart={e => { e.stopPropagation(); curveHandleDragRef.current = s.uid }} />
+            </>
+          )}
+        </g>
+      )
+    }
+    return null
   }
 
   // Track if a player was dragged to suppress the onClick connect after a drag
@@ -545,7 +637,7 @@ export default function PizarraTacticaTab({ analisis }: Props) {
     setAnimTransition(false) // we drive positions manually, no CSS transition
     setAnimPlaying(true)
 
-    const SEGMENT = 900 // ms to glide from one frame to the next
+    const SEGMENT = animSpeed * 1000 // ms to glide from one frame to the next (velocidad ajustable)
     const HOLD = 250    // ms pause on each frame
 
     const lerp = (a: number, b: number, t: number) => a + (b - a) * t
@@ -583,7 +675,7 @@ export default function PizarraTacticaTab({ analisis }: Props) {
     setLocalJugadoras(JSON.parse(JSON.stringify(animFrames[0].local)))
     setVisitJugadoras(JSON.parse(JSON.stringify(animFrames[0].visit)))
     animTimerRef.current = setTimeout(runSegment, HOLD)
-  }, [animFrames, stopAnimation])
+  }, [animFrames, stopAnimation, animSpeed])
 
   const goToFrame = (idx: number) => {
     if (idx < 0 || idx >= animFrames.length) return
@@ -596,14 +688,72 @@ export default function PizarraTacticaTab({ analisis }: Props) {
     animFrames.forEach((f, i) => setTimeout(() => downloadFramePNG(f, i, analisis.equipoLocal.color, analisis.equipoVisitante.color), i * 400))
   }
 
+  // Exporta la animación como vídeo .webm. Como el tablero es HTML+SVG (no canvas),
+  // se rasteriza cada paso con html2canvas (fase lenta con progreso) y luego se
+  // codifican los fotogramas a intervalos regulares para que el vídeo salga fluido.
+  const grabarVideo = useCallback(async () => {
+    if (animFrames.length < 2 || !pitchRef.current || recordingVideo) return
+    if (!soportaGrabacionVideo()) { alert('Tu navegador no permite grabar vídeo (.webm).'); return }
+    stopAnimation()
+    setRecordingVideo(true); setRecordPct(0)
+
+    const board = pitchRef.current
+    const rect = board.getBoundingClientRect()
+    const W = Math.max(2, Math.round(rect.width)), H = Math.max(2, Math.round(rect.height))
+    const FPS = 18
+
+    const lerp = (a: number, b: number, t: number) => a + (b - a) * t
+    const easeInOut = (t: number) => (t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2)
+    const interpTeam = (from: JugadoraTactica[], to: JugadoraTactica[], t: number): JugadoraTactica[] =>
+      from.map(j => { const tgt = to.find(p => p.uid === j.uid); return tgt ? { ...j, posX: lerp(j.posX, tgt.posX, t), posY: lerp(j.posY, tgt.posY, t) } : j })
+
+    // Construir las poses (fotogramas interpolados + pausas), con tope de seguridad.
+    const perSeg = Math.max(2, Math.round(FPS * animSpeed))
+    const hold = Math.round(FPS * 0.35)
+    const poses: { local: JugadoraTactica[]; visit: JugadoraTactica[] }[] = []
+    for (let seg = 0; seg < animFrames.length - 1 && poses.length < 240; seg++) {
+      const A = animFrames[seg], B = animFrames[seg + 1]
+      if (seg === 0) for (let k = 0; k < hold; k++) poses.push({ local: A.local, visit: A.visit })
+      for (let s = 1; s <= perSeg; s++) { const t = easeInOut(s / perSeg); poses.push({ local: interpTeam(A.local, B.local, t), visit: interpTeam(A.visit, B.visit, t) }) }
+      for (let k = 0; k < hold; k++) poses.push({ local: B.local, visit: B.visit })
+    }
+
+    const html2canvas = (await import('html2canvas')).default
+    const nextPaint = () => new Promise<void>(r => requestAnimationFrame(() => requestAnimationFrame(() => r())))
+    const framesCanvas: HTMLCanvasElement[] = []
+    try {
+      for (let i = 0; i < poses.length; i++) {
+        setLocalJugadoras(poses[i].local)
+        setVisitJugadoras(poses[i].visit)
+        await nextPaint()
+        const c = await html2canvas(board, { backgroundColor: null, scale: 1, logging: false, useCORS: true })
+        framesCanvas.push(c)
+        setRecordPct(Math.round(((i + 1) / poses.length) * 88))
+      }
+      const blob = await codificarFotogramasWebm(framesCanvas, W, H, FPS)
+      setRecordPct(100)
+      const nombre = (analisis.equipoLocal.nombre || 'pizarra').replace(/\s+/g, '_').toLowerCase()
+      descargarBlob(blob, `animacion-${nombre}.webm`)
+    } catch (err) {
+      console.error('Error al grabar vídeo:', err)
+      alert('No se ha podido generar el vídeo. Inténtalo de nuevo.')
+    } finally {
+      // Restaurar el fotograma en el que estaba el usuario.
+      goToFrame(animIdx)
+      setRecordingVideo(false)
+    }
+  }, [animFrames, animSpeed, recordingVideo, stopAnimation, animIdx, analisis])
+
   useEffect(() => () => {
     if (animTimerRef.current) clearTimeout(animTimerRef.current)
     if (animRafRef.current) cancelAnimationFrame(animRafRef.current)
   }, [])
 
   // ── Toolbar helpers
-  const inDrawMode = editorMode === 'freehand' || editorMode === 'arrow' || editorMode === 'curve'
-  const svgActive = inDrawMode // SVG captures pointer events only when drawing
+  const inDrawMode = editorMode === 'freehand' || editorMode === 'arrow' || editorMode === 'curve' ||
+    editorMode === 'line' || editorMode === 'circle' || editorMode === 'rect'
+  const isClosedShape = editorMode === 'circle' || editorMode === 'rect'
+  const svgActive = inDrawMode || editorMode === 'text' // SVG captura eventos al dibujar o colocar texto
   // Tokens are NOT interactive in 'ball' mode: the ball drag must own the touch gesture without
   // players underneath capturing/diverting it (and avoids overlapping interactive layers on iOS)
   const tokensInteractive = editorMode === 'move' || editorMode === 'anim' || editorMode === 'connect'
@@ -679,8 +829,12 @@ export default function PizarraTacticaTab({ analisis }: Props) {
             <div className="flex flex-wrap gap-1 p-1.5 items-center">
               {modeBtn('move', 'Mover', <span className="text-sm leading-none">✋</span>)}
               {modeBtn('freehand', 'Trazar', <Pencil className="w-3 h-3" />)}
+              {modeBtn('line', 'Línea', <Minus className="w-3 h-3" />)}
               {modeBtn('arrow', 'Flecha', <ArrowRight className="w-3 h-3" />)}
               {modeBtn('curve', 'Curva', <Spline className="w-3 h-3" />)}
+              {modeBtn('circle', 'Círculo', <Circle className="w-3 h-3" />)}
+              {modeBtn('rect', 'Rect.', <Square className="w-3 h-3" />)}
+              {modeBtn('text', 'Texto', <Type className="w-3 h-3" />)}
               {modeBtn('ball', 'Balón', <span className="text-sm leading-none">⚽</span>)}
               {modeBtn('connect', 'Conectar', <Link2 className="w-3 h-3" />)}
               {modeBtn('anim', 'Animar', <span className="text-sm leading-none">🎬</span>)}
@@ -701,9 +855,9 @@ export default function PizarraTacticaTab({ analisis }: Props) {
             </div>
 
             {/* Row 2: mode-specific options */}
-            {(inDrawMode || editorMode === 'connect' || editorMode === 'ball') && (
+            {(inDrawMode || editorMode === 'text' || editorMode === 'connect' || editorMode === 'ball') && (
               <div className="flex flex-wrap items-center gap-2 px-2 pb-2 pt-1 border-t border-gray-200">
-                {(inDrawMode || editorMode === 'connect') && (
+                {(inDrawMode || editorMode === 'text' || editorMode === 'connect') && (
                   <label className="flex items-center gap-1 text-xs text-gray-500">
                     Color
                     <input type="color" value={penColor} onChange={e => setPenColor(e.target.value)}
@@ -716,6 +870,25 @@ export default function PizarraTacticaTab({ analisis }: Props) {
                     <input type="range" min={1} max={8} value={penWidth} onChange={e => setPenWidth(Number(e.target.value))}
                       className="w-20 accent-rfpaf-blue" />
                   </label>
+                )}
+                {(inDrawMode || editorMode === 'text') && (
+                  <label className="flex items-center gap-1 text-xs text-gray-500">
+                    Opacidad
+                    <input type="range" min={0.2} max={1} step={0.1} value={shapeOpacity} onChange={e => setShapeOpacity(Number(e.target.value))}
+                      className="w-16 accent-rfpaf-blue" />
+                  </label>
+                )}
+                {inDrawMode && editorMode !== 'freehand' && (
+                  <button onClick={() => setShapeDashed(d => !d)}
+                    className={`text-xs px-2 py-1 rounded-lg border transition-colors ${shapeDashed ? 'bg-rfpaf-blue text-white border-rfpaf-blue' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'}`}>
+                    - - Discontinuo
+                  </button>
+                )}
+                {isClosedShape && (
+                  <button onClick={() => setShapeFill(f => !f)}
+                    className={`text-xs px-2 py-1 rounded-lg border transition-colors ${shapeFill ? 'bg-rfpaf-blue text-white border-rfpaf-blue' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'}`}>
+                    Relleno
+                  </button>
                 )}
                 {inDrawMode && (
                   <>
@@ -744,6 +917,26 @@ export default function PizarraTacticaTab({ analisis }: Props) {
                       <Trash2 className="w-3 h-3" /> Borrar
                     </button>
                   </>
+                )}
+                {editorMode === 'text' && (
+                  textPos ? (
+                    <>
+                      <input autoFocus type="text" value={textInput} onChange={e => setTextInput(e.target.value)}
+                        onKeyDown={e => { if (e.key === 'Enter') commitText(); if (e.key === 'Escape') { setTextPos(null); setTextInput('') } }}
+                        placeholder="Escribe y pulsa Enter…"
+                        className="flex-1 min-w-[120px] text-xs rounded-lg px-2 py-1 border border-gray-300 focus:outline-none focus:border-rfpaf-blue" />
+                      <button onClick={commitText}
+                        className="text-xs px-2 py-1 rounded-lg bg-rfpaf-blue text-white font-semibold hover:bg-blue-700 transition-colors">Añadir</button>
+                    </>
+                  ) : (
+                    <span className="text-xs text-gray-400">Haz clic en el campo para colocar el texto</span>
+                  )
+                )}
+                {(inDrawMode || editorMode === 'text') && shapes.some(s => s.type === 'text') && editorMode === 'text' && (
+                  <button onClick={() => setShapes(prev => prev.filter(s => s.type !== 'text'))}
+                    className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs text-gray-500 hover:bg-white border border-gray-200 transition-colors">
+                    <Trash2 className="w-3 h-3" /> Borrar textos
+                  </button>
                 )}
                 {editorMode === 'ball' && (
                   <button onClick={() => setBalls([])}
@@ -785,9 +978,20 @@ export default function PizarraTacticaTab({ analisis }: Props) {
                         <Play className="w-3.5 h-3.5" /> Reproducir
                       </button>
                     )}
-                    <button onClick={downloadAllFrames}
-                      className="flex items-center gap-1 bg-white hover:bg-amber-100 text-amber-700 border border-amber-300 text-xs font-bold px-2 py-1.5 rounded-lg transition-colors ml-auto">
-                      <Download className="w-3.5 h-3.5" /> Descargar todos
+                    <label className="flex items-center gap-1.5 text-[11px] text-amber-700 whitespace-nowrap">
+                      Velocidad
+                      <input type="range" min={0.3} max={3} step={0.1} value={animSpeed}
+                        onChange={e => setAnimSpeed(Number(e.target.value))} disabled={animPlaying}
+                        className="w-20 accent-amber-500 cursor-pointer" />
+                      <span className="w-9 text-right tabular-nums">{animSpeed.toFixed(1)}s</span>
+                    </label>
+                    <button onClick={grabarVideo} disabled={recordingVideo}
+                      className="flex items-center gap-1 bg-rose-600 hover:bg-rose-700 disabled:opacity-60 text-white text-xs font-bold px-3 py-1.5 rounded-lg transition-colors ml-auto">
+                      <Video className="w-3.5 h-3.5" /> {recordingVideo ? `Generando… ${recordPct}%` : 'Grabar vídeo'}
+                    </button>
+                    <button onClick={downloadAllFrames} disabled={recordingVideo}
+                      className="flex items-center gap-1 bg-white hover:bg-amber-100 disabled:opacity-60 text-amber-700 border border-amber-300 text-xs font-bold px-2 py-1.5 rounded-lg transition-colors">
+                      <Download className="w-3.5 h-3.5" /> PNG
                     </button>
                   </>
                 )}
@@ -863,86 +1067,13 @@ export default function PizarraTacticaTab({ analisis }: Props) {
               onTouchMove={handleSVGTouchMove}
               onTouchEnd={handleSVGTouchEnd}
             >
-              {/* Committed shapes */}
-              {shapes.map(s => {
-                if (s.type === 'freehand') {
-                  return (
-                    <polyline key={s.uid}
-                      points={s.pts.map(p => `${p.x},${p.y}`).join(' ')}
-                      stroke={s.color} strokeWidth={s.width} fill="none"
-                      strokeLinecap="round" strokeLinejoin="round"
-                      vectorEffect="non-scaling-stroke" />
-                  )
-                }
-                if (s.type === 'arrow' && s.pts.length >= 2) {
-                  const a = s.pts[0], b = s.pts[s.pts.length - 1]
-                  return (
-                    <g key={s.uid}>
-                      <line x1={a.x} y1={a.y} x2={b.x} y2={b.y}
-                        stroke={s.color} strokeWidth={s.width} strokeLinecap="round"
-                        vectorEffect="non-scaling-stroke" />
-                      <polygon points={arrowHeadPoints(a, b, 13 + s.width, 5 + s.width * 0.6)} fill={s.color} />
-                    </g>
-                  )
-                }
-                if (s.type === 'curve' && s.pts.length === 3) {
-                  const [p0, cp, p2] = s.pts
-                  return (
-                    <g key={s.uid}>
-                      <path d={`M ${p0.x} ${p0.y} Q ${cp.x} ${cp.y} ${p2.x} ${p2.y}`}
-                        stroke={s.color} strokeWidth={s.width} fill="none" strokeLinecap="round"
-                        vectorEffect="non-scaling-stroke" />
-                      <polygon points={arrowHeadPoints(cp, p2, 13 + s.width, 5 + s.width * 0.6)} fill={s.color} />
-                      {/* Curve control handle — visible only in curve mode */}
-                      {editorMode === 'curve' && (
-                        <>
-                          <line x1={p0.x} y1={p0.y} x2={cp.x} y2={cp.y} stroke={s.color} strokeWidth={0.5} strokeDasharray="2 1.5" vectorEffect="non-scaling-stroke" opacity={0.5} />
-                          <line x1={cp.x} y1={cp.y} x2={p2.x} y2={p2.y} stroke={s.color} strokeWidth={0.5} strokeDasharray="2 1.5" vectorEffect="non-scaling-stroke" opacity={0.5} />
-                          <circle cx={cp.x} cy={cp.y} r={3} fill="white" stroke={s.color} strokeWidth={1}
-                            style={{ cursor: 'grab', pointerEvents: 'all' }}
-                            vectorEffect="non-scaling-stroke"
-                            onMouseDown={e => { e.stopPropagation(); curveHandleDragRef.current = s.uid }}
-                            onTouchStart={e => { e.stopPropagation(); curveHandleDragRef.current = s.uid }} />
-                        </>
-                      )}
-                    </g>
-                  )
-                }
-                return null
-              })}
+              {/* Committed shapes (texto va aparte, como overlay HTML) */}
+              {shapes.filter(s => s.type !== 'text').map(s => (
+                <g key={s.uid}>{renderShape(s, editorMode === 'curve')}</g>
+              ))}
 
               {/* Current (in-progress) shape */}
-              {currentShape && (() => {
-                const s = currentShape
-                if (s.type === 'freehand') return (
-                  <polyline points={s.pts.map(p => `${p.x},${p.y}`).join(' ')}
-                    stroke={s.color} strokeWidth={s.width} fill="none"
-                    strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
-                )
-                if (s.type === 'arrow' && s.pts.length >= 2) {
-                  const a = s.pts[0], b = s.pts[s.pts.length - 1]
-                  return (
-                    <>
-                      <line x1={a.x} y1={a.y} x2={b.x} y2={b.y}
-                        stroke={s.color} strokeWidth={s.width} strokeLinecap="round"
-                        vectorEffect="non-scaling-stroke" />
-                      <polygon points={arrowHeadPoints(a, b, 13 + s.width, 5 + s.width * 0.6)} fill={s.color} />
-                    </>
-                  )
-                }
-                if (s.type === 'curve' && s.pts.length === 3) {
-                  const [p0, cp, p2] = s.pts
-                  return (
-                    <>
-                      <path d={`M ${p0.x} ${p0.y} Q ${cp.x} ${cp.y} ${p2.x} ${p2.y}`}
-                        stroke={s.color} strokeWidth={s.width} fill="none" strokeLinecap="round"
-                        vectorEffect="non-scaling-stroke" />
-                      <polygon points={arrowHeadPoints(cp, p2, 13 + s.width, 5 + s.width * 0.6)} fill={s.color} />
-                    </>
-                  )
-                }
-                return null
-              })()}
+              {currentShape && renderShape(currentShape, false)}
 
               {/* Connectors — plain line, no arrowhead, follows player positions live */}
               {connectors.map(conn => {
@@ -971,6 +1102,28 @@ export default function PizarraTacticaTab({ analisis }: Props) {
                 )
               })()}
             </svg>
+
+            {/* Etiquetas de texto — overlay HTML para no deformarse con el SVG estirado */}
+            {shapes.filter(s => s.type === 'text').map(s => (
+              <div key={s.uid}
+                style={{
+                  position: 'absolute', left: `${s.pts[0].x}%`, top: `${s.pts[0].y}%`,
+                  transform: 'translate(-50%, -50%)', zIndex: 19, pointerEvents: 'none',
+                  color: s.color, opacity: s.opacity ?? 1,
+                  fontSize: 12 + s.width * 1.5, fontWeight: 800, whiteSpace: 'nowrap',
+                  textShadow: '0 1px 3px rgba(0,0,0,0.55)', userSelect: 'none',
+                }}
+              >{s.text}</div>
+            ))}
+
+            {/* Cursor de colocación de texto */}
+            {editorMode === 'text' && textPos && (
+              <div style={{
+                position: 'absolute', left: `${textPos.x}%`, top: `${textPos.y}%`,
+                transform: 'translate(-50%, -50%)', zIndex: 20, width: 2, height: 16,
+                background: penColor, pointerEvents: 'none',
+              }} />
+            )}
 
             {/* Ball tokens */}
             {balls.map(b => (
