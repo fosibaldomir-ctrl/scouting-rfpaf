@@ -246,7 +246,8 @@ export default function FichaJugadora() {
     )
   }
 
-  const obsNombre = observadores.find((o) => o.id === ficha.observador)?.nombre ?? ficha.observador
+  const obsFicha = observadores.find((o) => o.id === ficha.observador)
+  const obsNombre = obsFicha?.nombre ?? ficha.observador
   const clubNombre = clubes.find((c) => c.id === ficha.club)?.nombre ?? ficha.club
   // local/visitante guardan el NOMBRE del club (no el id), así que se busca por nombre.
   const escudoDeClub = (nombre: string) => clubes.find((c) => c.nombre === nombre)?.escudo ?? null
@@ -375,7 +376,7 @@ export default function FichaJugadora() {
         </div>
 
         {/* Datos partido (última valoración) */}
-        <div className="card">
+        <div className="card flex flex-col">
           <h2 className="text-base font-bold text-gray-700 mb-3">Última Valoración</h2>
           {tieneValoraciones ? (
             <>
@@ -383,10 +384,45 @@ export default function FichaJugadora() {
               <DataRow label="Categoría" value={ficha.categoria} />
               <DataRow label="Local" value={ficha.local} />
               <DataRow label="Visitante" value={ficha.visitante} />
-              <DataRow label="Observador" value={obsNombre} />
+              <div className="flex justify-between items-center py-2 border-b last:border-0">
+                <span className="text-sm text-gray-500">Observador</span>
+                <div className="flex items-center gap-2">
+                  {obsFicha?.foto ? (
+                    <img src={obsFicha.foto} alt="" className="w-6 h-6 rounded-full object-cover" />
+                  ) : (
+                    <span className="w-6 h-6 rounded-full bg-gray-200 text-gray-500 text-[10px] font-bold flex items-center justify-center">
+                      {obsNombre.charAt(0)}
+                    </span>
+                  )}
+                  <span className="text-sm font-semibold text-gray-800">{obsNombre}</span>
+                </div>
+              </div>
+
+              {/* Veredicto de este partido, anclado abajo para rellenar la
+                  altura que impone la tarjeta de físico (más alta por el radar). */}
+              <div className="mt-auto pt-4">
+                <div className="rounded-xl bg-gradient-to-br from-slate-50 to-slate-100 border border-slate-200 p-4 text-center">
+                  <p className="text-[11px] uppercase tracking-wide text-gray-400 font-semibold mb-2">Veredicto de este partido</p>
+                  <div className="flex justify-center gap-1 mb-3">
+                    {[1,2,3,4,5].map((n) => (
+                      <Star key={n} className={`w-6 h-6 ${n <= (ficha.valoracionGeneral ?? 0) ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300'}`} />
+                    ))}
+                  </div>
+                  <PropuestaBadge propuesta={ficha.propuesta} />
+                </div>
+              </div>
             </>
           ) : (
-            <p className="text-sm text-gray-400 py-2">Sin valoraciones registradas todavía.</p>
+            <div className="flex-1 flex flex-col items-center justify-center text-center py-8">
+              <p className="text-sm text-gray-400 mb-3">Sin valoraciones registradas todavía.</p>
+              <button
+                onClick={() => navigate(`/ficha/${ficha.id}/valorar`)}
+                className="btn-primary flex items-center gap-2 text-sm"
+              >
+                <PlusCircle className="w-4 h-4" />
+                Añadir valoración
+              </button>
+            </div>
           )}
         </div>
 
