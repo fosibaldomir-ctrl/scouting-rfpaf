@@ -762,12 +762,22 @@ export default function TacticalBoard({ onCapture, onRegisterCapture }: Tactical
     }
 
     setSeqPlaying(true)
+    // Reproducir arranca siempre desde el primer fotograma para ver la jugada
+    // completa, y deja el selector y el tablero en ese punto de partida.
+    setCurrentFrameIdx(0)
+    setPlacedPlayers(JSON.parse(JSON.stringify(frames[0].players)))
+    setPlacedAccessories(JSON.parse(JSON.stringify(frames[0].accessories)))
 
     const tick = (now: number) => {
       const elapsed = now - startTime
       if (elapsed >= totalMs) {
         const last = frames[frames.length - 1]
         drawFrameState(last.players, last.accessories)
+        // Al terminar, dejar el estado en el último fotograma para que las
+        // posiciones finales no se pierdan y el selector marque el final.
+        setCurrentFrameIdx(frames.length - 1)
+        setPlacedPlayers(JSON.parse(JSON.stringify(last.players)))
+        setPlacedAccessories(JSON.parse(JSON.stringify(last.accessories)))
         setSeqPlaying(false)
         if (mediaRecorder) setTimeout(() => mediaRecorder!.stop(), 400)
         return
