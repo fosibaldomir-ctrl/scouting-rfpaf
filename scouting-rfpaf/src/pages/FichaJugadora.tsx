@@ -571,7 +571,8 @@ export default function FichaJugadora() {
               </thead>
               <tbody>
                 {historial.map((v) => {
-                  const obsNom = observadores.find((o) => o.id === v.observador)?.nombre ?? v.observador
+                  const obs = observadores.find((o) => o.id === v.observador)
+                  const obsNom = obs?.nombre ?? v.observador
                   const propMap: Record<string, string> = {
                     'SELECCIÓN': 'bg-green-100 text-green-800',
                     'INCORPORAR': 'bg-blue-100 text-blue-800',
@@ -610,7 +611,18 @@ export default function FichaJugadora() {
                           </span>
                         </td>
                         <td className="px-3 py-2 text-gray-600 whitespace-nowrap">{v.categoria}</td>
-                        <td className="px-3 py-2 text-gray-600 whitespace-nowrap">{obsNom}</td>
+                        <td className="px-3 py-2 text-gray-600 whitespace-nowrap">
+                          <span className="inline-flex items-center gap-2">
+                            {obs?.foto ? (
+                              <img src={obs.foto} alt="" className="w-6 h-6 rounded-full object-cover flex-shrink-0" />
+                            ) : (
+                              <span className="w-6 h-6 rounded-full bg-gray-200 text-gray-500 text-[9px] font-bold flex items-center justify-center flex-shrink-0">
+                                {obsNom.charAt(0)}
+                              </span>
+                            )}
+                            {obsNom}
+                          </span>
+                        </td>
                         <td className="px-3 py-2 whitespace-nowrap">
                           <span className="text-yellow-500">{'★'.repeat(v.valoracionGeneral ?? 0)}</span>
                           <span className="text-gray-300">{'★'.repeat(5 - (v.valoracionGeneral ?? 0))}</span>

@@ -414,7 +414,8 @@ export default function FichaPDFTemplate({ ficha, obsNombre, clubNombre, valorac
               </thead>
               <tbody>
                 {valoraciones.map((v, idx) => {
-                  const obsNom = observadores.find((o) => o.id === v.observador)?.nombre ?? v.observador
+                  const obs = observadores.find((o) => o.id === v.observador)
+                  const obsNom = obs?.nombre ?? v.observador
                   const propColors: Record<string, { bg: string; color: string }> = {
                     'SELECCIÓN':  { bg: '#dcfce7', color: '#166534' },
                     'INCORPORAR': { bg: '#dbeafe', color: '#1e40af' },
@@ -453,7 +454,14 @@ export default function FichaPDFTemplate({ ficha, obsNombre, clubNombre, valorac
                         ))}
                       </td>
                       <td style={{ padding: '5px 6px', color: '#64748b', whiteSpace: 'nowrap' }}>{v.categoria}</td>
-                      <td style={{ padding: '5px 6px', color: '#64748b', whiteSpace: 'nowrap' }}>{obsNom}</td>
+                      <td style={{ padding: '5px 6px', color: '#64748b', whiteSpace: 'nowrap' }}>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                          {obs?.foto && (
+                            <img src={obs.foto} alt="" style={{ width: 16, height: 16, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
+                          )}
+                          {obsNom}
+                        </span>
+                      </td>
                       <td style={{ padding: '5px 6px', whiteSpace: 'nowrap', fontWeight: 800, color: '#1a3a6b' }}>
                         {mediaFisica(v).toFixed(1)}<span style={{ fontSize: 8.5, fontWeight: 400, color: '#9ca3af' }}>/10</span>
                       </td>
