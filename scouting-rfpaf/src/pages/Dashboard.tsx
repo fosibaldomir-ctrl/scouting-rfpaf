@@ -16,7 +16,7 @@ import {
   LinearScale,
   BarElement,
 } from 'chart.js'
-import { PlusCircle, Users, Star, ClipboardCheck, TrendingUp, Eye, ChevronRight, Clock } from 'lucide-react'
+import { PlusCircle, Users, Star, ClipboardCheck, TrendingUp, Eye, ChevronRight, CalendarDays } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import { PROPUESTAS } from '../data/masterData'
 import type { FichaJugadora } from '../types'
@@ -75,7 +75,7 @@ function Stars({ value }: { value: number }) {
 }
 
 export default function Dashboard() {
-  const { fichas, observadores, currentObservador, clubes, eventos, addEvento, deleteEvento } = useStore()
+  const { fichas, observadores, currentObservador, clubes, eventos, partidos, addEvento, deleteEvento } = useStore()
   const navigate = useNavigate()
   const obs = observadores.find((o) => o.id === currentObservador)
 
@@ -131,12 +131,13 @@ export default function Dashboard() {
   }
 
   // Bloques de valor
-  const necesitanSeguimiento = useMemo(() =>
-    fichas
-      .filter((f) => f.propuesta === 'SEGUIR' || (f.valoraciones?.length ?? 0) === 0)
-      .sort((a, b) => new Date(b.creadoEn).getTime() - new Date(a.creadoEn).getTime())
-      .slice(0, 5),
-  [fichas])
+  const proximosPartidos = useMemo(() => {
+    const hoy = new Date(); hoy.setHours(0, 0, 0, 0)
+    return [...partidos]
+      .filter((p) => new Date(`${p.fecha}T00:00:00`) >= hoy)
+      .sort((a, b) => `${a.fecha} ${a.hora}`.localeCompare(`${b.fecha} ${b.hora}`))
+      .slice(0, 5)
+  }, [partidos])
 
   const ultimasValoraciones = useMemo(() =>
     fichas
@@ -274,39 +275,58 @@ export default function Dashboard() {
 
       {/* ── Bloques de valor ── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Necesitan seguimiento */}
+        {/* Próximos partidos */}
         <div className="card">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-base font-bold text-gray-700 flex items-center gap-2">
-              <Clock className="w-4 h-4 text-amber-500" /> Necesitan seguimiento
+              <CalendarDays className="w-4 h-4 text-rfpaf-blue" /> Próximos partidos
             </h2>
-            <span className="text-xs text-gray-400">Seguir o sin valorar</span>
+            <button onClick={() => navigate('/calendario')} className="text-rfpaf-blue text-sm hover:underline">
+              Calendario
+            </button>
           </div>
-          {necesitanSeguimiento.length === 0 ? (
-            <p className="text-sm text-gray-400 py-6 text-center">Todo al día ✓</p>
+          {proximosPartidos.length === 0 ? (
+            <div className="py-6 text-center">
+              <p className="text-sm text-gray-400 mb-2">No hay partidos programados.</p>
+              <button onClick={() => navigate('/calendario')} className="text-rfpaf-blue text-sm font-semibold hover:underline">
+                Programar en el Calendario
+              </button>
+            </div>
           ) : (
             <ul className="divide-y divide-gray-50">
-              {necesitanSeguimiento.map((f) => (
-                <li key={f.id}>
-                  <button onClick={() => navigate(`/ficha/${f.id}`)}
-                    className="w-full flex items-center gap-3 py-2 text-left hover:bg-gray-50 rounded-lg px-1 transition-colors">
-                    {f.foto ? (
-                      <img src={f.foto} alt="" className="w-8 h-8 rounded-full object-cover flex-shrink-0" />
-                    ) : (
-                      <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-[11px] font-bold text-gray-500 flex-shrink-0">
-                        {f.nombre.charAt(0)}{f.primerApellido.charAt(0)}
+              {proximosPartidos.map((pt) => {
+                const o = observadores.find((ob) => ob.id === pt.observador)
+                const escLocal = getClubEscudo(pt.local, clubes)
+                const escVis = getClubEscudo(pt.visitante, clubes)
+                const d = new Date(`${pt.fecha}T00:00:00`)
+                return (
+                  <li key={pt.id}>
+                    <button onClick={() => navigate('/calendario')}
+                      className="w-full flex items-center gap-3 py-2.5 text-left hover:bg-gray-50 rounded-lg px-1 transition-colors">
+                      {/* Chip de fecha */}
+                      <div className="flex-shrink-0 w-11 rounded-lg bg-blue-50 text-rfpaf-blue text-center py-1 leading-none">
+                        <div className="text-base font-bold">{d.getDate()}</div>
+                        <div className="text-[9px] uppercase font-semibold">{d.toLocaleDateString('es-ES', { month: 'short' }).replace('.', '')}</div>
                       </div>
-                    )}
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-semibold text-gray-800 truncate">{f.nombre} {f.primerApellido}</p>
-                      <p className="text-xs text-gray-400 truncate">{f.equipo || '—'} · {f.demarcacion}</p>
-                    </div>
-                    {(f.valoraciones?.length ?? 0) === 0
-                      ? <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 flex-shrink-0">Sin valorar</span>
-                      : <PropuestaBadge propuesta={f.propuesta} />}
-                  </button>
-                </li>
-              ))}
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-semibold text-gray-800 truncate flex items-center gap-1">
+                          {escLocal && <img src={escLocal} alt="" className="w-4 h-4 object-contain flex-shrink-0" />}
+                          <span className="truncate">{pt.local}</span>
+                          <span className="text-gray-400 font-normal">·</span>
+                          {escVis && <img src={escVis} alt="" className="w-4 h-4 object-contain flex-shrink-0" />}
+                          <span className="truncate">{pt.visitante}</span>
+                        </p>
+                        <p className="text-xs text-gray-400 truncate">{pt.hora} · {pt.categoria}</p>
+                      </div>
+                      {o && (
+                        o.foto
+                          ? <img src={o.foto} alt={o.nombre} title={o.nombre} className="w-7 h-7 rounded-full object-cover flex-shrink-0" />
+                          : <div title={o.nombre} className="w-7 h-7 rounded-full bg-gray-200 flex items-center justify-center text-[10px] font-bold text-gray-500 flex-shrink-0">{o.nombre.charAt(0)}</div>
+                      )}
+                    </button>
+                  </li>
+                )
+              })}
             </ul>
           )}
         </div>
