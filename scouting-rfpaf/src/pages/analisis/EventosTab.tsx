@@ -1,9 +1,8 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { v4 as uuidv4 } from 'uuid'
-import { Play, Clock, Trash2, PlayCircle, BarChart2, List, Users, Download, FileDown, EyeOff, Eye, PenLine, Upload, Scissors, Video } from 'lucide-react'
+import { Play, Clock, Trash2, PlayCircle, BarChart2, List, Users, Download, FileDown, EyeOff, Eye, Flame, Upload, Scissors, Video } from 'lucide-react'
 import { useStore } from '../../store/useStore'
 import type { AnalisisPartido, EventoAnalisis, TipoEventoAnalisis } from '../../types'
-import PintadoAcciones from '../PintadoAcciones'
 
 interface Props { analisis: AnalisisPartido }
 
@@ -57,6 +56,107 @@ const EVENT_CONFIG: Record<TipoEventoAnalisis, { label: string; color: string; b
 
 const EVENT_TYPES = Object.keys(EVENT_CONFIG) as TipoEventoAnalisis[]
 
+/* ── Líneas del campo (compartidas por el campo de eventos y el mapa de calor) ── */
+function PitchMarkings() {
+  return (
+    <>
+      {/* Grass stripes */}
+      {[0,1,2,3,4,5,6].map(i => (
+        <rect key={i} x="0" y={i * 83} width="400" height="41"
+          fill={i % 2 === 0 ? 'rgba(0,0,0,0.06)' : 'transparent'} />
+      ))}
+      <rect x="20" y="20" width="360" height="540" fill="none" stroke="white" strokeWidth="2" opacity="0.8" />
+      <line x1="20" y1="290" x2="380" y2="290" stroke="white" strokeWidth="2" opacity="0.8" />
+      <circle cx="200" cy="290" r="55" fill="none" stroke="white" strokeWidth="2" opacity="0.8" />
+      <circle cx="200" cy="290" r="3" fill="white" opacity="0.8" />
+      <rect x="80" y="20" width="240" height="110" fill="none" stroke="white" strokeWidth="2" opacity="0.8" />
+      <rect x="130" y="20" width="140" height="45" fill="none" stroke="white" strokeWidth="2" opacity="0.8" />
+      <rect x="150" y="8" width="100" height="15" fill="none" stroke="white" strokeWidth="2" opacity="0.8" />
+      <circle cx="200" cy="97" r="2.5" fill="white" opacity="0.8" />
+      <rect x="80" y="450" width="240" height="110" fill="none" stroke="white" strokeWidth="2" opacity="0.8" />
+      <rect x="130" y="515" width="140" height="45" fill="none" stroke="white" strokeWidth="2" opacity="0.8" />
+      <rect x="150" y="557" width="100" height="15" fill="none" stroke="white" strokeWidth="2" opacity="0.8" />
+      <circle cx="200" cy="483" r="2.5" fill="white" opacity="0.8" />
+    </>
+  )
+}
+
+/* ── Paleta del mapa de calor (frío → cálido), 256 muestras ── */
+function buildHeatLUT(): [number, number, number][] {
+  const c = document.createElement('canvas')
+  c.width = 256; c.height = 1
+  const ctx = c.getContext('2d')!
+  const g = ctx.createLinearGradient(0, 0, 256, 0)
+  g.addColorStop(0.00, '#1e3a8a') // azul (poca actividad)
+  g.addColorStop(0.35, '#06b6d4') // cian
+  g.addColorStop(0.60, '#84cc16') // verde
+  g.addColorStop(0.80, '#facc15') // amarillo
+  g.addColorStop(1.00, '#ef4444') // rojo (mucha actividad)
+  ctx.fillStyle = g
+  ctx.fillRect(0, 0, 256, 1)
+  const d = ctx.getImageData(0, 0, 256, 1).data
+  const lut: [number, number, number][] = []
+  for (let i = 0; i < 256; i++) lut.push([d[i * 4], d[i * 4 + 1], d[i * 4 + 2]])
+  return lut
+}
+
+/* ── Mapa de calor de posiciones de eventos ── */
+function HeatmapPitch({ events, heightPx }: { events: EventoAnalisis[]; heightPx?: number }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const pts = events.filter(e => e.posicion).map(e => ({ x: e.posicion!.x, y: e.posicion!.y }))
+  const key = pts.map(p => `${p.x},${p.y}`).join('|')
+
+  useEffect(() => {
+    const canvas = canvasRef.current; if (!canvas) return
+    const W = 400, H = 580
+    canvas.width = W; canvas.height = H
+    const ctx = canvas.getContext('2d')!
+    ctx.clearRect(0, 0, W, H)
+    ctx.fillStyle = '#2d7a3d'
+    ctx.fillRect(0, 0, W, H)
+    if (pts.length === 0) return
+
+    // Acumulación de intensidad en escala de grises (blobs radiales que se suman)
+    const off = document.createElement('canvas'); off.width = W; off.height = H
+    const octx = off.getContext('2d')!
+    const radius = 58
+    for (const p of pts) {
+      const cx = (p.x / 100) * W, cy = (p.y / 100) * H
+      const g = octx.createRadialGradient(cx, cy, 0, cx, cy, radius)
+      g.addColorStop(0, 'rgba(0,0,0,0.45)')
+      g.addColorStop(1, 'rgba(0,0,0,0)')
+      octx.fillStyle = g
+      octx.fillRect(cx - radius, cy - radius, radius * 2, radius * 2)
+    }
+    // Coloreado según la intensidad acumulada
+    const img = octx.getImageData(0, 0, W, H)
+    const d = img.data
+    const lut = buildHeatLUT()
+    for (let i = 0; i < d.length; i += 4) {
+      const a = d[i + 3]
+      if (a === 0) continue
+      const [r, gr, bl] = lut[Math.min(255, a)]
+      d[i] = r; d[i + 1] = gr; d[i + 2] = bl
+      d[i + 3] = Math.min(215, Math.round(a * 1.35))
+    }
+    octx.putImageData(img, 0, 0)
+    ctx.drawImage(off, 0, 0)
+  }, [key])
+
+  return (
+    <div style={{
+      position: 'relative', aspectRatio: '400 / 580',
+      ...(heightPx ? { height: heightPx, width: 'auto' } : { width: '100%' }),
+      maxWidth: '100%', margin: '0 auto',
+    }}>
+      <canvas ref={canvasRef} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', borderRadius: 12 }} />
+      <svg viewBox="0 0 400 580" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}>
+        <PitchMarkings />
+      </svg>
+    </div>
+  )
+}
+
 /* ── Football Pitch SVG (portrait) ── */
 function FootballPitch({
   events, onPositionClick, onEventClick, selectMode = false, pendingPosition, heightPx,
@@ -87,34 +187,7 @@ function FootballPitch({
         : { background: '#2d7a3d' }}
       onClick={handleClick}
     >
-      {/* Grass stripes */}
-      {[0,1,2,3,4,5,6].map(i => (
-        <rect key={i} x="0" y={i * 83} width="400" height="41"
-          fill={i % 2 === 0 ? 'rgba(0,0,0,0.06)' : 'transparent'} />
-      ))}
-      {/* Outer */}
-      <rect x="20" y="20" width="360" height="540" fill="none" stroke="white" strokeWidth="2" opacity="0.8" />
-      {/* Halfway line */}
-      <line x1="20" y1="290" x2="380" y2="290" stroke="white" strokeWidth="2" opacity="0.8" />
-      {/* Center circle */}
-      <circle cx="200" cy="290" r="55" fill="none" stroke="white" strokeWidth="2" opacity="0.8" />
-      <circle cx="200" cy="290" r="3" fill="white" opacity="0.8" />
-      {/* Top penalty area */}
-      <rect x="80" y="20" width="240" height="110" fill="none" stroke="white" strokeWidth="2" opacity="0.8" />
-      {/* Top goal area */}
-      <rect x="130" y="20" width="140" height="45" fill="none" stroke="white" strokeWidth="2" opacity="0.8" />
-      {/* Top goal */}
-      <rect x="150" y="8" width="100" height="15" fill="none" stroke="white" strokeWidth="2" opacity="0.8" />
-      {/* Top penalty spot */}
-      <circle cx="200" cy="97" r="2.5" fill="white" opacity="0.8" />
-      {/* Bottom penalty area */}
-      <rect x="80" y="450" width="240" height="110" fill="none" stroke="white" strokeWidth="2" opacity="0.8" />
-      {/* Bottom goal area */}
-      <rect x="130" y="515" width="140" height="45" fill="none" stroke="white" strokeWidth="2" opacity="0.8" />
-      {/* Bottom goal */}
-      <rect x="150" y="557" width="100" height="15" fill="none" stroke="white" strokeWidth="2" opacity="0.8" />
-      {/* Bottom penalty spot */}
-      <circle cx="200" cy="483" r="2.5" fill="white" opacity="0.8" />
+      <PitchMarkings />
 
       {/* Event dots */}
       {eventsWithPos.map((ev) => {
@@ -196,7 +269,7 @@ export default function EventosTab({ analisis }: Props) {
   const [modalEquipo, setModalEquipo] = useState<'propio' | 'rival'>('propio')
 
   // History
-  const [historialTab, setHistorialTab] = useState<'lista' | 'campo' | 'graficas' | 'pizarra'>('lista')
+  const [historialTab, setHistorialTab] = useState<'lista' | 'campo' | 'graficas' | 'mapa'>('lista')
   const [filterTipo, setFilterTipo] = useState<string>('TODOS')
   const [filterJugadora, setFilterJugadora] = useState<string>('TODOS')
   const [convocatoriaId, setConvocatoriaId] = useState<string>('')
@@ -803,7 +876,7 @@ export default function EventosTab({ analisis }: Props) {
               { id: 'lista' as const,    label: 'Lista',    icon: <List className="w-3.5 h-3.5" /> },
               { id: 'campo' as const,    label: 'Campo',    icon: <span className="text-sm leading-none">⚽</span> },
               { id: 'graficas' as const, label: 'Gráficas', icon: <BarChart2 className="w-3.5 h-3.5" /> },
-              { id: 'pizarra' as const,  label: 'Pizarra',  icon: <PenLine className="w-3.5 h-3.5" /> },
+              { id: 'mapa' as const,     label: 'Mapa de calor', icon: <Flame className="w-3.5 h-3.5" /> },
             ]).map(tab => (
               <button
                 key={tab.id}
@@ -954,10 +1027,33 @@ export default function EventosTab({ analisis }: Props) {
             </div>
           )}
 
-          {/* ── PIZARRA / ANÁLISIS LAB ── */}
-          {historialTab === 'pizarra' && (
-            <div className="h-[calc(100svh-200px)] min-h-[480px] lg:h-[700px]">
-              <PintadoAcciones embedded initialYtUrl={analisis.videoPartidoUrl} />
+          {/* ── MAPA DE CALOR ── */}
+          {historialTab === 'mapa' && (
+            <div className="p-4">
+              <div className="flex items-center justify-between flex-wrap gap-2 mb-4">
+                <p className="text-sm font-bold text-gray-700">
+                  Mapa de calor
+                  <span className="ml-2 text-xs font-normal text-gray-400">
+                    {eventsWithPos.length} eventos con posición
+                    {filterJugadora !== 'TODOS' && <> · {filterJugadora}</>}
+                    {filterTipo !== 'TODOS' && <> · {EVENT_CONFIG[filterTipo as TipoEventoAnalisis]?.label}</>}
+                  </span>
+                </p>
+                {/* Leyenda frío → cálido */}
+                <div className="flex items-center gap-2 text-[10px] text-gray-400">
+                  <span>Menos</span>
+                  <span className="h-2 w-24 rounded-full" style={{ background: 'linear-gradient(90deg,#1e3a8a,#06b6d4,#84cc16,#facc15,#ef4444)' }} />
+                  <span>Más</span>
+                </div>
+              </div>
+              {eventsWithPos.length === 0 ? (
+                <p className="text-center text-sm text-gray-400 py-16">
+                  No hay eventos con posición registrada.<br />
+                  <span className="text-xs">Registra eventos tocando el campo para que aparezcan aquí.</span>
+                </p>
+              ) : (
+                <HeatmapPitch events={eventsWithPos} heightPx={560} />
+              )}
             </div>
           )}
 
