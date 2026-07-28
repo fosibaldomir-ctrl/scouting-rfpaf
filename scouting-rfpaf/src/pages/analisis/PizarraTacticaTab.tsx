@@ -1333,6 +1333,12 @@ function PlayerToken({ player, color, onDragStart, onRemove, onConnect, interact
   player: JugadoraTactica; color: string; onDragStart: () => void; onRemove?: () => void
   onConnect?: () => void; interactive: boolean; animTransition: boolean; isConnectSource?: boolean
 }) {
+  // En táctil, el preventDefault del touchstart (necesario para arrastrar sin
+  // hacer scroll) cancela el click, así que el modo Conectar —que se basa en el
+  // click— no funcionaba con el dedo. Detectamos el "toque" (touchend sin apenas
+  // desplazamiento) y disparamos onConnect a mano.
+  const touchStart = useRef<{ x: number; y: number } | null>(null)
+  const suppressClick = useRef(false)
   return (
     <div
       style={{
@@ -1348,8 +1354,27 @@ function PlayerToken({ player, color, onDragStart, onRemove, onConnect, interact
       onMouseDown={e => {
         e.preventDefault(); onDragStart()
       }}
-      onTouchStart={e => { e.preventDefault(); onDragStart() }}
-      onClick={onConnect}
+      onTouchStart={e => {
+        e.preventDefault()
+        const t = e.touches[0]
+        touchStart.current = t ? { x: t.clientX, y: t.clientY } : null
+        onDragStart()
+      }}
+      onTouchEnd={e => {
+        const t = e.changedTouches[0]
+        const s = touchStart.current
+        touchStart.current = null
+        if (onConnect && s && t && Math.hypot(t.clientX - s.x, t.clientY - s.y) < 14) {
+          onConnect()
+          // el navegador emite un click "fantasma" tras el touchend: hay que ignorarlo
+          // o dispararía onConnect otra vez y anularía la selección.
+          suppressClick.current = true
+        }
+      }}
+      onClick={() => {
+        if (suppressClick.current) { suppressClick.current = false; return }
+        onConnect?.()
+      }}
     >
       <div style={{ position: 'relative', display: 'inline-block' }}>
         {isConnectSource && (
