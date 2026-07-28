@@ -16,7 +16,7 @@ import {
   LinearScale,
   BarElement,
 } from 'chart.js'
-import { PlusCircle, Users, Calendar, Trophy, TrendingUp, Eye } from 'lucide-react'
+import { PlusCircle, Users, Star, ClipboardCheck, TrendingUp, Eye, ChevronRight, Clock } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import { PROPUESTAS } from '../data/masterData'
 import type { FichaJugadora } from '../types'
@@ -26,6 +26,30 @@ ChartJS.register(
   Tooltip, Legend, ArcElement, CategoryScale, LinearScale, BarElement
 )
 
+// Colores de propuesta, alineados con los badges de la app
+const PROPUESTA_COLOR: Record<string, string> = {
+  'SELECCIÓN': '#16a34a',
+  'INCORPORAR': '#2563eb',
+  'SEGUIR': '#eab308',
+  'DESCARTAR': '#dc2626',
+}
+
+// Agrupación de demarcaciones por líneas (mismo criterio y colores que el Campograma)
+const LINEAS = [
+  { label: 'Porteras', color: '#7c3aed', positions: ['PORTERO'] },
+  { label: 'Defensas', color: '#1d4ed8', positions: ['LATERAL', 'CENTRAL'] },
+  { label: 'Medias', color: '#0369a1', positions: ['MEDIO CENTRO DEF.', 'MEDIO CENTRO OF.', 'INTERIOR', 'MEDIA PUNTA'] },
+  { label: 'Extremas', color: '#b45309', positions: ['EXTERIOR'] },
+  { label: 'Delanteras', color: '#be123c', positions: ['DELANTERO'] },
+]
+
+function isoWeek(d: Date): number {
+  const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()))
+  const day = t.getUTCDay() || 7
+  t.setUTCDate(t.getUTCDate() + 4 - day)
+  const yearStart = new Date(Date.UTC(t.getUTCFullYear(), 0, 1))
+  return Math.ceil((((t.getTime() - yearStart.getTime()) / 86400000) + 1) / 7)
+}
 
 function PropuestaBadge({ propuesta }: { propuesta: string }) {
   const map: Record<string, string> = {
@@ -37,9 +61,17 @@ function PropuestaBadge({ propuesta }: { propuesta: string }) {
   return <span className={map[propuesta] ?? 'badge-seguir'}>{propuesta}</span>
 }
 
-function getClubEscudo(clubName: string, clubes: any[]): string | null {
-  const club = clubes.find((c) => c.nombre === clubName)
-  return club?.escudo ?? null
+function getClubEscudo(clubName: string, clubes: { nombre: string; escudo?: string | null }[]): string | null {
+  return clubes.find((c) => c.nombre === clubName)?.escudo ?? null
+}
+
+function Stars({ value }: { value: number }) {
+  const v = Math.round(value)
+  return (
+    <span className="whitespace-nowrap text-yellow-400 text-sm">
+      {'★'.repeat(v)}<span className="text-gray-300">{'★'.repeat(Math.max(0, 5 - v))}</span>
+    </span>
+  )
 }
 
 export default function Dashboard() {
@@ -47,127 +79,274 @@ export default function Dashboard() {
   const navigate = useNavigate()
   const obs = observadores.find((o) => o.id === currentObservador)
 
+  const now = new Date()
+  const fechaRaw = now.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })
+  const fechaLarga = fechaRaw.charAt(0).toUpperCase() + fechaRaw.slice(1)
+
   const stats = useMemo(() => {
     const byPropuesta = PROPUESTAS.reduce((acc, p) => {
       acc[p.value] = fichas.filter((f) => f.propuesta === p.value).length
       return acc
     }, {} as Record<string, number>)
 
-    const byDemarcacion = fichas.reduce((acc, f) => {
-      acc[f.demarcacion] = (acc[f.demarcacion] || 0) + 1
-      return acc
-    }, {} as Record<string, number>)
+    const lineas = LINEAS.map((l) => ({
+      ...l,
+      count: fichas.filter((f) => l.positions.includes(f.demarcacion)).length,
+    }))
 
     const partidos = new Set(fichas.map((f) => `${f.fechaPartido}-${f.local}-${f.visitante}`)).size
-    const categorias = new Set(fichas.map((f) => f.categoria)).size
 
-    return { byPropuesta, byDemarcacion, partidos, categorias }
+    const hace7 = Date.now() - 7 * 86400000
+    const nuevasSemana = fichas.filter((f) => new Date(f.creadoEn).getTime() >= hace7).length
+
+    const valoradas = fichas.filter((f) => (f.valoraciones?.length ?? 0) > 0)
+    const valMedia = valoradas.length
+      ? valoradas.reduce((a, f) => a + (f.valoracionGeneral || 0), 0) / valoradas.length
+      : 0
+    const totalValoraciones = fichas.reduce((a, f) => a + (f.valoraciones?.length ?? 0), 0)
+
+    return { byPropuesta, lineas, partidos, nuevasSemana, valMedia, valoradas: valoradas.length, totalValoraciones }
   }, [fichas])
 
   const doughnutData = {
     labels: PROPUESTAS.map((p) => p.label),
     datasets: [{
       data: PROPUESTAS.map((p) => stats.byPropuesta[p.value] || 0),
-      backgroundColor: ['#16a34a', '#2563eb', '#ca8a04', '#dc2626'],
+      backgroundColor: PROPUESTAS.map((p) => PROPUESTA_COLOR[p.value]),
       borderWidth: 2,
       borderColor: '#fff',
+      hoverOffset: 6,
     }],
   }
 
-  const demarcLabels = Object.keys(stats.byDemarcacion)
   const barData = {
-    labels: demarcLabels,
+    labels: stats.lineas.map((l) => l.label),
     datasets: [{
       label: 'Jugadoras',
-      data: demarcLabels.map((d) => stats.byDemarcacion[d]),
-      backgroundColor: '#1a3a6b',
+      data: stats.lineas.map((l) => l.count),
+      backgroundColor: stats.lineas.map((l) => l.color),
       borderRadius: 6,
+      maxBarThickness: 54,
     }],
   }
 
-  const ultimas = [...fichas].sort(
-    (a, b) => new Date(b.creadoEn).getTime() - new Date(a.creadoEn).getTime()
-  ).slice(0, 5)
+  // Bloques de valor
+  const necesitanSeguimiento = useMemo(() =>
+    fichas
+      .filter((f) => f.propuesta === 'SEGUIR' || (f.valoraciones?.length ?? 0) === 0)
+      .sort((a, b) => new Date(b.creadoEn).getTime() - new Date(a.creadoEn).getTime())
+      .slice(0, 5),
+  [fichas])
+
+  const ultimasValoraciones = useMemo(() =>
+    fichas
+      .flatMap((f) => (f.valoraciones ?? []).map((v) => ({ v, f })))
+      .sort((a, b) => new Date(b.v.creadoEn || b.v.fechaPartido).getTime() - new Date(a.v.creadoEn || a.v.fechaPartido).getTime())
+      .slice(0, 5),
+  [fichas])
+
+  const ultimas = [...fichas]
+    .sort((a, b) => new Date(b.creadoEn).getTime() - new Date(a.creadoEn).getTime())
+    .slice(0, 5)
+
+  const totalFichas = fichas.length
+  const paraSeleccion = stats.byPropuesta['SELECCIÓN'] || 0
+
+  const kpis = [
+    { icon: Users, label: 'Fichas en base de datos', value: totalFichas,
+      sub: stats.nuevasSemana > 0 ? `+${stats.nuevasSemana} esta semana` : 'Sin altas esta semana',
+      color: '#1a3a6b', bg: 'bg-blue-50', to: '/base-datos' },
+    { icon: TrendingUp, label: 'Propuestas para Selección', value: paraSeleccion,
+      sub: `${stats.partidos} partidos observados`,
+      color: '#16a34a', bg: 'bg-green-50', to: '/base-datos?propuesta=SELECCIÓN' },
+    { icon: Star, label: 'Valoración media', value: stats.valMedia ? stats.valMedia.toFixed(1) : '—',
+      sub: `${stats.valoradas} jugadoras valoradas`,
+      color: '#ca8a04', bg: 'bg-yellow-50', to: '/base-datos' },
+    { icon: ClipboardCheck, label: 'Valoraciones registradas', value: stats.totalValoraciones,
+      sub: `${observadores.length} observadores`,
+      color: '#c0392b', bg: 'bg-red-50', to: '/base-datos' },
+  ]
 
   return (
     <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between gap-3">
-        <div className="min-w-0">
-          <h1 className="text-xl sm:text-2xl font-bold text-rfpaf-blue">Dashboard</h1>
-          <p className="text-gray-500 text-sm truncate">Bienvenido, {obs?.nombre}</p>
-        </div>
-        <button
-          onClick={() => navigate('/nueva-ficha')}
-          className="btn-primary flex items-center gap-2 flex-shrink-0"
-        >
-          <PlusCircle className="w-4 h-4" />
-          <span className="hidden sm:inline">Nueva Ficha</span>
-          <span className="sm:hidden">Nueva</span>
-        </button>
-      </div>
-
-      {/* KPIs */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {[
-          { icon: Users, label: 'Fichas Totales', value: fichas.length, color: 'bg-blue-50 text-rfpaf-blue' },
-          { icon: Calendar, label: 'Partidos', value: stats.partidos, color: 'bg-green-50 text-green-700' },
-          { icon: Trophy, label: 'Categorías', value: stats.categorias, color: 'bg-yellow-50 text-yellow-700' },
-          { icon: TrendingUp, label: 'Para Selección', value: stats.byPropuesta['SELECCIÓN'] || 0, color: 'bg-red-50 text-rfpaf-red' },
-        ].map(({ icon: Icon, label, value, color }) => (
-          <div key={label} className="card flex items-center gap-4">
-            <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${color}`}>
-              <Icon className="w-6 h-6" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-gray-800">{value}</p>
-              <p className="text-xs text-gray-500">{label}</p>
+      {/* ── Hero ── */}
+      <div className="rounded-2xl overflow-hidden shadow-sm"
+        style={{ background: 'linear-gradient(120deg, #1a3a6b 0%, #2e4d8f 55%, #c0392b 140%)' }}>
+        <div className="px-5 sm:px-7 py-5 flex items-center justify-between gap-4 flex-wrap">
+          <div className="flex items-center gap-4 min-w-0">
+            {obs?.foto ? (
+              <img src={obs.foto} alt="" className="w-14 h-14 rounded-full object-cover border-2 border-white/40 flex-shrink-0" />
+            ) : (
+              <div className="w-14 h-14 rounded-full bg-white/15 border-2 border-white/30 flex items-center justify-center text-white text-lg font-bold flex-shrink-0">
+                {obs?.nombre?.charAt(0) ?? '?'}
+              </div>
+            )}
+            <div className="min-w-0">
+              <p className="text-white/70 text-xs font-medium">{fechaLarga} · Semana {isoWeek(now)}</p>
+              <h1 className="text-white text-xl sm:text-2xl font-bold leading-tight truncate">
+                Hola, {obs?.nombre ?? 'observador'}
+              </h1>
+              <p className="text-white/80 text-sm mt-0.5">
+                {totalFichas === 0
+                  ? 'Empieza registrando la primera jugadora.'
+                  : <><strong className="text-white">{totalFichas}</strong> jugadoras en base de datos · <strong className="text-white">{paraSeleccion}</strong> propuestas para Selección</>}
+              </p>
             </div>
           </div>
+          <button
+            onClick={() => navigate('/nueva-ficha')}
+            className="flex items-center gap-2 bg-white text-rfpaf-blue font-bold px-4 py-2.5 rounded-xl shadow hover:bg-blue-50 transition-colors flex-shrink-0"
+          >
+            <PlusCircle className="w-4 h-4" />
+            Nueva Ficha
+          </button>
+        </div>
+      </div>
+
+      {/* ── KPIs ── */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {kpis.map(({ icon: Icon, label, value, sub, color, bg, to }) => (
+          <button key={label} onClick={() => navigate(to)}
+            className="card text-left flex flex-col gap-2 hover:shadow-md hover:-translate-y-0.5 transition-all group">
+            <div className="flex items-center justify-between">
+              <div className={`w-11 h-11 rounded-xl flex items-center justify-center ${bg}`} style={{ color }}>
+                <Icon className="w-5 h-5" />
+              </div>
+              <ChevronRight className="w-4 h-4 text-gray-300 group-hover:text-gray-500 transition-colors" />
+            </div>
+            <div>
+              <p className="text-2xl font-bold text-gray-800 leading-none">{value}</p>
+              <p className="text-xs font-semibold text-gray-600 mt-1 leading-tight">{label}</p>
+              <p className="text-[11px] text-gray-400 mt-0.5">{sub}</p>
+            </div>
+          </button>
         ))}
       </div>
 
-      {/* Charts */}
+      {/* ── Gráficas ── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="card">
           <h2 className="text-base font-bold text-gray-700 mb-4">Propuestas</h2>
-          {fichas.length > 0 ? (
-            <div className="h-48 flex items-center justify-center">
-              <Doughnut data={doughnutData} options={{ maintainAspectRatio: false, plugins: { legend: { position: 'right' } } }} />
+          {totalFichas > 0 ? (
+            <div className="h-52 relative flex items-center justify-center">
+              <Doughnut
+                data={doughnutData}
+                options={{
+                  maintainAspectRatio: false,
+                  cutout: '68%',
+                  plugins: {
+                    legend: { position: 'bottom', labels: { boxWidth: 12, padding: 14, font: { size: 11 } } },
+                    tooltip: { backgroundColor: '#0f172a', padding: 10, cornerRadius: 8 },
+                  },
+                }}
+              />
+              {/* Total en el centro del anillo */}
+              <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none" style={{ paddingBottom: 44 }}>
+                <span className="text-3xl font-bold text-gray-800 leading-none">{totalFichas}</span>
+                <span className="text-[11px] text-gray-400 uppercase tracking-wide">fichas</span>
+              </div>
             </div>
           ) : (
-            <div className="h-48 flex items-center justify-center text-gray-400 text-sm">
-              Sin datos aún
-            </div>
+            <div className="h-52 flex items-center justify-center text-gray-400 text-sm">Sin datos aún</div>
           )}
         </div>
         <div className="card">
-          <h2 className="text-base font-bold text-gray-700 mb-4">Jugadoras por Demarcación</h2>
-          {fichas.length > 0 ? (
-            <div className="h-48">
+          <h2 className="text-base font-bold text-gray-700 mb-4">Jugadoras por línea</h2>
+          {totalFichas > 0 ? (
+            <div className="h-52">
               <Bar
                 data={barData}
                 options={{
                   maintainAspectRatio: false,
-                  plugins: { legend: { display: false } },
-                  scales: { x: { ticks: { font: { size: 10 } } } },
+                  plugins: { legend: { display: false }, tooltip: { backgroundColor: '#0f172a', padding: 10, cornerRadius: 8 } },
+                  scales: {
+                    x: { grid: { display: false }, ticks: { font: { size: 11, weight: 600 } } },
+                    y: { beginAtZero: true, ticks: { precision: 0, font: { size: 10 } }, grid: { color: '#eef2f7' } },
+                  },
                 }}
               />
             </div>
           ) : (
-            <div className="h-48 flex items-center justify-center text-gray-400 text-sm">
-              Sin datos aún
-            </div>
+            <div className="h-52 flex items-center justify-center text-gray-400 text-sm">Sin datos aún</div>
           )}
         </div>
       </div>
 
-      {/* Agenda Semanal */}
+      {/* ── Bloques de valor ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Necesitan seguimiento */}
+        <div className="card">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-base font-bold text-gray-700 flex items-center gap-2">
+              <Clock className="w-4 h-4 text-amber-500" /> Necesitan seguimiento
+            </h2>
+            <span className="text-xs text-gray-400">Seguir o sin valorar</span>
+          </div>
+          {necesitanSeguimiento.length === 0 ? (
+            <p className="text-sm text-gray-400 py-6 text-center">Todo al día ✓</p>
+          ) : (
+            <ul className="divide-y divide-gray-50">
+              {necesitanSeguimiento.map((f) => (
+                <li key={f.id}>
+                  <button onClick={() => navigate(`/ficha/${f.id}`)}
+                    className="w-full flex items-center gap-3 py-2 text-left hover:bg-gray-50 rounded-lg px-1 transition-colors">
+                    {f.foto ? (
+                      <img src={f.foto} alt="" className="w-8 h-8 rounded-full object-cover flex-shrink-0" />
+                    ) : (
+                      <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-[11px] font-bold text-gray-500 flex-shrink-0">
+                        {f.nombre.charAt(0)}{f.primerApellido.charAt(0)}
+                      </div>
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-semibold text-gray-800 truncate">{f.nombre} {f.primerApellido}</p>
+                      <p className="text-xs text-gray-400 truncate">{f.equipo || '—'} · {f.demarcacion}</p>
+                    </div>
+                    {(f.valoraciones?.length ?? 0) === 0
+                      ? <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 flex-shrink-0">Sin valorar</span>
+                      : <PropuestaBadge propuesta={f.propuesta} />}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        {/* Últimas valoraciones */}
+        <div className="card">
+          <h2 className="text-base font-bold text-gray-700 mb-3">Últimas valoraciones</h2>
+          {ultimasValoraciones.length === 0 ? (
+            <p className="text-sm text-gray-400 py-6 text-center">Aún no hay valoraciones registradas.</p>
+          ) : (
+            <ul className="divide-y divide-gray-50">
+              {ultimasValoraciones.map(({ v, f }, i) => {
+                const o = observadores.find((ob) => ob.id === v.observador)
+                return (
+                  <li key={f.id + '-' + i}>
+                    <button onClick={() => navigate(`/ficha/${f.id}`)}
+                      className="w-full flex items-center gap-3 py-2 text-left hover:bg-gray-50 rounded-lg px-1 transition-colors">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-semibold text-gray-800 truncate">{f.nombre} {f.primerApellido}</p>
+                        <p className="text-xs text-gray-400 truncate inline-flex items-center gap-1">
+                          {o?.foto && <img src={o.foto} alt="" className="w-4 h-4 rounded-full object-cover" />}
+                          {o?.nombre ?? v.observador ?? '—'} · {new Date(v.fechaPartido).toLocaleDateString('es-ES')}
+                        </p>
+                      </div>
+                      <Stars value={v.valoracionGeneral} />
+                    </button>
+                  </li>
+                )
+              })}
+            </ul>
+          )}
+        </div>
+      </div>
+
+      {/* ── Agenda ── */}
       <CalendarioSemanal
         eventos={eventos}
         onAdd={async (ev) => {
           const saved = await createEvento(ev)
-          if (saved) addEvento(saved as any)
+          if (saved) addEvento(saved as Parameters<typeof addEvento>[0])
         }}
         onDelete={async (id) => {
           const ok = await deleteEventoDB(id)
@@ -175,24 +354,18 @@ export default function Dashboard() {
         }}
       />
 
-      {/* Últimas fichas */}
+      {/* ── Últimas fichas ── */}
       <div className="card">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-base font-bold text-gray-700">Últimas Fichas</h2>
-          <button
-            onClick={() => navigate('/base-datos')}
-            className="text-rfpaf-blue text-sm hover:underline"
-          >
+          <h2 className="text-base font-bold text-gray-700">Últimas fichas</h2>
+          <button onClick={() => navigate('/base-datos')} className="text-rfpaf-blue text-sm hover:underline">
             Ver todas
           </button>
         </div>
         {ultimas.length === 0 ? (
           <div className="py-8 text-center">
             <p className="text-gray-400">No hay fichas registradas aún.</p>
-            <button
-              onClick={() => navigate('/nueva-ficha')}
-              className="btn-primary mt-3 text-sm"
-            >
+            <button onClick={() => navigate('/nueva-ficha')} className="btn-primary mt-3 text-sm">
               Registrar primera ficha
             </button>
           </div>
@@ -232,14 +405,9 @@ export default function Dashboard() {
                       </td>
                       <td className="py-3 pr-4 text-gray-600">{f.categoria}</td>
                       <td className="py-3 pr-4 text-gray-600">{f.demarcacion}</td>
-                      <td className="py-3 pr-4">
-                        <PropuestaBadge propuesta={f.propuesta} />
-                      </td>
+                      <td className="py-3 pr-4"><PropuestaBadge propuesta={f.propuesta} /></td>
                       <td className="py-3">
-                        <button
-                          onClick={() => navigate(`/ficha/${f.id}`)}
-                          className="text-rfpaf-blue hover:text-rfpaf-blue-light"
-                        >
+                        <button onClick={() => navigate(`/ficha/${f.id}`)} className="text-rfpaf-blue hover:text-rfpaf-blue-light">
                           <Eye className="w-4 h-4" />
                         </button>
                       </td>

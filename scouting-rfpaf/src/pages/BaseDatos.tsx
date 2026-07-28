@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Search, Download, Eye, Edit, Trash2, Copy, ChevronUp, ChevronDown, LayoutGrid, List, PlusCircle } from 'lucide-react'
 import * as XLSX from 'xlsx'
 import { useStore } from '../store/useStore'
@@ -155,10 +155,12 @@ export default function BaseDatos() {
   const { fichas, deleteFicha, addFicha, observadores, clubes } = useStore()
   const navigate = useNavigate()
 
+  // Permite llegar filtrado desde el Dashboard (p. ej. /base-datos?propuesta=SELECCIÓN)
+  const [searchParams] = useSearchParams()
   const [search, setSearch] = useState('')
-  const [filterCategoria, setFilterCategoria] = useState('')
+  const [filterCategoria, setFilterCategoria] = useState(searchParams.get('categoria') ?? '')
   const [filterDemarcacion, setFilterDemarcacion] = useState('')
-  const [filterPropuesta, setFilterPropuesta] = useState('')
+  const [filterPropuesta, setFilterPropuesta] = useState(searchParams.get('propuesta') ?? '')
   const [filterObservador, setFilterObservador] = useState('')
   const [sortKey, setSortKey] = useState<SortKey>('creadoEn')
   const [sortDir, setSortDir] = useState<SortDir>('desc')
