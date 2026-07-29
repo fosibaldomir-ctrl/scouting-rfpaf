@@ -272,6 +272,8 @@ export default function EventosTab({ analisis }: Props) {
   const [historialTab, setHistorialTab] = useState<'lista' | 'campo' | 'graficas' | 'mapa'>('lista')
   const [filterTipo, setFilterTipo] = useState<string>('TODOS')
   const [filterJugadora, setFilterJugadora] = useState<string>('TODOS')
+  // Parte del partido para el mapa de calor (1ª: minuto < 45, 2ª: minuto ≥ 45)
+  const [heatParte, setHeatParte] = useState<'todo' | '1' | '2'>('todo')
   const [convocatoriaId, setConvocatoriaId] = useState<string>('')
 
   // Local video state
@@ -284,6 +286,7 @@ export default function EventosTab({ analisis }: Props) {
   const localVideoRef = useRef<HTMLVideoElement>(null)
   const localFileInputRef = useRef<HTMLInputElement>(null)
   const localDurationProbingRef = useRef(false)
+  const videoCardRef = useRef<HTMLDivElement>(null)
 
   const playerRef = useRef<ReturnType<typeof window.YT.Player> | null>(null)
   const playerDivId = useRef(`yt-${uuidv4()}`)
@@ -374,10 +377,14 @@ export default function EventosTab({ analisis }: Props) {
   const jumpToEvent = (ev: EventoAnalisis) => {
     if (localVideoRef.current) {
       localVideoRef.current.currentTime = ev.videoSeconds
-      localVideoRef.current.pause()
+      localVideoRef.current.play().catch(() => {})
     } else {
       playerRef.current?.seekTo(ev.videoSeconds, true)
+      playerRef.current?.playVideo?.()
     }
+    // Traer el reproductor a la vista para ver el evento (sobre todo en móvil,
+    // donde el vídeo queda arriba y el campo más abajo).
+    videoCardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
   }
 
   /* ── Convocatoria players ── */
@@ -569,7 +576,7 @@ export default function EventosTab({ analisis }: Props) {
       <div className="w-full lg:w-[370px] shrink-0 space-y-3">
 
         {/* URL del Partido */}
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+        <div ref={videoCardRef} className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden scroll-mt-4">
           <div className="px-4 py-2.5 bg-rfpaf-blue flex items-center gap-2">
             <PlayCircle className="w-4 h-4 text-white" />
             <h2 className="text-white font-bold text-sm">Vídeo del Partido</h2>
@@ -1028,34 +1035,50 @@ export default function EventosTab({ analisis }: Props) {
           )}
 
           {/* ── MAPA DE CALOR ── */}
-          {historialTab === 'mapa' && (
+          {historialTab === 'mapa' && (() => {
+            const heatEvents = eventsWithPos.filter(ev =>
+              heatParte === 'todo' ||
+              (heatParte === '1' ? ev.minutoPartido < 45 : ev.minutoPartido >= 45))
+            return (
             <div className="p-4">
               <div className="flex items-center justify-between flex-wrap gap-2 mb-4">
                 <p className="text-sm font-bold text-gray-700">
                   Mapa de calor
                   <span className="ml-2 text-xs font-normal text-gray-400">
-                    {eventsWithPos.length} eventos con posición
+                    {heatEvents.length} eventos con posición
                     {filterJugadora !== 'TODOS' && <> · {filterJugadora}</>}
                     {filterTipo !== 'TODOS' && <> · {EVENT_CONFIG[filterTipo as TipoEventoAnalisis]?.label}</>}
                   </span>
                 </p>
-                {/* Leyenda frío → cálido */}
-                <div className="flex items-center gap-2 text-[10px] text-gray-400">
-                  <span>Menos</span>
-                  <span className="h-2 w-24 rounded-full" style={{ background: 'linear-gradient(90deg,#1e3a8a,#06b6d4,#84cc16,#facc15,#ef4444)' }} />
-                  <span>Más</span>
+                <div className="flex items-center gap-3 flex-wrap">
+                  {/* Parte del partido */}
+                  <div className="flex items-center rounded-lg border border-gray-200 overflow-hidden text-[11px] font-bold">
+                    {([['todo', 'Todo'], ['1', '1ª parte'], ['2', '2ª parte']] as const).map(([id, lbl]) => (
+                      <button key={id} onClick={() => setHeatParte(id)}
+                        className={`px-2.5 py-1 transition-colors ${heatParte === id ? 'bg-rfpaf-blue text-white' : 'text-gray-500 hover:bg-gray-50'}`}>
+                        {lbl}
+                      </button>
+                    ))}
+                  </div>
+                  {/* Leyenda frío → cálido */}
+                  <div className="flex items-center gap-2 text-[10px] text-gray-400">
+                    <span>Menos</span>
+                    <span className="h-2 w-20 rounded-full" style={{ background: 'linear-gradient(90deg,#1e3a8a,#06b6d4,#84cc16,#facc15,#ef4444)' }} />
+                    <span>Más</span>
+                  </div>
                 </div>
               </div>
-              {eventsWithPos.length === 0 ? (
+              {heatEvents.length === 0 ? (
                 <p className="text-center text-sm text-gray-400 py-16">
-                  No hay eventos con posición registrada.<br />
+                  No hay eventos con posición{heatParte !== 'todo' ? ' en esta parte' : ''}.<br />
                   <span className="text-xs">Registra eventos tocando el campo para que aparezcan aquí.</span>
                 </p>
               ) : (
-                <HeatmapPitch events={eventsWithPos} heightPx={560} />
+                <HeatmapPitch events={heatEvents} heightPx={560} />
               )}
             </div>
-          )}
+            )
+          })()}
 
           {/* ── GRÁFICAS ── */}
           {historialTab === 'graficas' && (
