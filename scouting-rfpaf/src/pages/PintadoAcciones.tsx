@@ -8,6 +8,11 @@ import { v4 as uuidv4 } from 'uuid'
 import { Move, Copy, Trash2, PenLine, Upload, Play } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import RFPAFLogo from '../components/RFPAFLogo'
+import CapaSeguimiento, { type ConectorAnclado } from '../components/analisis/CapaSeguimiento'
+import {
+  pintarSeguimiento, pistaCercana, ponerMarca, posEnPista, pistaVivaEn,
+  type FondoLupa, type ModoPista, type Pista,
+} from '../lib/seguimiento'
 
 /* ─── Jersey SVG component ─── */
 const JERSEY_PATH = "M13 2 L6 2 L0 6 L0 16 L10 13 L10 38 L30 38 L30 13 L40 16 L40 6 L34 2 L27 2 Q23 8 20 7 Q17 8 13 2 Z"
@@ -30,7 +35,7 @@ type ToolType =
   | 'arrow-straight' | 'arrow-curved' | 'arrow-wave'
   | 'text' | 'label'
   | 'rect' | 'circle' | 'circle-dashed' | 'circle-dotdash' | 'zone'
-  | 'connector' | 'focus' | 'triangle' | 'cylinder' | 'cone'
+  | 'connector' | 'focus' | 'lupa' | 'seguir' | 'triangle' | 'cylinder' | 'cone'
   | 'dorsal'
 
 interface Pt { x: number; y: number }
@@ -61,8 +66,9 @@ interface TextEl extends BaseEl {
 }
 
 interface ShapeEl extends BaseEl {
-  tool: 'rect' | 'circle' | 'circle-dashed' | 'circle-dotdash' | 'focus' | 'triangle' | 'cylinder' | 'cone'
+  tool: 'rect' | 'circle' | 'circle-dashed' | 'circle-dotdash' | 'focus' | 'lupa' | 'triangle' | 'cylinder' | 'cone'
   x: number; y: number; w: number; h: number
+  zoom?: number   // aumento de la lupa (×)
 }
 
 interface ZoneEl extends BaseEl {
@@ -73,6 +79,9 @@ interface ZoneEl extends BaseEl {
 interface ConnectorEl extends BaseEl {
   tool: 'connector'
   points: Pt[]
+  // Extremos enganchados a una pista (misma longitud que points): el nudo sigue
+  // al jugador en vez de quedarse clavado en el sitio
+  anclas?: (string | null)[]
 }
 
 interface DorsalEl extends BaseEl {
@@ -161,6 +170,12 @@ export default function PintadoAcciones({ embedded = false, initialYtUrl }: Pint
   const [strokeWidth, setStrokeWidth] = useState(3)
   const [sizeScale, setSizeScale] = useState(100)
   const [opacity, setOpacity] = useState(100)
+  const [lupaZoom, setLupaZoom] = useState(2)                 // aumento de la lupa (×)
+  // Seguimiento de jugadores: pistas marcadas a mano e interpoladas
+  const [pistas, setPistas] = useState<Pista[]>([])
+  const [pistaActivaId, setPistaActivaId] = useState<string | null>(null)
+  const [modoPista, setModoPista] = useState<ModoPista>('aro')
+  const [radioPista, setRadioPista] = useState(34)
   const [connectorTilt, setConnectorTilt] = useState(12)      // giro elipse conector (variable)
   const [connectorFlatten, setConnectorFlatten] = useState(40) // achatado % (variable)
   const [arrowDashed, setArrowDashed] = useState(false)        // flecha discontinua (por defecto)
@@ -180,6 +195,7 @@ export default function PintadoAcciones({ embedded = false, initialYtUrl }: Pint
   const [drawStart, setDrawStart] = useState<Pt | null>(null)
   const [currentEl, setCurrentEl] = useState<DrawEl | null>(null)
   const [zonePoints, setZonePoints] = useState<Pt[]>([])
+  const [zoneAnclas, setZoneAnclas] = useState<(string | null)[]>([])
   const [ctrlDrag, setCtrlDrag] = useState<string | null>(null)  // id de flecha cuyo tirador se arrastra
 
 
@@ -220,6 +236,7 @@ export default function PintadoAcciones({ embedded = false, initialYtUrl }: Pint
 
   const svgRef = useRef<SVGSVGElement>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
+  const bgImageRef = useRef<HTMLImageElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const fillInputRef = useRef<HTMLInputElement>(null)
   const strokeInputRef = useRef<HTMLInputElement>(null)
@@ -270,12 +287,42 @@ export default function PintadoAcciones({ embedded = false, initialYtUrl }: Pint
       return
     }
 
+    // Seguir: cada clic marca dónde está el jugador en el instante actual del vídeo
+    if (tool === 'seguir') {
+      const t = currentVideoTime()
+      const activa = pistas.find(p => p.id === pistaActivaId)
+      if (activa) {
+        setPistas(prev => prev.map(p => p.id === activa.id
+          ? { ...p, marcas: ponerMarca(p.marcas, { t, x: pt.x, y: pt.y }) }
+          : p))
+      } else {
+        const nueva: Pista = {
+          id: uuidv4(),
+          nombre: `Jugadora ${pistas.length + 1}`,
+          color: strokeColor,
+          modo: modoPista,
+          radio: radioPista,
+          zoom: lupaZoom,
+          marcas: [{ t, x: pt.x, y: pt.y }],
+        }
+        setPistas(prev => [...prev, nueva])
+        setPistaActivaId(nueva.id)
+      }
+      return
+    }
+
     if (tool === 'zone' || tool === 'connector') {
+      // Si el nudo cae sobre un jugador seguido, se engancha y viajará con él
+      const ancla = tool === 'connector'
+        ? (pistaCercana(pistas, pt, currentVideoTime())?.id ?? null)
+        : null
       if (!isDrawing) {
         setIsDrawing(true)
         setZonePoints([pt])
+        setZoneAnclas([ancla])
       } else {
         setZonePoints(prev => [...prev, pt])
+        setZoneAnclas(prev => [...prev, ancla])
       }
       return
     }
@@ -293,7 +340,8 @@ export default function PintadoAcciones({ embedded = false, initialYtUrl }: Pint
 
     setIsDrawing(true)
     setDrawStart(pt)
-  }, [tool, pendingDorsal, isDrawing, getSvgPt, strokeColor, fillColor, strokeWidth, opacity])
+  }, [tool, pendingDorsal, isDrawing, getSvgPt, strokeColor, fillColor, strokeWidth, opacity,
+      pistas, pistaActivaId, modoPista, radioPista, lupaZoom, videoCurrentTime, ytCurrent])
 
   const handleMouseMove = useCallback((e: RME) => {
     if (ctrlDrag) {
@@ -325,7 +373,7 @@ export default function PintadoAcciones({ embedded = false, initialYtUrl }: Pint
           const te = orig as TextEl
           return { ...te, pos: { x: te.pos.x + dx, y: te.pos.y + dy } }
         }
-        if (orig.tool === 'rect' || orig.tool === 'circle' || orig.tool === 'circle-dashed' || orig.tool === 'circle-dotdash' || orig.tool === 'focus' || orig.tool === 'triangle' || orig.tool === 'cylinder' || orig.tool === 'cone') {
+        if (orig.tool === 'rect' || orig.tool === 'circle' || orig.tool === 'circle-dashed' || orig.tool === 'circle-dotdash' || orig.tool === 'focus' || orig.tool === 'lupa' || orig.tool === 'triangle' || orig.tool === 'cylinder' || orig.tool === 'cone') {
           const se = orig as ShapeEl
           return { ...se, x: se.x + dx, y: se.y + dy }
         }
@@ -352,13 +400,14 @@ export default function PintadoAcciones({ embedded = false, initialYtUrl }: Pint
         stroke: strokeColor, fill: strokeColor, strokeWidth, opacity,
         dashed: arrowDashed, curve: curveAmount,
       })
-    } else if (tool === 'rect' || tool === 'focus') {
+    } else if (tool === 'rect' || tool === 'focus' || tool === 'lupa') {
       setCurrentEl({
         id: 'preview', tool: tool as ShapeEl['tool'],
         x: Math.min(drawStart.x, pt.x), y: Math.min(drawStart.y, pt.y),
         w: Math.abs(pt.x - drawStart.x), h: Math.abs(pt.y - drawStart.y),
         stroke: strokeColor, fill: fillColor,
         strokeWidth, opacity,
+        ...(tool === 'lupa' ? { zoom: lupaZoom } : {}),
       })
     } else if (tool === 'circle' || tool === 'circle-dashed' || tool === 'circle-dotdash' || tool === 'triangle' || tool === 'cylinder' || tool === 'cone') {
       setCurrentEl({
@@ -429,7 +478,7 @@ export default function PintadoAcciones({ embedded = false, initialYtUrl }: Pint
     } else if (el.tool === 'text' || el.tool === 'label') {
       const te = el as TextEl
       newEl = { ...te, id: uuidv4(), pos: { x: te.pos.x + offset, y: te.pos.y + offset } }
-    } else if (el.tool === 'rect' || el.tool === 'circle' || el.tool === 'circle-dashed' || el.tool === 'circle-dotdash' || el.tool === 'focus' || el.tool === 'triangle' || el.tool === 'cylinder' || el.tool === 'cone') {
+    } else if (el.tool === 'rect' || el.tool === 'circle' || el.tool === 'circle-dashed' || el.tool === 'circle-dotdash' || el.tool === 'focus' || el.tool === 'lupa' || el.tool === 'triangle' || el.tool === 'cylinder' || el.tool === 'cone') {
       const se = el as ShapeEl
       newEl = { ...se, id: uuidv4(), x: se.x + offset, y: se.y + offset }
     } else if (el.tool === 'zone') {
@@ -454,14 +503,17 @@ export default function PintadoAcciones({ embedded = false, initialYtUrl }: Pint
   const buildPendingEl = (): DrawEl | null => {
     if (zonePoints.length === 0) return null
     if (tool === 'connector') {
-      const pts = zonePoints.filter((p, i) => {
+      const idx = zonePoints.map((_, i) => i).filter(i => {
         if (i === 0) return true
-        const prev = zonePoints[i - 1]
+        const p = zonePoints[i], prev = zonePoints[i - 1]
         return Math.hypot(p.x - prev.x, p.y - prev.y) > 8
       })
+      const pts = idx.map(i => zonePoints[i])
+      const anclas = idx.map(i => zoneAnclas[i] ?? null)
       if (pts.length >= 2) {
         return {
           id: uuidv4(), tool: 'connector', points: pts,
+          anclas: anclas.some(a => a) ? anclas : undefined,
           stroke: strokeColor, fill: strokeColor, strokeWidth, opacity,
           sizeScale, tilt: connectorTilt, flatten: connectorFlatten,
         }
@@ -482,6 +534,7 @@ export default function PintadoAcciones({ embedded = false, initialYtUrl }: Pint
     const pend = buildPendingEl()
     if (pend) setElements(prev => [...prev, pend])
     setZonePoints([])
+    setZoneAnclas([])
     setIsDrawing(false)
   }
 
@@ -719,6 +772,25 @@ export default function PintadoAcciones({ embedded = false, initialYtUrl }: Pint
       ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, W, H)
     }
 
+    // Seguimiento: va debajo de los dibujos, igual que en el lienzo
+    if (pistas.length > 0 || conectoresAnclados.length > 0) {
+      const t = currentVideoTime()
+      pintarSeguimiento({
+        ctx, W, H, t,
+        pistas,
+        conectores: conectoresAnclados.map(c => ({
+          color: c.color, grosor: c.grosor, radio: c.radio, achatado: c.achatado, giro: c.giro,
+          puntos: c.nodos.map(n => {
+            if (!n.pistaId) return { x: n.x, y: n.y }
+            const p = pistas.find(k => k.id === n.pistaId)
+            return (p && posEnPista(p, t)) || { x: n.x, y: n.y }
+          }),
+        })),
+        fondo: obtenerFondoSeguimiento(),
+        capa: document.createElement('canvas'),
+      })
+    }
+
     // Dibujos: serializar el SVG y pintarlo encima
     const clone = svg.cloneNode(true) as SVGSVGElement
     clone.setAttribute('width', String(W))
@@ -769,7 +841,12 @@ export default function PintadoAcciones({ embedded = false, initialYtUrl }: Pint
     const svg = svgRef.current
     if (!videoUrl || !video || !svg) { setExportMsg('Solo disponible con vídeo MP4 local'); return }
     const vids = moments.filter(m => m.source === 'video').sort((a, b) => a.time - b.time)
-    if (vids.length === 0) { setExportMsg('Guarda al menos un momento antes de exportar'); return }
+    // Se puede grabar solo el seguimiento, sin haber guardado ningún momento
+    const marcasPistas = pistas.flatMap(p => p.marcas.map(k => k.t))
+    if (vids.length === 0 && marcasPistas.length < 2) {
+      setExportMsg('Guarda un momento o marca un seguimiento antes de exportar')
+      return
+    }
 
     const W = svg.clientWidth, H = svg.clientHeight
     if (W === 0 || H === 0) return
@@ -785,6 +862,17 @@ export default function PintadoAcciones({ embedded = false, initialYtUrl }: Pint
         if (exportCancelRef.current) throw new Error('cancel')
         setElements(JSON.parse(JSON.stringify(m.elements)))
         setSelectedId(null)
+        // La lupa amplía el fotograma de fondo: hay que situar el vídeo en el
+        // instante del momento antes de rasterizar, o ampliaría otra imagen
+        if (m.elements.some(e => e.tool === 'lupa')) {
+          video.pause()
+          await new Promise<void>(res => {
+            const h = () => { video.removeEventListener('seeked', h); res() }
+            video.addEventListener('seeked', h)
+            video.currentTime = m.time
+          })
+          captureFrame()
+        }
         await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))
         const img = await rasterizeSvg(svg, W, H)
         overlays.push({ time: m.time, img })
@@ -804,12 +892,58 @@ export default function PintadoAcciones({ embedded = false, initialYtUrl }: Pint
 
       // Helpers de pintado/seek/reproducción por clips
       const dur = video.duration || 0
-      const paint = (overlay: HTMLImageElement | null) => {
+      const capaFoco = document.createElement('canvas')
+
+      // Los conectores enganchados a jugadores no pertenecen a un momento suelto:
+      // acompañan al seguimiento, así que se pintan durante todo el clip
+      const conectoresSeguidos = savedEls
+        .filter((e): e is ConnectorEl => e.tool === 'connector' && !!(e as ConnectorEl).anclas?.some(a => a))
+        .map(c => {
+          const elSize = c.sizeScale ?? sizeScale
+          const swc = c.strokeWidth * (elSize / 100)
+          return {
+            color: c.stroke, grosor: swc,
+            radio: Math.max(16 * (elSize / 100), swc * 1.5),
+            achatado: (c.flatten ?? connectorFlatten) / 100,
+            giro: c.tilt ?? connectorTilt,
+            nodos: c.points.map((p, i) => ({ pistaId: c.anclas?.[i] ?? null, x: p.x, y: p.y })),
+          }
+        })
+
+      const conectoresEn = (t: number) => conectoresSeguidos
+        // Si alguno de sus extremos ya no está en juego, el conector desaparece
+        .filter(c => c.nodos.every(n => {
+          if (!n.pistaId) return true
+          const p = pistas.find(k => k.id === n.pistaId)
+          return !!p && pistaVivaEn(p, t)
+        }))
+        .map(c => ({
+          color: c.color, grosor: c.grosor, radio: c.radio, achatado: c.achatado, giro: c.giro,
+          puntos: c.nodos.map(n => {
+            if (!n.pistaId) return { x: n.x, y: n.y }
+            const p = pistas.find(k => k.id === n.pistaId)
+            return (p && posEnPista(p, t)) || { x: n.x, y: n.y }
+          }),
+        }))
+
+      const paint = (overlay: HTMLImageElement | null, tSeg?: number) => {
         ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H)
         if (video.videoWidth) {
           const sc = Math.min(W / video.videoWidth, H / video.videoHeight)
           const dw = video.videoWidth * sc, dh = video.videoHeight * sc
           ctx.drawImage(video, (W - dw) / 2, (H - dh) / 2, dw, dh)
+        }
+        // El seguimiento se recalcula en cada fotograma: es lo que hace que
+        // aros, focos, lupas y conectores viajen con las jugadoras
+        const t = tSeg ?? video.currentTime
+        if (pistas.length || conectoresSeguidos.length) {
+          pintarSeguimiento({
+            ctx, W, H, t,
+            pistas,
+            conectores: conectoresEn(t),
+            fondo: video.videoWidth ? { fuente: video, anchoNatural: video.videoWidth, altoNatural: video.videoHeight } : null,
+            capa: capaFoco,
+          })
         }
         if (overlay) ctx.drawImage(overlay, 0, 0, W, H)
       }
@@ -828,11 +962,11 @@ export default function PintadoAcciones({ embedded = false, initialYtUrl }: Pint
         }
         requestAnimationFrame(loop)
       })
-      const freeze = (overlay: HTMLImageElement, ms: number) => new Promise<void>(resolve => {
+      const freeze = (overlay: HTMLImageElement, ms: number, tSeg: number) => new Promise<void>(resolve => {
         const end = performance.now() + ms
         const loop = () => {
           if (!exportingRef.current) { resolve(); return }
-          paint(overlay)
+          paint(overlay, tSeg)
           if (performance.now() >= end) { resolve(); return }
           requestAnimationFrame(loop)
         }
@@ -843,6 +977,19 @@ export default function PintadoAcciones({ embedded = false, initialYtUrl }: Pint
       const PRE = exportPre, POST = exportPost, HOLD_MS = Math.max(exportHold, 0.5) * 1000
       video.muted = true
       rec.start(100)
+
+      // Sin momentos guardados: se graba de un tirón el tramo que dura el seguimiento
+      if (overlays.length === 0) {
+        const t0 = Math.max(0, Math.min(...marcasPistas) - PRE)
+        const t1 = Math.min(dur || Infinity, Math.max(...marcasPistas) + POST)
+        setExportMsg('Grabando el seguimiento…')
+        video.pause()
+        await seekTo(t0)
+        await playUntil(() => video.currentTime >= t1 || video.ended, null)
+        video.pause()
+        setExportProgress(1)
+      }
+
       for (let mi = 0; mi < overlays.length; mi++) {
         if (!exportingRef.current || exportCancelRef.current) break
         const m = overlays[mi]
@@ -855,7 +1002,7 @@ export default function PintadoAcciones({ embedded = false, initialYtUrl }: Pint
         await playUntil(() => video.currentTime >= m.time || video.ended, null)
         video.pause()
         // Fase B: congelar el frame y mostrar los dibujos
-        await freeze(m.img, HOLD_MS)
+        await freeze(m.img, HOLD_MS, m.time)
         // Fase C: reproducir hasta POST s después
         if (!video.ended && video.currentTime < endT) {
           await playUntil(() => video.currentTime >= endT || video.ended, null)
@@ -975,6 +1122,52 @@ export default function PintadoAcciones({ embedded = false, initialYtUrl }: Pint
     if (videoRef.current) videoRef.current.currentTime = t
   }
 
+  // Lo que la lupa amplía: el fotograma congelado del vídeo o la imagen de fondo.
+  // Con YouTube el navegador no deja leer los píxeles del iframe, así que no hay nada que ampliar.
+  const fondoLupa = videoFrameCanvas ?? bgImage ?? null
+
+  // Fuente de píxeles para la lupa de seguimiento, que sí puede leer el vídeo en marcha
+  const obtenerFondoSeguimiento = useCallback((): FondoLupa | null => {
+    const v = videoRef.current
+    if (v && v.videoWidth > 0) {
+      return { fuente: v, anchoNatural: v.videoWidth, altoNatural: v.videoHeight }
+    }
+    const img = bgImageRef.current
+    if (img && img.naturalWidth > 0) {
+      return { fuente: img, anchoNatural: img.naturalWidth, altoNatural: img.naturalHeight }
+    }
+    return null
+  }, [])
+
+  // El tiempo se lee en cada fotograma. En YouTube se pregunta al reproductor en
+  // vez de usar el sondeo de 200 ms, o el seguimiento iría a saltitos.
+  const obtenerTiempoSeguimiento = useCallback(() => {
+    if (videoUrl && videoRef.current) return videoRef.current.currentTime
+    const yp = ytPlayerRef.current
+    if (yp?.getCurrentTime) {
+      try { return yp.getCurrentTime() || 0 } catch { /* aún no está listo */ }
+    }
+    return ytCurrent
+  }, [videoUrl, ytCurrent])
+
+  // Conectores con algún extremo enganchado: los pinta la capa de seguimiento,
+  // no el SVG, porque tienen que moverse fotograma a fotograma
+  const conectoresAnclados: ConectorAnclado[] = elements
+    .filter((e): e is ConnectorEl => e.tool === 'connector' && !!(e as ConnectorEl).anclas?.some(a => a))
+    .map(c => {
+      const elSize = c.sizeScale ?? sizeScale
+      const sw = c.strokeWidth * (elSize / 100)
+      return {
+        id: c.id,
+        color: c.stroke,
+        grosor: sw,
+        radio: Math.max(16 * (elSize / 100), sw * 1.5),
+        achatado: (c.flatten ?? connectorFlatten) / 100,
+        giro: c.tilt ?? connectorTilt,
+        nodos: c.points.map((p, i) => ({ pistaId: c.anclas?.[i] ?? null, x: p.x, y: p.y })),
+      }
+    })
+
   function renderEl(el: DrawEl, key: string) {
     const isSelected = el.id === selectedId
     const alpha = el.opacity / 100
@@ -1069,13 +1262,54 @@ export default function PintadoAcciones({ embedded = false, initialYtUrl }: Pint
       )
     }
 
+    // El foco no pinta encima del jugador: lo deja al descubierto mientras la capa
+    // de oscurecido apaga el resto. Aquí solo va el aro y el derrame de luz.
     if (el.tool === 'focus') {
       const se = el as ShapeEl
+      const cx = se.x + se.w / 2, cy = se.y + se.h / 2
+      const rx = Math.abs(se.w / 2), ry = Math.abs(se.h / 2)
       return (
-        <ellipse key={key} cx={se.x + se.w / 2} cy={se.y + se.h / 2}
-          rx={Math.abs(se.w / 2)} ry={Math.abs(se.h / 2)}
-          fill={se.fill} fillOpacity={0.55} stroke={se.stroke} strokeWidth={sw}
-          opacity={alpha} style={selStyle} onPointerDown={onElMouseDown} cursor="move" />
+        <g key={key} style={selStyle}>
+          <ellipse cx={cx} cy={cy} rx={rx * 1.12} ry={ry * 1.12}
+            fill="none" stroke={se.stroke} strokeWidth={sw * 3.5} strokeOpacity={0.16 * alpha} />
+          <ellipse cx={cx} cy={cy} rx={rx} ry={ry}
+            fill="#ffffff" fillOpacity={0.05 * alpha}
+            stroke={se.stroke} strokeWidth={sw * 1.4} strokeOpacity={0.9 * alpha}
+            onPointerDown={onElMouseDown} cursor="move" />
+        </g>
+      )
+    }
+
+    // Lupa: recorta un círculo y dentro repinta el fondo ampliado alrededor de su centro.
+    // El fondo es el mismo <image> a pantalla completa, así que encaja al píxel.
+    if (el.tool === 'lupa') {
+      const se = el as ShapeEl
+      const cx = se.x + se.w / 2, cy = se.y + se.h / 2
+      const rx = Math.abs(se.w / 2), ry = Math.abs(se.h / 2)
+      const z = se.zoom ?? 2
+      return (
+        <g key={key} style={selStyle} opacity={alpha}>
+          <defs>
+            <clipPath id={`lupa-recorte-${key}`}>
+              <ellipse cx={cx} cy={cy} rx={rx} ry={ry} />
+            </clipPath>
+          </defs>
+          {fondoLupa ? (
+            <g clipPath={`url(#lupa-recorte-${key})`}>
+              <g transform={`translate(${cx} ${cy}) scale(${z}) translate(${-cx} ${-cy})`}>
+                <image href={fondoLupa} x="0" y="0" width="100%" height="100%"
+                  preserveAspectRatio="xMidYMid meet" />
+              </g>
+            </g>
+          ) : (
+            <ellipse cx={cx} cy={cy} rx={rx} ry={ry} fill="#000000" fillOpacity={0.25} />
+          )}
+          <ellipse cx={cx} cy={cy} rx={rx} ry={ry}
+            fill="none" stroke={se.stroke} strokeWidth={sw * 1.6}
+            onPointerDown={onElMouseDown} cursor="move" />
+          <ellipse cx={cx} cy={cy} rx={rx * 1.06} ry={ry * 1.06}
+            fill="none" stroke="#000000" strokeOpacity={0.25} strokeWidth={sw} pointerEvents="none" />
+        </g>
       )
     }
 
@@ -1249,11 +1483,20 @@ export default function PintadoAcciones({ embedded = false, initialYtUrl }: Pint
   const selIsConnector = selectedEl?.tool === 'connector'
   const selIsArrow = selectedEl?.tool === 'arrow-straight' || selectedEl?.tool === 'arrow-curved' || selectedEl?.tool === 'arrow-wave'
   const selIsCurvedArrow = selectedEl?.tool === 'arrow-curved'
+  const selIsLupa = selectedEl?.tool === 'lupa'
   // Aplica un cambio de estilo al elemento seleccionado, o al valor por defecto si no hay selección
   const updateSelected = (patch: Partial<DrawEl>) => {
     if (!selectedId) return
     setElements(prev => prev.map(el => el.id === selectedId ? { ...el, ...patch } as DrawEl : el))
   }
+
+  // Focos activos (incluido el que se está dibujando): apagan el resto de la imagen
+  const focos = [...elements, ...(currentEl ? [currentEl] : [])]
+    .filter(e => e.tool === 'focus') as ShapeEl[]
+  // Cuánto se oscurece lo de fuera: lo manda la transparencia del foco más marcado
+  const focoOscuridad = focos.length
+    ? 0.68 * (Math.max(...focos.map(f => f.opacity)) / 100)
+    : 0
 
   return (
     <div className="h-full flex flex-col overflow-hidden">
@@ -1377,7 +1620,7 @@ export default function PintadoAcciones({ embedded = false, initialYtUrl }: Pint
             <button
               onClick={exportVideo}
               disabled={!!videoError || exporting}
-              title="Generar un vídeo con los dibujos incrustados en cada momento (necesita al menos un momento guardado)"
+              title="Generar un vídeo con los dibujos incrustados y el seguimiento en movimiento (necesita un momento guardado o un seguimiento marcado)"
               className="px-3 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-700 disabled:opacity-40 text-white font-bold text-sm transition-colors whitespace-nowrap"
             >
               🎬 Exportar vídeo
@@ -1537,6 +1780,117 @@ export default function PintadoAcciones({ embedded = false, initialYtUrl }: Pint
               }}
               className="w-full lab-range text-rfpaf-red cursor-pointer" />
           </div>
+
+          {/* Seguimiento de jugadores */}
+          {(tool === 'seguir' || pistas.length > 0) && (
+            <div className="mb-4 border-t border-gray-200 pt-3">
+              <p className="text-xs font-bold text-gray-600 mb-2 uppercase tracking-wide">Seguimiento</p>
+
+              {tool === 'seguir' && (
+                <p className="text-[10px] text-gray-500 leading-snug mb-2 bg-blue-50 rounded-lg px-2 py-1.5">
+                  Pon el vídeo donde empiece la jugada y pincha sobre la jugadora. Avanza
+                  un par de segundos y vuelve a pinchar encima. Con dos o tres marcas basta:
+                  la app rellena el movimiento.
+                </p>
+              )}
+
+              {tool === 'seguir' && (
+                <>
+                  <div className="grid grid-cols-3 gap-1 mb-2">
+                    {(['aro', 'foco', 'lupa'] as ModoPista[]).map(m => (
+                      <button key={m}
+                        onClick={() => {
+                          setModoPista(m)
+                          if (pistaActivaId) setPistas(prev => prev.map(p => p.id === pistaActivaId ? { ...p, modo: m } : p))
+                        }}
+                        className={`text-[10px] font-semibold rounded-lg py-1.5 border transition-colors ${
+                          modoPista === m ? 'bg-rfpaf-blue text-white border-rfpaf-blue' : 'bg-white text-gray-600 border-gray-300'
+                        }`}>
+                        {m === 'aro' ? 'Aro' : m === 'foco' ? 'Foco' : 'Lupa'}
+                      </button>
+                    ))}
+                  </div>
+                  <label className="text-[10px] font-semibold text-gray-500 uppercase">Tamaño: {radioPista}px</label>
+                  <input type="range" min={16} max={90} value={radioPista}
+                    onChange={(e: ChangeEvent<HTMLInputElement>) => {
+                      const v = +e.target.value
+                      setRadioPista(v)
+                      if (pistaActivaId) setPistas(prev => prev.map(p => p.id === pistaActivaId ? { ...p, radio: v } : p))
+                    }}
+                    className="w-full lab-range text-rfpaf-blue cursor-pointer mb-2" />
+                </>
+              )}
+
+              {pistas.length === 0 ? (
+                <p className="text-[10px] text-gray-400">Todavía no sigues a nadie.</p>
+              ) : (
+                <div className="space-y-1.5">
+                  {pistas.map(p => (
+                    <div key={p.id}
+                      className={`rounded-lg border px-2 py-1.5 ${
+                        p.id === pistaActivaId ? 'border-rfpaf-blue bg-blue-50' : 'border-gray-200'
+                      }`}>
+                      <div className="flex items-center gap-2">
+                        <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: p.color }} />
+                        <input
+                          value={p.nombre}
+                          onChange={(e: ChangeEvent<HTMLInputElement>) =>
+                            setPistas(prev => prev.map(k => k.id === p.id ? { ...k, nombre: e.target.value } : k))}
+                          className="flex-1 min-w-0 text-[11px] font-semibold bg-transparent focus:outline-none"
+                        />
+                        <button
+                          onClick={() => setPistas(prev => prev.filter(k => k.id !== p.id))}
+                          className="text-red-400 hover:text-red-600 flex-shrink-0" title="Borrar seguimiento">
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                      <div className="flex items-center justify-between mt-1">
+                        <span className="text-[9px] text-gray-400">
+                          {p.marcas.length} {p.marcas.length === 1 ? 'marca' : 'marcas'}
+                          {p.marcas.length > 1 && ` · ${fmtTime(p.marcas[0].t)}–${fmtTime(p.marcas[p.marcas.length - 1].t)}`}
+                        </span>
+                        <button
+                          onClick={() => setPistaActivaId(p.id === pistaActivaId ? null : p.id)}
+                          className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${
+                            p.id === pistaActivaId ? 'bg-rfpaf-blue text-white' : 'bg-gray-100 text-gray-500'
+                          }`}>
+                          {p.id === pistaActivaId ? 'marcando' : 'marcar'}
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                  {tool === 'seguir' && (
+                    <button
+                      onClick={() => setPistaActivaId(null)}
+                      className="w-full text-[10px] font-semibold text-rfpaf-blue border border-rfpaf-blue/30 rounded-lg py-1.5 hover:bg-blue-50">
+                      + Seguir a otra jugadora
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Lupa: cuánto amplía — solo visible al usar o seleccionar una lupa */}
+          {(tool === 'lupa' || selIsLupa) && (
+            <div className="mb-4">
+              <label className="text-xs font-semibold text-gray-600 mb-2 block uppercase tracking-wide">
+                Aumento: {(selIsLupa ? ((selectedEl as ShapeEl).zoom ?? lupaZoom) : lupaZoom).toFixed(1)}×
+              </label>
+              <input type="range" min={12} max={50} step={1}
+                value={(selIsLupa ? ((selectedEl as ShapeEl).zoom ?? lupaZoom) : lupaZoom) * 10}
+                onChange={(e: ChangeEvent<HTMLInputElement>) => {
+                  const v = +e.target.value / 10
+                  if (selIsLupa) updateSelected({ zoom: v }); else setLupaZoom(v)
+                }}
+                className="w-full lab-range text-rfpaf-blue cursor-pointer" />
+              {!fondoLupa && (
+                <p className="text-[9px] text-gray-400 mt-1 leading-tight">
+                  La lupa necesita un vídeo pausado o una imagen de fondo. Sobre YouTube no puede ampliar.
+                </p>
+              )}
+            </div>
+          )}
 
           {/* Connector ellipse: giro y achatado (perspectiva) — solo visibles al usar/seleccionar conector */}
           {(tool === 'connector' || selIsConnector) && (
@@ -1783,8 +2137,11 @@ export default function PintadoAcciones({ embedded = false, initialYtUrl }: Pint
 
                   <button
                     onClick={exportVideo}
-                    disabled={exporting || !videoUrl || moments.filter(m => m.source === 'video').length === 0}
-                    title={!videoUrl ? 'Solo disponible con vídeo MP4 local' : 'Generar un vídeo con los dibujos incrustados'}
+                    disabled={exporting || !videoUrl || (
+                      moments.filter(m => m.source === 'video').length === 0 &&
+                      pistas.every(p => p.marcas.length < 2)
+                    )}
+                    title={!videoUrl ? 'Solo disponible con vídeo MP4 local' : 'Generar un vídeo con los dibujos incrustados y el seguimiento en movimiento'}
                     className="w-full px-3 py-2 rounded-lg bg-purple-600 hover:bg-purple-700 disabled:opacity-40 text-white text-xs font-bold transition-colors"
                   >
                     🎬 Exportar vídeo anotado
@@ -1831,6 +2188,7 @@ export default function PintadoAcciones({ embedded = false, initialYtUrl }: Pint
           {/* Fondo: imagen estática */}
           {bgImage && !videoUrl && (
             <img
+              ref={bgImageRef}
               src={bgImage} alt="fondo"
               className="absolute inset-0 w-full h-full object-contain pointer-events-none z-0"
             />
@@ -1857,6 +2215,40 @@ export default function PintadoAcciones({ embedded = false, initialYtUrl }: Pint
             </div>
           )}
 
+          {/* Capa de seguimiento: aros, focos, lupas y conectores que van con el jugador.
+              Se pinta sobre canvas para que el lienzo y el vídeo grabado salgan idénticos. */}
+          <CapaSeguimiento
+            pistas={pistas}
+            conectores={conectoresAnclados}
+            obtenerTiempo={obtenerTiempoSeguimiento}
+            obtenerFondo={obtenerFondoSeguimiento}
+          />
+
+          {/* En móvil y tablet, elegir el modo de seguimiento sin salir del lienzo:
+              el panel de estilos está en otra pestaña y obligaba a ir y volver */}
+          {tool === 'seguir' && (
+            <div className="lg:hidden absolute top-2 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1 bg-white/95 backdrop-blur-sm rounded-full shadow-lg px-1.5 py-1">
+              {(['aro', 'foco', 'lupa'] as ModoPista[]).map(m => (
+                <button key={m}
+                  onClick={() => {
+                    setModoPista(m)
+                    if (pistaActivaId) setPistas(prev => prev.map(p => p.id === pistaActivaId ? { ...p, modo: m } : p))
+                  }}
+                  className={`text-[11px] font-bold rounded-full px-3 py-1.5 transition-colors ${
+                    modoPista === m ? 'bg-rfpaf-blue text-white' : 'text-gray-500'
+                  }`}>
+                  {m === 'aro' ? 'Aro' : m === 'foco' ? 'Foco' : 'Lupa'}
+                </button>
+              ))}
+              <span className="w-px h-5 bg-gray-200 mx-0.5" />
+              <button
+                onClick={() => setPistaActivaId(null)}
+                className="text-[11px] font-bold rounded-full px-3 py-1.5 text-rfpaf-blue">
+                {pistaActivaId ? 'Otra' : 'Nueva'}
+              </button>
+            </div>
+          )}
+
           {/* Lienzo SVG — siempre encima (z-10) capturando eventos (ratón + táctil).
               Mientras el vídeo se reproduce, ocultamos los dibujos para no taparlo. */}
           <svg
@@ -1868,7 +2260,36 @@ export default function PintadoAcciones({ embedded = false, initialYtUrl }: Pint
             onPointerUp={handleMouseUp}
             onDoubleClick={handleDblClick}
           >
-            {!mediaPlaying && elements.map(el => renderEl(el, el.id))}
+            {/* Capa de foco: oscurece todo salvo lo que hay dentro de cada foco.
+                Va la primera para quedar por debajo del resto de dibujos. */}
+            {!mediaPlaying && focos.length > 0 && (
+              <>
+                <defs>
+                  {/* El agujero se difumina hacia el borde para que la luz no corte en seco */}
+                  <radialGradient id="foco-luz">
+                    <stop offset="0%" stopColor="#000000" />
+                    <stop offset="70%" stopColor="#000000" />
+                    <stop offset="100%" stopColor="#ffffff" />
+                  </radialGradient>
+                  <mask id="foco-mascara">
+                    <rect x="0" y="0" width="100%" height="100%" fill="#ffffff" />
+                    {focos.map((f, i) => (
+                      <ellipse key={`${f.id}-${i}`}
+                        cx={f.x + f.w / 2} cy={f.y + f.h / 2}
+                        rx={Math.abs(f.w / 2) * 1.1} ry={Math.abs(f.h / 2) * 1.1}
+                        fill="url(#foco-luz)" />
+                    ))}
+                  </mask>
+                </defs>
+                <rect x="0" y="0" width="100%" height="100%" fill="#000000"
+                  opacity={focoOscuridad} mask="url(#foco-mascara)" pointerEvents="none" />
+              </>
+            )}
+
+            {/* Los conectores anclados los pinta la capa de seguimiento, no aquí */}
+            {!mediaPlaying && elements
+              .filter(el => !(el.tool === 'connector' && (el as ConnectorEl).anclas?.some(a => a)))
+              .map(el => renderEl(el, el.id))}
             {!mediaPlaying && currentEl && renderEl(currentEl, 'preview')}
 
             {!mediaPlaying && zonePoints.length >= 1 && (
@@ -2042,6 +2463,12 @@ export default function PintadoAcciones({ embedded = false, initialYtUrl }: Pint
                 <ToolBtn title="Foco" active={tool === 'focus'} onClick={() => chooseTool('focus')}>
                   <IcoFocus />
                 </ToolBtn>
+                <ToolBtn title="Lupa" active={tool === 'lupa'} onClick={() => chooseTool('lupa')}>
+                  <IcoLupa />
+                </ToolBtn>
+                <ToolBtn title="Seguir" active={tool === 'seguir'} onClick={() => chooseTool('seguir')}>
+                  <IcoSeguir />
+                </ToolBtn>
                 <ToolBtn title="Cilindro" active={tool === 'cylinder'} onClick={() => chooseTool('cylinder')}>
                   <IcoCylinder />
                 </ToolBtn>
@@ -2187,6 +2614,26 @@ function IcoFocus() {
   return (
     <svg viewBox="0 0 18 18" width="14" height="14">
       <ellipse cx="9" cy="11" rx="8" ry="5" fill="currentColor" fillOpacity="0.45" />
+    </svg>
+  )
+}
+
+function IcoSeguir() {
+  return (
+    <svg viewBox="0 0 18 18" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round">
+      <ellipse cx="5" cy="13" rx="3" ry="1.5" />
+      <ellipse cx="13" cy="6" rx="3" ry="1.5" />
+      <path d="M5.5 11.6 Q10 6 12.4 6.6" strokeDasharray="2 1.6" />
+    </svg>
+  )
+}
+
+function IcoLupa() {
+  return (
+    <svg viewBox="0 0 18 18" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+      <circle cx="8" cy="8" r="5.2" />
+      <path d="M11.8 11.8 L16 16" />
+      <path d="M6.2 8 H9.8 M8 6.2 V9.8" strokeWidth="1.2" />
     </svg>
   )
 }
