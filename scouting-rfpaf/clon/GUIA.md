@@ -35,11 +35,16 @@ real por varias personas, así que conviene tener resuelto lo de siempre —
 información a las jugadoras y sus familias, y quién accede a qué. Esto último lo
 cubre el control de acceso por perfiles que ya trae la instalación (paso 7).
 
-**Por qué cuentas nuevas y no las tuyas.** El plan gratuito de Supabase permite
-dos proyectos por organización y ya tienes los dos ocupados (`PROYECTO APP WEB
-FEDERACION` y `web scouting`). Un tercero te obligaría a pasar a plan de pago.
-Y sobre todo: los datos de la federación no deberían colgar de una cuenta de Gmail
-personal.
+**Por qué cuentas nuevas y no las tuyas.** Porque los datos de la federación no
+deberían colgar de una cuenta de Gmail personal.
+
+**Ojo con el límite de proyectos gratuitos de Supabase.** No es por organización,
+sino **por persona**: cada usuario puede ser propietario o administrador de un
+máximo de 2 proyectos gratuitos sumando *todas* las organizaciones a las que
+pertenezca. Es decir, si te invitan como Owner a la organización de la federación
+y tú ya tienes 2 proyectos gratis, no se podrá crear ninguno ahí hasta que
+liberes un hueco (pausando o borrando uno de los tuyos) o alguien pase a plan de
+pago. Pausar no destruye nada y se deshace cuando quieras.
 
 ---
 
