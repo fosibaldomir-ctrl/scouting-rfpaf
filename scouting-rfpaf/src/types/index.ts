@@ -48,8 +48,13 @@ export interface Valoracion {
   descripcionJugadora: string
   observaciones: string
   cierre: string
+  // Cómo se observó el partido. Opcional: los informes anteriores a este campo
+  // no lo llevan y se muestran como "sin especificar".
+  tipoVisionado?: TipoVisionado
   creadoEn: string
 }
+
+export type TipoVisionado = 'directo' | 'video'
 
 export interface FichaJugadora {
   id: string
@@ -125,6 +130,10 @@ export interface CategoriaItem {
 export interface ItemDemarcacion {
   posicion: Demarcacion
   items: [string, string, string, string, string, string]
+  // Para cada ítem, si mide algo que la jugadora hace CON el balón en los pies
+  // (true) o sin él (false). Permite separar el rendimiento con y sin balón sin
+  // pedirle ningún dato más al observador.
+  conBalon: [boolean, boolean, boolean, boolean, boolean, boolean]
 }
 
 export type WizardStep = 1 | 2 | 3 | 4 | 5

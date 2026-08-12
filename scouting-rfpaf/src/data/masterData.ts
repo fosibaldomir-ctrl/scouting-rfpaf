@@ -91,38 +91,47 @@ export const DEMARCACIONES_ITEMS: ItemDemarcacion[] = [
   {
     posicion: 'PORTERO',
     items: ['Comunicación', 'Golpeo Corto', 'Golpeo Largo', 'Bajo Palos', '1 contra 1', 'Balones Laterales'],
+    conBalon: [false, true, true, false, false, false],
   },
   {
     posicion: 'LATERAL',
     items: ['Manejo', 'Recorrido', 'Centro', 'Duelos', 'Duelos Aéreos', 'Frontal'],
+    conBalon: [true, false, true, false, false, false],
   },
   {
     posicion: 'CENTRAL',
     items: ['Salida de Balón', 'Pase Largo', 'Conducción', 'Duelos', 'Duelos Aéreos', 'Frontal'],
+    conBalon: [true, true, true, false, false, false],
   },
   {
     posicion: 'MEDIO CENTRO DEF.',
     items: ['Pases Cercanos', 'Pases Lejanos', 'Pausa', 'Equilibrio', 'Colocación', 'Duelos'],
+    conBalon: [true, true, true, false, false, false],
   },
   {
     posicion: 'MEDIO CENTRO OF.',
     items: ['Manejo', 'Llegada', 'Último Pase', 'Remate', 'Interpretación', 'Ayudas'],
+    conBalon: [true, false, true, true, false, false],
   },
   {
     posicion: 'INTERIOR',
     items: ['Duelos', 'Llegada', 'Centro', 'Manejo', 'Interpretación', 'Ayudas'],
+    conBalon: [false, false, true, true, false, false],
   },
   {
     posicion: 'MEDIA PUNTA',
     items: ['Manejo', 'Llegada', 'Último Pase', 'Remate', 'Interpretación', 'Ayudas'],
+    conBalon: [true, false, true, true, false, false],
   },
   {
     posicion: 'EXTERIOR',
     items: ['Duelos', 'Llegada', 'Centro', 'Manejo', 'Interpretación', 'Ayudas'],
+    conBalon: [false, false, true, true, false, false],
   },
   {
     posicion: 'DELANTERO',
     items: ['Juego de Espaldas', 'Remate', 'Tiro', 'Desmarque', 'Interpretación', 'Ayudas'],
+    conBalon: [true, true, true, false, false, false],
   },
 ]
 

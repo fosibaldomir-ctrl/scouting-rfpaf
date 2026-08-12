@@ -1,7 +1,10 @@
-import type { FichaJugadora, Observador, Valoracion } from '../../types'
+import type { FichaJugadora, Observador, Propuesta, Valoracion } from '../../types'
 import RadarSVG from './RadarSVG'
 import { DEMARCACIONES_ITEMS } from '../../data/masterData'
-import { mediaFisicaDe, mediaTecnicaDe, fmtMedia } from '../../utils/valoracionStats'
+import {
+  mediaFisicaDe, mediaTecnicaDe, fmtMedia,
+  aCien, conSinBalonDe, mediaConSinBalon, repartoPor,
+} from '../../utils/valoracionStats'
 
 interface Props {
   ficha: FichaJugadora
@@ -65,6 +68,19 @@ export default function FichaPDFTemplate({ ficha, obsNombre, clubNombre, valorac
   const sufijoMedia = valoraciones.length > 1 ? `media de ${valoraciones.length} valoraciones` : 'una valoración'
   // El historial llega ordenado de más reciente a más antiguo; la evolución se lee al revés.
   const valoracionesAsc = [...valoraciones].reverse()
+
+  // Análisis del conjunto de informes, el mismo que se ve en pantalla
+  const conBalonFicha = DEMARCACIONES_ITEMS.find((d) => d.posicion === ficha.demarcacion)?.conBalon
+    ?? [true, true, true, false, false, false]
+  const medias = mediaConSinBalon(valoraciones, conBalonFicha)
+  const sumaMedias = medias ? medias.con + medias.sin : 0
+  const pctCon = sumaMedias ? Math.round((medias!.con / sumaMedias) * 100) : 50
+  const reparto = repartoPor(valoraciones, PROPUESTAS_PDF, (v) => v.propuesta)
+  const visionado = repartoPor(valoraciones, ['directo', 'video'] as const, (v) => v.tipoVisionado)
+  const sinVisionado = valoraciones.filter((v) => !v.tipoVisionado).length
+  const mejores = [...valoraciones]
+    .sort((a, b) => (b.valoracionGeneral ?? 0) - (a.valoracionGeneral ?? 0))
+    .slice(0, 5)
 
   return (
     <div
@@ -398,6 +414,152 @@ export default function FichaPDFTemplate({ ficha, obsNombre, clubNombre, valorac
           <TextBlock blockId="txt-cierre" label="Cierre" text={ficha.cierre} />
         )}
 
+        {/* ── Con balón y sin balón ──── */}
+        {medias && (
+          <SectionCard blockId="analisis-balon" title="Con Balón y Sin Balón">
+            <p style={{ fontSize: 10, color: '#64748b', margin: '0 0 8px' }}>
+              Cada informe se divide en lo que hace con el balón en los pies y lo que hace sin él,
+              para ver en qué faceta destaca la jugadora.
+            </p>
+            <div style={{ display: 'flex', gap: 12, alignItems: 'stretch' }}>
+              <div style={{ flex: 1 }}>
+                {/* Sin flex para centrar: al exportar a imagen el texto se descoloca.
+                    Con line-height igual al alto queda clavado. */}
+                <div style={{ height: 20, borderRadius: 6, overflow: 'hidden', marginBottom: 10, fontSize: 0 }}>
+                  <div style={{
+                    display: 'inline-block', width: `${pctCon}%`, height: 20,
+                    background: '#1a3a6b', color: 'white',
+                    fontSize: 10, fontWeight: 800, lineHeight: '20px', textAlign: 'center',
+                  }}>{pctCon}%</div>
+                  <div style={{
+                    display: 'inline-block', width: `${100 - pctCon}%`, height: 20,
+                    background: '#c0392b', color: 'white',
+                    fontSize: 10, fontWeight: 800, lineHeight: '20px', textAlign: 'center',
+                  }}>{100 - pctCon}%</div>
+                </div>
+                <div style={{ display: 'flex', gap: 10 }}>
+                  {[
+                    { etiqueta: 'Promedio con balón', valor: medias.con },
+                    { etiqueta: 'Promedio sin balón', valor: medias.sin },
+                  ].map(({ etiqueta, valor }) => (
+                    <div key={etiqueta} style={{
+                      flex: 1, border: '1px solid #e2e8f0', borderRadius: 8,
+                      background: '#f8fafc', padding: '10px 6px', textAlign: 'center',
+                    }}>
+                      <div style={{ fontSize: 9, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase' }}>{etiqueta}</div>
+                      <div style={{ fontSize: 26, fontWeight: 900, color: colorNotaPDF(valor), lineHeight: 1.1 }}>{valor}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div style={{ flexShrink: 0 }}>
+                <CuadranteSVG valoraciones={valoraciones} conBalon={conBalonFicha} />
+              </div>
+            </div>
+          </SectionCard>
+        )}
+
+        {/* ── Reparto de los informes ──── */}
+        {valoraciones.length > 0 && (
+          <SectionCard blockId="analisis-reparto" title="Qué dicen los informes en conjunto">
+            <div style={{ display: 'flex', gap: 12 }}>
+              {/* Propuesta */}
+              <div style={{ flex: 1.2 }}>
+                <div style={{ fontSize: 10, fontWeight: 800, color: '#475569', marginBottom: 5 }}>
+                  Según la propuesta de cada informe
+                </div>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 10 }}>
+                  <tbody>
+                    {reparto.map(r => (
+                      <tr key={r.clave} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                        <td style={{ padding: '4px 2px', fontWeight: 800, color: COLOR_PROPUESTA_PDF[r.clave] }}>{r.clave}</td>
+                        <td style={{ padding: '4px 2px', textAlign: 'center', color: '#475569' }}>{r.n}</td>
+                        <td style={{ padding: '4px 2px', textAlign: 'right', fontWeight: 700, color: '#1a3a6b' }}>{r.pct}%</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+
+                <div style={{ fontSize: 10, fontWeight: 800, color: '#475569', margin: '10px 0 5px' }}>
+                  Cómo se observaron
+                </div>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 10 }}>
+                  <tbody>
+                    {visionado.map(r => (
+                      <tr key={r.clave} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                        <td style={{ padding: '4px 2px', color: '#475569' }}>
+                          {r.clave === 'directo' ? 'En directo / TV' : 'Vídeo'}
+                        </td>
+                        <td style={{ padding: '4px 2px', textAlign: 'center', color: '#475569' }}>{r.n}</td>
+                        <td style={{ padding: '4px 2px', textAlign: 'right', fontWeight: 700, color: '#1a3a6b' }}>{r.pct}%</td>
+                      </tr>
+                    ))}
+                    {sinVisionado > 0 && (
+                      <tr>
+                        <td colSpan={3} style={{ padding: '4px 2px', fontSize: 9, color: '#94a3b8' }}>
+                          {sinVisionado} sin especificar
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Mejores informes */}
+              <div style={{ flex: 2 }}>
+                <div style={{ fontSize: 10, fontWeight: 800, color: '#475569', marginBottom: 5 }}>
+                  Mejores informes por valoración
+                </div>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 9.5 }}>
+                  <thead>
+                    <tr style={{ background: '#f8fafc' }}>
+                      {['Fecha', 'Partido', 'Observador', 'V', 'Propuesta'].map(h => (
+                        <th key={h} style={{
+                          padding: '4px 3px', textAlign: 'left', fontSize: 8.5,
+                          color: '#94a3b8', textTransform: 'uppercase', fontWeight: 800,
+                        }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {mejores.map(v => {
+                      const nota = aCien(v.valoracionGeneral ?? 0, 5)
+                      return (
+                        <tr key={v.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                          <td style={{ padding: '4px 3px', whiteSpace: 'nowrap', color: '#475569' }}>
+                            {v.fechaPartido ? new Date(v.fechaPartido).toLocaleDateString('es-ES') : '—'}
+                          </td>
+                          <td style={{ padding: '4px 3px', color: '#475569' }}>{v.local} – {v.visitante}</td>
+                          <td style={{ padding: '4px 3px', color: '#475569' }}>
+                            {observadores.find(o => o.id === v.observador)?.nombre ?? v.observador}
+                          </td>
+                          <td style={{ padding: '4px 3px' }}>
+                            {/* Marcado como "pill": al exportar se redibuja sobre canvas,
+                                que es la única forma de que el número quede centrado */}
+                            <span
+                              data-pdf-pill="white"
+                              data-pdf-pill-bg={colorNotaPDF(nota)}
+                              data-pdf-pill-border={colorNotaPDF(nota)}
+                              style={{
+                                display: 'inline-block', minWidth: 24, textAlign: 'center',
+                                background: colorNotaPDF(nota), color: 'white', borderRadius: 8,
+                                padding: '2px 6px', fontWeight: 800, fontSize: 9, lineHeight: '13px',
+                              }}
+                            >{nota}</span>
+                          </td>
+                          <td style={{ padding: '4px 3px', fontWeight: 800, color: COLOR_PROPUESTA_PDF[v.propuesta] }}>
+                            {v.propuesta}
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </SectionCard>
+        )}
+
         {/* ── Historial de observaciones ──── */}
         {valoraciones.length > 0 && (
           <SectionCard blockId="historial" title={`Historial de Observaciones · ${ficha.nombre} ${ficha.primerApellido} ${ficha.segundoApellido} · ${edadTexto} · ${clubNombre}`}>
@@ -580,6 +742,50 @@ function EvolucionChart({ valoraciones }: { valoraciones: Valoracion[] }) {
         ))}
       </svg>
     </div>
+  )
+}
+
+const PROPUESTAS_PDF: readonly Propuesta[] = ['SELECCIÓN', 'INCORPORAR', 'SEGUIR', 'DESCARTAR']
+
+const COLOR_PROPUESTA_PDF: Record<Propuesta, string> = {
+  'SELECCIÓN': '#16a34a',
+  'INCORPORAR': '#0891b2',
+  'SEGUIR': '#d97706',
+  'DESCARTAR': '#dc2626',
+}
+
+/** Mismo código de color que en pantalla, para que el papel se lea igual. */
+function colorNotaPDF(n: number): string {
+  if (n >= 85) return '#15803d'
+  if (n >= 70) return '#16a34a'
+  if (n >= 55) return '#ca8a04'
+  if (n >= 40) return '#ea580c'
+  return '#dc2626'
+}
+
+/** Cuadrante con un punto por informe: con balón en el eje X, sin balón en el Y. */
+function CuadranteSVG({ valoraciones, conBalon }: { valoraciones: Valoracion[]; conBalon: boolean[] }) {
+  const puntos = valoraciones.map((v, i) => ({ ...conSinBalonDe(v, conBalon), n: valoraciones.length - i }))
+  const W = 260, H = 180, m = 26
+  const x = (v: number) => m + (v / 100) * (W - m * 2)
+  const y = (v: number) => H - m - (v / 100) * (H - m * 2)
+  return (
+    <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`}>
+      <rect x={m} y={m} width={W - m * 2} height={H - m * 2} fill="#f8fafc" stroke="#e2e8f0" />
+      <line x1={x(50)} y1={m} x2={x(50)} y2={H - m} stroke="#cbd5e1" strokeDasharray="3 3" />
+      <line x1={m} y1={y(50)} x2={W - m} y2={y(50)} stroke="#cbd5e1" strokeDasharray="3 3" />
+      {puntos.map((p, i) => (
+        <g key={i}>
+          <circle cx={x(p.con)} cy={y(p.sin)} r={4.5} fill="#c0392b" />
+          <text x={x(p.con)} y={y(p.sin) - 7} textAnchor="middle" fontSize={7.5} fill="#475569">
+            Informe {p.n}
+          </text>
+        </g>
+      ))}
+      <text x={W / 2} y={H - 6} textAnchor="middle" fontSize={8} fill="#94a3b8">Con balón →</text>
+      <text x={9} y={H / 2} textAnchor="middle" fontSize={8} fill="#94a3b8"
+        transform={`rotate(-90 9 ${H / 2})`}>Sin balón →</text>
+    </svg>
   )
 }
 

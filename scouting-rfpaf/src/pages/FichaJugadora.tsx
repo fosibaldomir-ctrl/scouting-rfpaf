@@ -6,7 +6,8 @@ import type { JugadoraConvocada } from '../types'
 import RadarChart from '../components/charts/RadarChart'
 import FichaPDFTemplate from '../components/pdf/FichaPDFTemplate'
 import { DEMARCACIONES_ITEMS } from '../data/masterData'
-import { mediaFisicaDe, mediaTecnicaDe, fmtMedia } from '../utils/valoracionStats'
+import { mediaFisicaDe, mediaTecnicaDe, fmtMedia, aCien, mediaValoracionGeneralDe } from '../utils/valoracionStats'
+import PanelInformes, { BarraAtributo, colorNota } from '../components/ficha/PanelInformes'
 
 function calcularEdad(fecha: string): number {
   if (!fecha) return 0
@@ -274,6 +275,13 @@ export default function FichaJugadora() {
   ]
   const edadTexto = calcularEdad(ficha.fechaNacimiento) > 0 ? `${calcularEdad(ficha.fechaNacimiento)} años` : '—'
   const sufijoMedia = historial.length > 1 ? `Media de ${historial.length} valoraciones` : 'Una valoración'
+  const escudoClub = clubes.find((c) => c.id === ficha.club)?.escudo ?? null
+  // Nota global de la jugadora, llevada a 0-100 como el resto del panel
+  const mediaTotal = aCien(mediaValoracionGeneralDe(historial) ?? 0, 5)
+  // Qué ítems de su posición se valoran con el balón en los pies
+  const conBalonFicha =
+    DEMARCACIONES_ITEMS.find((d) => d.posicion === ficha.demarcacion)?.conBalon
+    ?? [true, true, true, false, false, false]
 
   return (
     <div ref={contentRef} className="p-4 sm:p-6 max-w-6xl mx-auto space-y-6">
@@ -304,77 +312,116 @@ export default function FichaJugadora() {
         </div>
       </div>
 
-      {/* Header card */}
-      <div className="card bg-gradient-to-r from-rfpaf-blue to-rfpaf-blue-light text-white">
-        <div className="flex items-start justify-between">
-          <div className="flex items-center gap-5">
-            {ficha.foto ? (
-              <div className="w-16 h-20 rounded overflow-hidden flex-shrink-0 border-2 border-white/30">
-                <img src={ficha.foto} alt={ficha.nombre} className="w-full h-full object-cover" />
-              </div>
-            ) : (
-              <div className="w-16 h-20 bg-white/20 rounded flex items-center justify-center text-2xl font-bold flex-shrink-0">
-                {ficha.nombre?.charAt(0)}{ficha.primerApellido?.charAt(0)}
-              </div>
-            )}
-            <div className="flex items-start gap-4">
-              <div>
-                <h1 className="text-2xl font-bold">
-                  {ficha.nombre} {ficha.primerApellido} {ficha.segundoApellido}
-                </h1>
-                <p className="text-white/80 text-sm">
-                  {clubNombre} · #{ficha.dorsal} · {ficha.demarcacion}
-                </p>
-                <p className="text-white/70 text-xs mt-0.5">
-                  Registro: {ficha.registro}
-                </p>
-              </div>
-              {clubes.find((c) => c.id === ficha.club)?.escudo && (
-                <img
-                  src={clubes.find((c) => c.id === ficha.club)!.escudo!}
-                  alt={clubNombre}
-                  className="w-14 h-14 object-contain flex-shrink-0 drop-shadow-lg"
-                />
-              )}
-            </div>
-          </div>
-          <div className="text-right">
-            {tieneValoraciones ? (
-              <>
-                <div className="text-yellow-300 text-2xl mb-1">
-                  {'★'.repeat(ficha.valoracionGeneral ?? 0)}{'☆'.repeat(5 - (ficha.valoracionGeneral ?? 0))}
+      {/* Panel: a la izquierda quién es y cómo puntúa; a la derecha, qué dicen
+          sus informes en conjunto. Todo en escala 0-100 para poder comparar. */}
+      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,320px)_1fr] gap-4 items-start">
+        {/* Columna de la jugadora. Se queda pegada arriba al bajar por el
+            análisis: siempre se ve de quién estamos hablando. */}
+        <div className="card lg:sticky lg:top-4">
+          <div className="flex flex-col items-center text-center">
+            <div className="relative">
+              {ficha.foto ? (
+                <img src={ficha.foto} alt={ficha.nombre}
+                  className="w-28 h-32 rounded-xl object-cover object-top border-2 border-gray-100" />
+              ) : (
+                <div className="w-28 h-32 rounded-xl bg-gray-100 flex items-center justify-center text-3xl font-bold text-gray-300">
+                  {ficha.nombre?.charAt(0)}{ficha.primerApellido?.charAt(0)}
                 </div>
-                <PropuestaBadge propuesta={ficha.propuesta} />
-              </>
+              )}
+              {escudoClub && (
+                <img src={escudoClub} alt={clubNombre}
+                  className="absolute -top-2 -left-2 w-9 h-9 object-contain bg-white rounded-full shadow p-0.5" />
+              )}
+              <span className="absolute -bottom-2 left-1/2 -translate-x-1/2 text-[10px] font-bold text-white bg-rfpaf-red rounded-full px-2 py-0.5 whitespace-nowrap">
+                {ficha.demarcacion}
+              </span>
+            </div>
+
+            <h1 className="text-lg font-bold text-rfpaf-blue mt-4 leading-tight">
+              {ficha.nombre} {ficha.primerApellido} {ficha.segundoApellido}
+            </h1>
+            <p className="text-xs text-gray-400 mt-0.5">
+              {[clubNombre, `#${ficha.dorsal}`, ficha.altura ? `${ficha.altura} m` : null,
+                edadTexto !== '—' ? edadTexto : null].filter(Boolean).join(' · ')}
+            </p>
+
+            {tieneValoraciones ? (
+              <div className="w-full mt-3 rounded-xl py-2 text-white"
+                style={{ backgroundColor: colorNota(mediaTotal) }}>
+                <p className="text-[10px] uppercase tracking-wide opacity-90 font-semibold">Valoración promedio total</p>
+                <p className="text-3xl font-black leading-none mt-0.5">{mediaTotal}</p>
+              </div>
             ) : (
-              <span className="px-4 py-2 rounded-full text-sm font-bold bg-white/15 text-white/80">
+              <span className="mt-3 px-4 py-2 rounded-full text-xs font-bold bg-gray-100 text-gray-400">
                 Sin valorar todavía
               </span>
             )}
+            {tieneValoraciones && <div className="mt-2"><PropuestaBadge propuesta={ficha.propuesta} /></div>}
           </div>
-        </div>
-      </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Datos personales */}
-        <div className="card">
-          <h2 className="text-base font-bold text-gray-700 mb-3">Datos Personales</h2>
-          <DataRow label="Fecha de Nacimiento" value={new Date(ficha.fechaNacimiento).toLocaleDateString('es-ES')} />
-          <DataRow label="Edad" value={edadTexto} />
-          <DataRow label="Lateralidad" value={ficha.lateralidad} />
-          <DataRow label="Tipología" value={ficha.tipologia} />
-          <DataRow label="Altura" value={`${ficha.altura} m`} />
-          <div className="flex justify-between py-2 border-b">
-            <span className="text-sm text-gray-500">Club</span>
-            <div className="flex items-center gap-2">
-              {clubes.find((c) => c.id === ficha.club)?.escudo && (
-                <img src={clubes.find((c) => c.id === ficha.club)?.escudo!} alt={clubNombre} className="w-6 h-8 object-contain" />
-              )}
-              <span className="text-sm font-semibold text-gray-800">{clubNombre}</span>
+          {tieneValoraciones && (
+            <div className="mt-5 space-y-1.5">
+              <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wide">Físico</p>
+              <BarraAtributo etiqueta="Fuerza" valor={aCien(fisicoMedio.fuerza, 10)} />
+              <BarraAtributo etiqueta="Velocidad" valor={aCien(fisicoMedio.velocidad, 10)} />
+              <BarraAtributo etiqueta="Resistencia" valor={aCien(fisicoMedio.resistencia, 10)} />
+
+              <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wide pt-3">
+                Técnica · {ficha.demarcacion}
+              </p>
+              {itemsDemarc.map((item, i) => (
+                <BarraAtributo
+                  key={item}
+                  etiqueta={`${item}${conBalonFicha[i] ? '' : ' ·'}`}
+                  valor={aCien(tecValues[i] ?? 0, 5)}
+                />
+              ))}
+              <p className="text-[9px] text-gray-400 pt-1">
+                Los ítems marcados con · se valoran sin balón
+              </p>
+            </div>
+          )}
+
+          {/* Los datos de quién es la jugadora, junto a su foto y sus notas */}
+          <div className="mt-5 pt-4 border-t border-gray-100">
+            <h2 className="text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-2">Datos Personales</h2>
+            <DataRow label="Fecha de Nacimiento" value={new Date(ficha.fechaNacimiento).toLocaleDateString('es-ES')} />
+            <DataRow label="Edad" value={edadTexto} />
+            <DataRow label="Lateralidad" value={ficha.lateralidad} />
+            <DataRow label="Tipología" value={ficha.tipologia} />
+            <DataRow label="Altura" value={`${ficha.altura} m`} />
+            <div className="flex justify-between py-2 border-b">
+              <span className="text-sm text-gray-500">Club</span>
+              <div className="flex items-center gap-2">
+                {clubes.find((c) => c.id === ficha.club)?.escudo && (
+                  <img src={clubes.find((c) => c.id === ficha.club)?.escudo!} alt={clubNombre} className="w-6 h-8 object-contain" />
+                )}
+                <span className="text-sm font-semibold text-gray-800">{clubNombre}</span>
+              </div>
             </div>
           </div>
         </div>
 
+        {/* Bloques de análisis de los informes */}
+        {tieneValoraciones ? (
+          <PanelInformes
+            valoraciones={historial}
+            conBalon={conBalonFicha}
+            observadores={observadores}
+          />
+        ) : (
+          <div className="card flex flex-col items-center justify-center text-center py-12">
+            <p className="text-sm text-gray-400 mb-3">
+              Cuando haya informes de esta jugadora, aquí verás su evolución y el análisis del conjunto.
+            </p>
+            <button onClick={() => navigate(`/ficha/${ficha.id}/valorar`)} className="btn-primary text-sm">
+              Añadir la primera valoración
+            </button>
+          </div>
+        )}
+      </div>
+
+      <div className="grid grid-cols-1 gap-6">
         {/* Datos partido (última valoración) */}
         <div className="card flex flex-col">
           <h2 className="text-base font-bold text-gray-700 mb-3">Última Valoración</h2>
@@ -426,39 +473,6 @@ export default function FichaJugadora() {
           )}
         </div>
 
-        {/* Físico */}
-        <div className="card">
-          <h2 className="text-base font-bold text-gray-700">Cualidades Físicas</h2>
-          <p className="text-xs text-gray-400 mb-3">{tieneValoraciones ? sufijoMedia : 'Sin valorar todavía'}</p>
-          {[
-            { label: 'Fuerza', value: fisicoMedio.fuerza, color: '#1a3a6b' },
-            { label: 'Velocidad', value: fisicoMedio.velocidad, color: '#c0392b' },
-            { label: 'Resistencia', value: fisicoMedio.resistencia, color: '#16a34a' },
-          ].map(({ label, value, color }) => (
-            <div key={label} className="mb-3">
-              <div className="flex justify-between text-sm mb-1">
-                <span className="text-gray-600">{label}</span>
-                <span className="font-bold" style={{ color }}>{fmtMedia(value)}/10</span>
-              </div>
-              <div className="w-full bg-gray-100 rounded-full h-2">
-                <div
-                  className="h-2 rounded-full transition-all"
-                  style={{ width: `${(value / 10) * 100}%`, backgroundColor: color }}
-                />
-              </div>
-            </div>
-          ))}
-          {tieneValoraciones && (
-            <div className="mt-4 h-56">
-              <RadarChart
-                labels={['Fuerza', 'Velocidad', 'Resistencia']}
-                values={[fisicoMedio.fuerza, fisicoMedio.velocidad, fisicoMedio.resistencia]}
-                max={10}
-                color="#1a3a6b"
-              />
-            </div>
-          )}
-        </div>
       </div>
 
       {/* Estadísticas de temporada */}

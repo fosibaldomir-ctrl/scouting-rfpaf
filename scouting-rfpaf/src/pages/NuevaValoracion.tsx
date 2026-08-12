@@ -22,6 +22,7 @@ const emptyValoracion = (): Partial<Valoracion> => ({
   descripcionJugadora: '',
   observaciones: '',
   cierre: '',
+  tipoVisionado: 'directo',
 })
 
 export default function NuevaValoracion() {
@@ -113,6 +114,7 @@ export default function NuevaValoracion() {
         descripcionJugadora: form.descripcionJugadora ?? '',
         observaciones: form.observaciones ?? '',
         cierre: form.cierre ?? '',
+        tipoVisionado: form.tipoVisionado,
         creadoEn: now,
       }
       await addValoracion(ficha.id, valoracion)
@@ -174,6 +176,32 @@ export default function NuevaValoracion() {
           clubes={clubes}
           observadores={observadores}
         />
+      </div>
+
+      <div className="card space-y-2">
+        <h2 className="text-lg font-bold text-gray-700">Cómo se observó el partido</h2>
+        <p className="text-xs text-gray-400">
+          Sirve para saber en qué condiciones se hizo cada informe al comparar unos con otros.
+        </p>
+        <div className="grid grid-cols-2 gap-2 pt-1">
+          {([
+            { valor: 'directo', etiqueta: 'En directo / TV' },
+            { valor: 'video', etiqueta: 'Vídeo' },
+          ] as const).map(({ valor, etiqueta }) => (
+            <button
+              key={valor}
+              type="button"
+              onClick={() => setPatch({ tipoVisionado: valor })}
+              className={`rounded-xl border-2 py-3 text-sm font-semibold transition-colors ${
+                form.tipoVisionado === valor
+                  ? 'border-rfpaf-blue bg-blue-50 text-rfpaf-blue'
+                  : 'border-gray-200 text-gray-500 hover:border-gray-300'
+              }`}
+            >
+              {etiqueta}
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="card space-y-4">
