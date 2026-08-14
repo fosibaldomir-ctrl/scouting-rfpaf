@@ -139,6 +139,25 @@ function filasDesdeRejilla(rejilla: string[][]): Record<string, string>[] {
     if (p > mejorPuntuacion) { mejorPuntuacion = p; mejorIdx = i }
   }
 
+  // Ninguna fila parece una cabecera: es una lista pelada de nombres, como la
+  // que sale al copiar la plantilla de la web y pegarla en Excel. Se toma la
+  // primera columna como el nombre de la jugadora y no se descarta ninguna fila.
+  if (mejorPuntuacion === 0) {
+    const filas = rejilla
+      .map((f) => String(f[0] ?? '').trim())
+      .filter((n) => n !== '')
+      .map((n) => ({ jugadora: n }))
+    ultimasCabecerasLeidas = []
+    ultimasFilasLeidas = filas.length
+    ultimoDiagnostico = {
+      ...ultimoDiagnostico,
+      filaCabecera: 0,
+      columnas: [{ original: '(el fichero no trae cabecera)', entendida: 'nombreCompleto' }],
+      filas: filas.length,
+    }
+    return filas
+  }
+
   // Si la fila elegida es la última, no quedan datos debajo: se ha elegido mal
   // y es preferible volver a la primera fila que dejar la importación vacía.
   if (mejorIdx >= rejilla.length - 1) mejorIdx = 0
