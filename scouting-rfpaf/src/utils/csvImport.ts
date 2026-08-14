@@ -23,6 +23,7 @@ const HEADER_ALIASES: Record<string, string> = {
   'primer apellido': 'primerApellido',
   'segundo apellido': 'segundoApellido',
   'fecha nacimiento': 'fechaNacimiento',
+  'fec nacimiento': 'fechaNacimiento',
   'f nac': 'fechaNacimiento',
   'fecha nac': 'fechaNacimiento',
   'fec nac': 'fechaNacimiento',
