@@ -1,6 +1,17 @@
 import { supabase } from '../lib/supabase'
 import type { FichaJugadora, Club, Observador, CategoriaItem, PartidoCalendario, Convocatoria } from '../types'
 
+/* Una fecha que no se conoce llega como cadena vacía desde los formularios y
+ * desde la importación de plantillas. Postgres no admite '' en una columna de
+ * tipo fecha y rechaza la fila entera, así que se traduce a "sin dato". */
+function soloFecha(v?: string | null): string | null {
+  const s = (v ?? '').trim()
+  return s === '' ? null : s
+}
+
+/** Mensaje de error del último guardado fallido, para poder enseñarlo. */
+export type ResultadoGuardado = { ok: true } | { ok: false; error: string }
+
 export const supabaseService = {
   async getFichas(): Promise<FichaJugadora[]> {
     const { data, error } = await supabase
@@ -55,14 +66,14 @@ export const supabaseService = {
     }))
   },
 
-  async addFicha(ficha: FichaJugadora): Promise<boolean> {
+  async addFicha(ficha: FichaJugadora): Promise<ResultadoGuardado> {
     try {
       console.log('📝 Guardando ficha en Supabase...', ficha.id)
 
       const data = {
         id: ficha.id,
         registro: ficha.registro,
-        fecha_partido: ficha.fechaPartido,
+        fecha_partido: soloFecha(ficha.fechaPartido),
         equipo: ficha.equipo,
         categoria: ficha.categoria,
         local: ficha.local,
@@ -71,7 +82,7 @@ export const supabaseService = {
         nombre: ficha.nombre,
         primer_apellido: ficha.primerApellido,
         segundo_apellido: ficha.segundoApellido || null,
-        fecha_nacimiento: ficha.fechaNacimiento,
+        fecha_nacimiento: soloFecha(ficha.fechaNacimiento),
         dorsal: ficha.dorsal || null,
         lateralidad: ficha.lateralidad,
         tipologia: ficha.tipologia,
@@ -105,16 +116,15 @@ export const supabaseService = {
       const { error } = await supabase.from('fichas').insert([data])
 
       if (error) {
-        console.error('❌ Error al guardar ficha:', error.message)
-        console.error('Detalles:', error)
-        return false
+        console.error('❌ Error al guardar ficha:', error.message, error)
+        return { ok: false, error: error.message }
       }
 
       console.log('✅ Ficha guardada exitosamente')
-      return true
+      return { ok: true }
     } catch (error) {
       console.error('❌ Exception al guardar ficha:', error)
-      return false
+      return { ok: false, error: error instanceof Error ? error.message : 'Error inesperado' }
     }
   },
 
@@ -123,7 +133,7 @@ export const supabaseService = {
       console.log('📝 Actualizando ficha en Supabase...', id)
 
       const data: any = {}
-      if (ficha.fechaPartido !== undefined) data.fecha_partido = ficha.fechaPartido
+      if (ficha.fechaPartido !== undefined) data.fecha_partido = soloFecha(ficha.fechaPartido)
       if (ficha.equipo !== undefined) data.equipo = ficha.equipo
       if (ficha.categoria !== undefined) data.categoria = ficha.categoria
       if (ficha.local !== undefined) data.local = ficha.local
@@ -132,7 +142,7 @@ export const supabaseService = {
       if (ficha.nombre !== undefined) data.nombre = ficha.nombre
       if (ficha.primerApellido !== undefined) data.primer_apellido = ficha.primerApellido
       if (ficha.segundoApellido !== undefined) data.segundo_apellido = ficha.segundoApellido
-      if (ficha.fechaNacimiento !== undefined) data.fecha_nacimiento = ficha.fechaNacimiento
+      if (ficha.fechaNacimiento !== undefined) data.fecha_nacimiento = soloFecha(ficha.fechaNacimiento)
       if (ficha.dorsal !== undefined) data.dorsal = ficha.dorsal
       if (ficha.lateralidad !== undefined) data.lateralidad = ficha.lateralidad
       if (ficha.tipologia !== undefined) data.tipologia = ficha.tipologia

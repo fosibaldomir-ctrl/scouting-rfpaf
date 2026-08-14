@@ -26,7 +26,7 @@ export default function ImportFichasTab() {
   const [parsing, setParsing] = useState(false)
   const [importing, setImporting] = useState(false)
   const [progress, setProgress] = useState({ done: 0, total: 0 })
-  const [result, setResult] = useState<{ created: number; updated: number; failed: number } | null>(null)
+  const [result, setResult] = useState<{ created: number; updated: number; failed: number; motivos: string[] } | null>(null)
 
   const clubNombre = clubes.find((c) => c.id === batch.clubId)?.nombre ?? ''
 
@@ -72,6 +72,7 @@ export default function ImportFichasTab() {
     let created = 0
     let updated = 0
     let failed = 0
+    const motivos: string[] = []
     let fichasCount = fichas.length
 
     for (const row of toImport) {
@@ -125,12 +126,16 @@ export default function ImportFichasTab() {
       } catch (err) {
         console.error(`Error al importar fila ${row.rowIndex}:`, err)
         failed++
+        // Guardamos el motivo para poder enseñarlo: mandar a la consola a quien
+        // usa la app es como no avisar
+        const motivo = `${row.nombre} ${row.primerApellido}: ${err instanceof Error ? err.message : 'error desconocido'}`
+        if (!motivos.includes(motivo)) motivos.push(motivo)
       }
       setProgress((p) => ({ ...p, done: p.done + 1 }))
     }
 
     setImporting(false)
-    setResult({ created, updated, failed })
+    setResult({ created, updated, failed, motivos })
   }
 
   return (
@@ -277,10 +282,21 @@ export default function ImportFichasTab() {
       )}
 
       {result && (
-        <div className={`flex items-center gap-2 text-sm rounded-xl px-3 py-2 ${result.failed > 0 ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700'}`}>
-          <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
-          {result.created} ficha{result.created !== 1 ? 's' : ''} nueva{result.created !== 1 ? 's' : ''}, {result.updated} actualizada{result.updated !== 1 ? 's' : ''}
-          {result.failed > 0 && `, ${result.failed} fallida${result.failed !== 1 ? 's' : ''} (revisa la consola y vuelve a intentarlo)`}
+        <div className={`text-sm rounded-xl px-3 py-2 ${result.failed > 0 ? 'bg-amber-50 text-amber-800' : 'bg-emerald-50 text-emerald-700'}`}>
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
+            {result.created} ficha{result.created !== 1 ? 's' : ''} nueva{result.created !== 1 ? 's' : ''}, {result.updated} actualizada{result.updated !== 1 ? 's' : ''}
+            {result.failed > 0 && `, ${result.failed} sin guardar`}
+          </div>
+          {result.motivos.length > 0 && (
+            <div className="mt-2 pt-2 border-t border-amber-200">
+              <p className="font-semibold text-xs mb-1">No se han podido guardar. Las filas siguen en la lista para reintentarlo:</p>
+              <ul className="text-xs space-y-0.5">
+                {result.motivos.slice(0, 8).map((m, i) => <li key={i}>· {m}</li>)}
+                {result.motivos.length > 8 && <li>· y {result.motivos.length - 8} más</li>}
+              </ul>
+            </div>
+          )}
         </div>
       )}
     </div>

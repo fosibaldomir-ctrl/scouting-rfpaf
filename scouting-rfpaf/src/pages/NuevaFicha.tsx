@@ -126,7 +126,7 @@ export default function NuevaFicha() {
 
   const prevStep = () => setStep((s) => Math.max(1, s - 1))
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     const now = new Date().toISOString()
 
     if (isEdit) {
@@ -182,7 +182,16 @@ export default function NuevaFicha() {
         creadoEn: now,
         actualizadoEn: now,
       } as FichaJugadora
-      addFicha(ficha)
+      try {
+        await addFicha(ficha)
+      } catch (err) {
+        alert(
+          'No se ha podido guardar la ficha:\n\n' +
+          (err instanceof Error ? err.message : 'Error desconocido') +
+          '\n\nEl borrador se conserva para que puedas corregir y reintentar.'
+        )
+        return
+      }
     }
 
     clearBorrador()

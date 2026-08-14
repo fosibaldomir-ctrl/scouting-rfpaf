@@ -209,7 +209,9 @@ export default function BaseDatos() {
       creadoEn: new Date().toISOString(),
       valoraciones: f.valoraciones.map((v) => ({ ...v, id: crypto.randomUUID() })),
     }
-    addFicha(copy)
+    addFicha(copy).catch((err) => {
+      alert(`No se ha podido duplicar la ficha:\n\n${err instanceof Error ? err.message : 'Error desconocido'}`)
+    })
   }
 
   const handleExport = () => {

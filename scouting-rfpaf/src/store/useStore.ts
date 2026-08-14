@@ -307,7 +307,14 @@ export const useStore = create<AppState>()(
 
       addFicha: async (ficha) => {
         set((state) => ({ fichas: [...state.fichas, ficha] }))
-        await supabaseService.addFicha(ficha)
+        const res = await supabaseService.addFicha(ficha)
+        if (!res.ok) {
+          // Si la base la rechaza, se retira también de la pantalla: enseñar una
+          // ficha que en realidad no se ha guardado es peor que no enseñarla,
+          // porque al recargar desaparece sin que nadie se entere.
+          set((state) => ({ fichas: state.fichas.filter((f) => f.id !== ficha.id) }))
+          throw new Error(res.error)
+        }
       },
 
       updateFicha: async (id, data) => {

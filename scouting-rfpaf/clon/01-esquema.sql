@@ -148,7 +148,7 @@ create table if not exists public.fichas (
   nombre text not null,
   primer_apellido text not null,
   segundo_apellido text,
-  fecha_nacimiento date not null,
+  fecha_nacimiento date,
   dorsal integer,
   lateralidad text not null,
   tipologia text not null,
