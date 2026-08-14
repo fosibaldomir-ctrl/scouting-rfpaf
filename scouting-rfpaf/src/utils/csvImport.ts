@@ -98,6 +98,18 @@ function cabecerasReconocidas(fila: string[]): number {
   return n
 }
 
+/** Qué se entendió del último fichero leído, para poder enseñarlo en pantalla. */
+export interface DiagnosticoLectura {
+  separador: string
+  filaCabecera: number
+  columnas: { original: string; entendida: string | null }[]
+  filas: number
+}
+let ultimoDiagnostico: DiagnosticoLectura = { separador: '', filaCabecera: 0, columnas: [], filas: 0 }
+export function diagnosticoDelUltimoFichero(): DiagnosticoLectura {
+  return ultimoDiagnostico
+}
+
 /** Cabeceras del fichero tal cual venían, para poder enseñarlas si no se entienden. */
 let ultimasCabecerasLeidas: string[] = []
 
@@ -133,6 +145,14 @@ function filasDesdeRejilla(rejilla: string[][]): Record<string, string>[] {
 
   const cabeceras = rejilla[mejorIdx].map((c) => String(c ?? '').trim())
   ultimasCabecerasLeidas = cabeceras.filter(Boolean)
+  ultimoDiagnostico = {
+    ...ultimoDiagnostico,
+    filaCabecera: mejorIdx + 1,
+    columnas: cabeceras.filter(Boolean).map((c) => ({
+      original: c,
+      entendida: HEADER_ALIASES[normalizaCabecera(c)] ?? null,
+    })),
+  }
 
   const filas: Record<string, string>[] = []
   for (let i = mejorIdx + 1; i < rejilla.length; i++) {
@@ -143,6 +163,7 @@ function filasDesdeRejilla(rejilla: string[][]): Record<string, string>[] {
     filas.push(obj)
   }
   ultimasFilasLeidas = filas.length
+  ultimoDiagnostico = { ...ultimoDiagnostico, filas: filas.length }
   return filas
 }
 
@@ -164,6 +185,7 @@ export function parseFichasFile(file: File): Promise<Record<string, string>[]> {
         // Los CSV españoles suelen venir separados por ; (Excel en español) o por
         // tabuladores si vienen de copiar y pegar. Se detecta con la primera línea.
         const separador = esCsv ? detectaSeparador(data as string) : undefined
+        ultimoDiagnostico = { ...ultimoDiagnostico, separador: separador ?? '(Excel)' }
         const workbook = XLSX.read(data as never, {
           type: esCsv ? 'string' : 'array', raw: true, codepage: 65001,
           ...(separador ? { FS: separador } : {}),

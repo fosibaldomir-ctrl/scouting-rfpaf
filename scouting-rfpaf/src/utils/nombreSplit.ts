@@ -25,7 +25,12 @@ function partirApellidos(texto: string): { primerApellido: string; segundoApelli
 }
 
 export function splitNombreCompleto(fullName: string): NombreSplit {
-  const texto = (fullName ?? '').trim().replace(/\s+/g, ' ')
+  // Se limpian los restos de una codificación mal interpretada (U+FFFD) y los
+  // caracteres de control: si no, se quedan pegados al nombre y ensucian la ficha.
+  const texto = (fullName ?? '')
+    .replace(/[\uFFFD\u0000-\u001F\u007F]/g, ' ')
+    .trim()
+    .replace(/\s+/g, ' ')
   if (!texto) return { nombre: '', primerApellido: '', segundoApellido: '' }
 
   // Las listas de las federaciones vienen como "APELLIDOS, NOMBRE"

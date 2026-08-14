@@ -5,8 +5,24 @@ import { useStore } from '../../store/useStore'
 import { DEMARCACIONES_ITEMS } from '../../data/masterData'
 import { defaultFichaFields } from '../../utils/fichaDefaults'
 import { genRegistro } from '../../utils/registro'
-import { parseFichasFile, buildImportRows, cabecerasDelUltimoFichero, type ImportRow } from '../../utils/csvImport'
+import { parseFichasFile, buildImportRows, cabecerasDelUltimoFichero, diagnosticoDelUltimoFichero, type DiagnosticoLectura, type ImportRow } from '../../utils/csvImport'
 import type { FichaJugadora } from '../../types'
+
+const ETIQUETA_COLUMNA: Record<string, string> = {
+  nombreCompleto: 'nombre de la jugadora',
+  apellidos: 'apellidos',
+  primerApellido: 'primer apellido',
+  segundoApellido: 'segundo apellido',
+  fechaNacimiento: 'fecha de nacimiento',
+  posicion: 'demarcación',
+  dorsal: 'dorsal',
+  minutosJugados: 'minutos',
+  partidosTitular: 'partidos de titular',
+  partidosSuplente: 'partidos de suplente',
+  goles: 'goles',
+  tarjetasAmarillas: 'tarjetas amarillas',
+  tarjetasRojas: 'tarjetas rojas',
+}
 
 interface BatchFields {
   categoria: string
@@ -26,6 +42,9 @@ export default function ImportFichasTab() {
   // usuario solo ve filas en blanco y no hay forma de saber qué ha fallado
   const [cabecerasSinReconocer, setCabecerasSinReconocer] = useState<string[]>([])
   const [sinFilas, setSinFilas] = useState(false)
+  // Qué ha entendido la app del fichero. Se enseña siempre: si algo no encaja,
+  // se ve de un vistazo sin tener que abrir la consola ni adivinar
+  const [diagnostico, setDiagnostico] = useState<DiagnosticoLectura | null>(null)
   const [fileName, setFileName] = useState('')
   const [parsing, setParsing] = useState(false)
   const [importing, setImporting] = useState(false)
@@ -42,6 +61,7 @@ export default function ImportFichasTab() {
     setResult(null)
     setCabecerasSinReconocer([])
     setSinFilas(false)
+    setDiagnostico(null)
     try {
       const raw = await parseFichasFile(file)
       const filas = buildImportRows(raw, batch.clubId, fichas)
@@ -52,6 +72,7 @@ export default function ImportFichasTab() {
       const ningunNombre = filas.length > 0 && filas.every((f) => !f.nombre && !f.primerApellido)
       setCabecerasSinReconocer(ningunNombre || filas.length === 0 ? cabecerasDelUltimoFichero() : [])
       setSinFilas(filas.length === 0)
+      setDiagnostico(diagnosticoDelUltimoFichero())
       setRows(filas)
       setFileName(file.name)
     } catch (err) {
@@ -293,6 +314,33 @@ export default function ImportFichasTab() {
               : `Procesar ${includedCount} fila${includedCount !== 1 ? 's' : ''} (${createCount} nueva${createCount !== 1 ? 's' : ''}, ${updateCount} actualizar${updateCount !== 1 ? 'es' : ''})`}
           </button>
         </div>
+      )}
+
+      {diagnostico && (
+        <details className="text-xs rounded-xl border border-gray-200 bg-gray-50 px-3 py-2" open={sinFilas || cabecerasSinReconocer.length > 0}>
+          <summary className="cursor-pointer font-semibold text-gray-600">
+            Qué he entendido de este fichero
+          </summary>
+          <div className="mt-2 space-y-1 text-gray-600">
+            <p>
+              Separador: <strong>{diagnostico.separador === '\t' ? 'tabulador' : diagnostico.separador || '—'}</strong>
+              {' · '}Cabecera en la fila <strong>{diagnostico.filaCabecera}</strong>
+              {' · '}<strong>{diagnostico.filas}</strong> fila{diagnostico.filas !== 1 ? 's' : ''} de datos
+            </p>
+            <table className="w-full">
+              <tbody>
+                {diagnostico.columnas.map((c, i) => (
+                  <tr key={i}>
+                    <td className="py-0.5 pr-3 font-mono">{c.original || '(vacía)'}</td>
+                    <td className={`py-0.5 ${c.entendida ? 'text-emerald-700' : 'text-rfpaf-red'}`}>
+                      {c.entendida ? `→ ${ETIQUETA_COLUMNA[c.entendida] ?? c.entendida}` : '→ no reconocida'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </details>
       )}
 
       {(cabecerasSinReconocer.length > 0 || sinFilas) && (
