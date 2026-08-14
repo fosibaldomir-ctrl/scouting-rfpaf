@@ -25,6 +25,7 @@ export default function ImportFichasTab() {
   // Cabeceras que traía el fichero cuando no se reconoce ninguna: sin esto, el
   // usuario solo ve filas en blanco y no hay forma de saber qué ha fallado
   const [cabecerasSinReconocer, setCabecerasSinReconocer] = useState<string[]>([])
+  const [sinFilas, setSinFilas] = useState(false)
   const [fileName, setFileName] = useState('')
   const [parsing, setParsing] = useState(false)
   const [importing, setImporting] = useState(false)
@@ -40,13 +41,17 @@ export default function ImportFichasTab() {
     setParsing(true)
     setResult(null)
     setCabecerasSinReconocer([])
+    setSinFilas(false)
     try {
       const raw = await parseFichasFile(file)
       const filas = buildImportRows(raw, batch.clubId, fichas)
       // Si ninguna fila trae nombre, el fichero se ha leído pero sus columnas
       // no se han entendido
+      // Dos casos que hay que explicar: que no salga ninguna fila, o que salgan
+      // pero todas en blanco porque no se han entendido las columnas
       const ningunNombre = filas.length > 0 && filas.every((f) => !f.nombre && !f.primerApellido)
-      setCabecerasSinReconocer(ningunNombre ? cabecerasDelUltimoFichero() : [])
+      setCabecerasSinReconocer(ningunNombre || filas.length === 0 ? cabecerasDelUltimoFichero() : [])
+      setSinFilas(filas.length === 0)
       setRows(filas)
       setFileName(file.name)
     } catch (err) {
@@ -290,15 +295,18 @@ export default function ImportFichasTab() {
         </div>
       )}
 
-      {cabecerasSinReconocer.length > 0 && (
+      {(cabecerasSinReconocer.length > 0 || sinFilas) && (
         <div className="text-sm rounded-xl px-3 py-2 bg-amber-50 text-amber-800">
-          <p className="font-semibold">No he reconocido las columnas de este fichero.</p>
+          <p className="font-semibold">
+            {sinFilas ? 'No he encontrado ninguna jugadora en este fichero.' : 'No he reconocido las columnas de este fichero.'}
+          </p>
           <p className="text-xs mt-1">
-            Se han leído las filas, pero ninguna trae nombre. Estas son las columnas que he
-            encontrado:
+            {sinFilas
+              ? 'El fichero se ha abierto, pero debajo de la cabecera no hay filas con datos. Esto es lo que he leído como cabecera:'
+              : 'Se han leído las filas, pero ninguna trae nombre. Estas son las columnas que he encontrado:'}
           </p>
           <p className="text-xs mt-1 font-mono bg-white/60 rounded px-2 py-1 break-words">
-            {cabecerasSinReconocer.join('  ·  ')}
+            {cabecerasSinReconocer.length > 0 ? cabecerasSinReconocer.join('  ·  ') : '(vacía)'}
           </p>
           <p className="text-xs mt-1">
             Renombra la columna del nombre a <strong>Jugadora</strong> (o <strong>Nombre completo</strong>)

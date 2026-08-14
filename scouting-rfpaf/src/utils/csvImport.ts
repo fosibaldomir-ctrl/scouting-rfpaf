@@ -61,6 +61,19 @@ const HEADER_ALIASES: Record<string, string> = {
   'rojas': 'tarjetasRojas',
 }
 
+/** Con qué carácter están separadas las columnas: el que más aparece en la cabecera. */
+function detectaSeparador(texto: string): string {
+  const primera = texto.split(/\r?\n/).find((l) => l.trim() !== '') ?? ''
+  const candidatos = [';', ',', '\t', '|']
+  let mejor = ','
+  let mejorCuenta = 0
+  for (const c of candidatos) {
+    const n = primera.split(c).length - 1
+    if (n > mejorCuenta) { mejorCuenta = n; mejor = c }
+  }
+  return mejor
+}
+
 /** Cuántas columnas de una fila se reconocen como cabecera conocida. */
 /**
  * Normaliza una cabecera para buscarla entre los alias. Además de acentos y
@@ -91,6 +104,12 @@ export function cabecerasDelUltimoFichero(): string[] {
   return ultimasCabecerasLeidas
 }
 
+/** Cuántas filas de datos se encontraron en la última lectura. */
+let ultimasFilasLeidas = 0
+export function filasDelUltimoFichero(): number {
+  return ultimasFilasLeidas
+}
+
 /**
  * Convierte la rejilla en filas con nombre de columna, buscando la fila de
  * títulos entre las primeras: si el fichero trae encabezados o filas vacías
@@ -107,6 +126,10 @@ function filasDesdeRejilla(rejilla: string[][]): Record<string, string>[] {
     if (p > mejorPuntuacion) { mejorPuntuacion = p; mejorIdx = i }
   }
 
+  // Si la fila elegida es la última, no quedan datos debajo: se ha elegido mal
+  // y es preferible volver a la primera fila que dejar la importación vacía.
+  if (mejorIdx >= rejilla.length - 1) mejorIdx = 0
+
   const cabeceras = rejilla[mejorIdx].map((c) => String(c ?? '').trim())
   ultimasCabecerasLeidas = cabeceras.filter(Boolean)
 
@@ -118,6 +141,7 @@ function filasDesdeRejilla(rejilla: string[][]): Record<string, string>[] {
     cabeceras.forEach((cab, j) => { if (cab) obj[cab] = String(fila[j] ?? '').trim() })
     filas.push(obj)
   }
+  ultimasFilasLeidas = filas.length
   return filas
 }
 
@@ -136,7 +160,13 @@ export function parseFichasFile(file: File): Promise<Record<string, string>[]> {
         // raw:true keeps date-like text (e.g. "2007-06-15") as the literal string instead
         // of letting SheetJS auto-detect it as a date and reformat it (locale-dependent,
         // e.g. "6/15/07"), which parseFechaFlexible below is not built to parse.
-        const workbook = XLSX.read(data as never, { type: esCsv ? 'string' : 'array', raw: true, codepage: 65001 })
+        // Los CSV españoles suelen venir separados por ; (Excel en español) o por
+        // tabuladores si vienen de copiar y pegar. Se detecta con la primera línea.
+        const separador = esCsv ? detectaSeparador(data as string) : undefined
+        const workbook = XLSX.read(data as never, {
+          type: esCsv ? 'string' : 'array', raw: true, codepage: 65001,
+          ...(separador ? { FS: separador } : {}),
+        })
         const sheet = workbook.Sheets[workbook.SheetNames[0]]
         // Se lee como una rejilla en bruto para poder localizar la fila de
         // títulos: los listados copiados de una web suelen traer encima el
