@@ -8,25 +8,44 @@ const HEADER_ALIASES: Record<string, string> = {
   'nombre': 'nombreCompleto',
   'nombre completo': 'nombreCompleto',
   'jugadora': 'nombreCompleto',
+  // Variantes que aparecen en los listados de las federaciones y los clubes
+  'jugador': 'nombreCompleto',
+  'jugador a': 'nombreCompleto',
+  'futbolista': 'nombreCompleto',
+  'nombre y apellidos': 'nombreCompleto',
+  'apellidos y nombre': 'nombreCompleto',
+  'apellidos nombre': 'nombreCompleto',
+  'nombre jugadora': 'nombreCompleto',
+  'nombre jugador': 'nombreCompleto',
+  'nombre del jugador': 'nombreCompleto',
+  'nombre de la jugadora': 'nombreCompleto',
   'apellidos': 'apellidos',
   'primer apellido': 'primerApellido',
   'segundo apellido': 'segundoApellido',
   'fecha nacimiento': 'fechaNacimiento',
+  'f nac': 'fechaNacimiento',
+  'fecha nac': 'fechaNacimiento',
+  'fec nac': 'fechaNacimiento',
+  'nac': 'fechaNacimiento',
+  'nacida': 'fechaNacimiento',
+  'ano nacimiento': 'fechaNacimiento',
   'f nacimiento': 'fechaNacimiento',
   'fecha de nacimiento': 'fechaNacimiento',
   'nacimiento': 'fechaNacimiento',
   'posicion': 'posicion',
+  'pos': 'posicion',
+  'puesto': 'posicion',
   'posición': 'posicion',
   'demarcacion': 'posicion',
   'demarcación': 'posicion',
   'dorsal': 'dorsal',
+  'num': 'dorsal',
   'n': 'dorsal',
   'nº': 'dorsal',
   'numero': 'dorsal',
   'minutos': 'minutosJugados',
   'minutos jugados': 'minutosJugados',
   'min': 'minutosJugados',
-  'min.': 'minutosJugados',
   'titular': 'partidosTitular',
   'partidos titular': 'partidosTitular',
   'p titular': 'partidosTitular',
@@ -42,25 +61,95 @@ const HEADER_ALIASES: Record<string, string> = {
   'rojas': 'tarjetasRojas',
 }
 
+/** Cuántas columnas de una fila se reconocen como cabecera conocida. */
+/**
+ * Normaliza una cabecera para buscarla entre los alias. Además de acentos y
+ * mayúsculas, quita la puntuación y los ordinales: así "F. Nac.", "Nº" o "N.º"
+ * caen en la misma forma que "f nac" y "n".
+ */
+function normalizaCabecera(texto: string): string {
+  return normalizeText(
+    String(texto ?? '')
+      .replace(/([a-z0-9])([A-Z])/g, '$1 $2')   // "FechaNacimiento" → "Fecha Nacimiento"
+      .replace(/[ºª°#]/g, ' ')
+      .replace(/[._/\\-]+/g, ' ')
+  ).replace(/\s+/g, ' ').trim()
+}
+
+function cabecerasReconocidas(fila: string[]): number {
+  let n = 0
+  for (const celda of fila) {
+    if (HEADER_ALIASES[normalizaCabecera(celda)]) n++
+  }
+  return n
+}
+
+/** Cabeceras del fichero tal cual venían, para poder enseñarlas si no se entienden. */
+let ultimasCabecerasLeidas: string[] = []
+
+export function cabecerasDelUltimoFichero(): string[] {
+  return ultimasCabecerasLeidas
+}
+
+/**
+ * Convierte la rejilla en filas con nombre de columna, buscando la fila de
+ * títulos entre las primeras: si el fichero trae encabezados o filas vacías
+ * encima, la primera fila no son los títulos.
+ */
+function filasDesdeRejilla(rejilla: string[][]): Record<string, string>[] {
+  if (rejilla.length === 0) { ultimasCabecerasLeidas = []; return [] }
+
+  let mejorIdx = 0
+  let mejorPuntuacion = -1
+  const hasta = Math.min(rejilla.length, 15)
+  for (let i = 0; i < hasta; i++) {
+    const p = cabecerasReconocidas(rejilla[i])
+    if (p > mejorPuntuacion) { mejorPuntuacion = p; mejorIdx = i }
+  }
+
+  const cabeceras = rejilla[mejorIdx].map((c) => String(c ?? '').trim())
+  ultimasCabecerasLeidas = cabeceras.filter(Boolean)
+
+  const filas: Record<string, string>[] = []
+  for (let i = mejorIdx + 1; i < rejilla.length; i++) {
+    const fila = rejilla[i]
+    if (fila.every((c) => String(c ?? '').trim() === '')) continue
+    const obj: Record<string, string> = {}
+    cabeceras.forEach((cab, j) => { if (cab) obj[cab] = String(fila[j] ?? '').trim() })
+    filas.push(obj)
+  }
+  return filas
+}
+
 export function parseFichasFile(file: File): Promise<Record<string, string>[]> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader()
+    const esCsv = /\.csv$/i.test(file.name) || file.type === 'text/csv'
     reader.onload = () => {
       try {
-        const data = new Uint8Array(reader.result as ArrayBuffer)
+        // Los CSV se leen como TEXTO en UTF-8. Leídos como bytes, SheetJS los
+        // interpreta en otra codificación y destroza tildes, eñes y símbolos
+        // como "Nº" — tanto en las cabeceras como en los nombres.
+        const data = esCsv
+          ? (reader.result as string)
+          : new Uint8Array(reader.result as ArrayBuffer)
         // raw:true keeps date-like text (e.g. "2007-06-15") as the literal string instead
         // of letting SheetJS auto-detect it as a date and reformat it (locale-dependent,
         // e.g. "6/15/07"), which parseFechaFlexible below is not built to parse.
-        const workbook = XLSX.read(data, { type: 'array', raw: true })
+        const workbook = XLSX.read(data as never, { type: esCsv ? 'string' : 'array', raw: true, codepage: 65001 })
         const sheet = workbook.Sheets[workbook.SheetNames[0]]
-        const rows = XLSX.utils.sheet_to_json<Record<string, string>>(sheet, { defval: '', raw: true })
-        resolve(rows)
+        // Se lee como una rejilla en bruto para poder localizar la fila de
+        // títulos: los listados copiados de una web suelen traer encima el
+        // nombre del equipo, la temporada o filas en blanco.
+        const rejilla = XLSX.utils.sheet_to_json<string[]>(sheet, { header: 1, defval: '', raw: true, blankrows: false })
+        resolve(filasDesdeRejilla(rejilla))
       } catch (err) {
         reject(err)
       }
     }
     reader.onerror = reject
-    reader.readAsArrayBuffer(file)
+    if (esCsv) reader.readAsText(file, 'utf-8')
+    else reader.readAsArrayBuffer(file)
   })
 }
 
@@ -69,8 +158,7 @@ function mapHeaders(row: Record<string, string>): Record<string, string> {
   for (const [key, value] of Object.entries(row)) {
     // Split PascalCase/camelCase headers ("FechaNacimiento" -> "Fecha Nacimiento")
     // so they normalize the same way as space-separated ones before alias lookup.
-    const spaced = key.replace(/([a-z0-9])([A-Z])/g, '$1 $2')
-    const canonical = HEADER_ALIASES[normalizeText(spaced)]
+    const canonical = HEADER_ALIASES[normalizaCabecera(key)]
     if (canonical) mapped[canonical] = String(value ?? '').trim()
   }
   return mapped

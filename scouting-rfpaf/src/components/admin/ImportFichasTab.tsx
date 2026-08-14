@@ -5,7 +5,7 @@ import { useStore } from '../../store/useStore'
 import { DEMARCACIONES_ITEMS } from '../../data/masterData'
 import { defaultFichaFields } from '../../utils/fichaDefaults'
 import { genRegistro } from '../../utils/registro'
-import { parseFichasFile, buildImportRows, type ImportRow } from '../../utils/csvImport'
+import { parseFichasFile, buildImportRows, cabecerasDelUltimoFichero, type ImportRow } from '../../utils/csvImport'
 import type { FichaJugadora } from '../../types'
 
 interface BatchFields {
@@ -22,6 +22,9 @@ export default function ImportFichasTab() {
   })
 
   const [rows, setRows] = useState<ImportRow[]>([])
+  // Cabeceras que traía el fichero cuando no se reconoce ninguna: sin esto, el
+  // usuario solo ve filas en blanco y no hay forma de saber qué ha fallado
+  const [cabecerasSinReconocer, setCabecerasSinReconocer] = useState<string[]>([])
   const [fileName, setFileName] = useState('')
   const [parsing, setParsing] = useState(false)
   const [importing, setImporting] = useState(false)
@@ -36,9 +39,15 @@ export default function ImportFichasTab() {
     if (!batch.clubId) { alert('Selecciona primero el club de la plantilla que vas a importar.'); e.target.value = ''; return }
     setParsing(true)
     setResult(null)
+    setCabecerasSinReconocer([])
     try {
       const raw = await parseFichasFile(file)
-      setRows(buildImportRows(raw, batch.clubId, fichas))
+      const filas = buildImportRows(raw, batch.clubId, fichas)
+      // Si ninguna fila trae nombre, el fichero se ha leído pero sus columnas
+      // no se han entendido
+      const ningunNombre = filas.length > 0 && filas.every((f) => !f.nombre && !f.primerApellido)
+      setCabecerasSinReconocer(ningunNombre ? cabecerasDelUltimoFichero() : [])
+      setRows(filas)
       setFileName(file.name)
     } catch (err) {
       console.error('Error al leer el archivo:', err)
@@ -278,6 +287,23 @@ export default function ImportFichasTab() {
               ? `Procesando ${progress.done}/${progress.total}…`
               : `Procesar ${includedCount} fila${includedCount !== 1 ? 's' : ''} (${createCount} nueva${createCount !== 1 ? 's' : ''}, ${updateCount} actualizar${updateCount !== 1 ? 'es' : ''})`}
           </button>
+        </div>
+      )}
+
+      {cabecerasSinReconocer.length > 0 && (
+        <div className="text-sm rounded-xl px-3 py-2 bg-amber-50 text-amber-800">
+          <p className="font-semibold">No he reconocido las columnas de este fichero.</p>
+          <p className="text-xs mt-1">
+            Se han leído las filas, pero ninguna trae nombre. Estas son las columnas que he
+            encontrado:
+          </p>
+          <p className="text-xs mt-1 font-mono bg-white/60 rounded px-2 py-1 break-words">
+            {cabecerasSinReconocer.join('  ·  ')}
+          </p>
+          <p className="text-xs mt-1">
+            Renombra la columna del nombre a <strong>Jugadora</strong> (o <strong>Nombre completo</strong>)
+            y la de la fecha a <strong>Fecha nacimiento</strong>, y vuelve a subirlo.
+          </p>
         </div>
       )}
 
