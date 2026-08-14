@@ -47,14 +47,27 @@ export function useSupabaseSync() {
   const setVideosSesiones = useStore((s) => s.setVideosSesiones)
   const setEventos = useStore((s) => s.setEventos)
   const loadAnalisisFromDB = useStore((s) => s.loadAnalisisFromDB)
+  const setErrorCarga = useStore((s) => s.setErrorCarga)
 
   useEffect(() => {
     async function init() {
       await seedIfEmpty()
 
-      const fichas = await supabaseService.getFichas()
-      setFichasWithSync(fichas)
-      setFichasMain(fichas)
+      // Las fichas no se guardan en el navegador (llevan fotos y no caben), así
+      // que se piden en cada arranque. Un fallo puntual dejaría la pantalla
+      // vacía, de modo que se reintenta antes de darse por vencido.
+      let fichas = await supabaseService.getFichas()
+      for (let intento = 1; fichas === null && intento <= 3; intento++) {
+        await new Promise((r) => setTimeout(r, intento * 1000))
+        fichas = await supabaseService.getFichas()
+      }
+      if (fichas) {
+        setFichasWithSync(fichas)
+        setFichasMain(fichas)
+        setErrorCarga(null)
+      } else {
+        setErrorCarga('No se han podido cargar las jugadoras desde el servidor. Tus datos siguen guardados: comprueba la conexión y vuelve a cargar la página.')
+      }
 
       const partidos = await supabaseService.getPartidos()
       setPartidos(partidos)
@@ -77,7 +90,7 @@ export function useSupabaseSync() {
 
       await loadAnalisisFromDB()
 
-      console.log(`✅ Supabase sync lista. Fichas: ${fichas.length}, Partidos: ${partidos.length}, Convocatorias: ${convocatorias.length}, Clubes: ${clubes.length}, Observadores: ${observadores.length}, Videos: ${videos.length}, Eventos: ${eventos.length}`)
+      console.log(`✅ Supabase sync lista. Fichas: ${fichas?.length ?? 'no cargadas'}, Partidos: ${partidos.length}, Convocatorias: ${convocatorias.length}, Clubes: ${clubes.length}, Observadores: ${observadores.length}, Videos: ${videos.length}, Eventos: ${eventos.length}`)
     }
 
     init().catch((err) => {

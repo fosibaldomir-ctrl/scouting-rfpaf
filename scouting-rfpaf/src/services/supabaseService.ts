@@ -13,7 +13,12 @@ function soloFecha(v?: string | null): string | null {
 export type ResultadoGuardado = { ok: true } | { ok: false; error: string }
 
 export const supabaseService = {
-  async getFichas(): Promise<FichaJugadora[]> {
+  /**
+   * Devuelve null si la lectura falla. Antes devolvía una lista vacía, y quien
+   * llamaba la tomaba por buena y vaciaba la pantalla: parecía que se habían
+   * perdido los datos cuando seguían en la base.
+   */
+  async getFichas(): Promise<FichaJugadora[] | null> {
     const { data, error } = await supabase
       .from('fichas')
       .select('*')
@@ -21,7 +26,7 @@ export const supabaseService = {
 
     if (error) {
       console.error('Error al cargar fichas:', error)
-      return []
+      return null
     }
 
     return (data || []).map((f: any) => ({

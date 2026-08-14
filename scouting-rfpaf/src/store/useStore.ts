@@ -64,6 +64,9 @@ interface AppState {
   ejercicios: EjercicioDB[]
   videosSesiones: VideoSesion[]
   eventos: Evento[]
+  // Aviso cuando la última carga desde Supabase falló
+  errorCarga: string | null
+  setErrorCarga: (m: string | null) => void
 
   login: (observadorId: string) => void
   logout: () => void
@@ -163,6 +166,8 @@ export const useStore = create<AppState>()(
       ejercicios: [],
       videosSesiones: [],
       eventos: [],
+      errorCarga: null,
+      setErrorCarga: (m) => set({ errorCarga: m }),
       registrosRPE: [],
       lesiones: [],
       analisis: [],
