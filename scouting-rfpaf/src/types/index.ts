@@ -51,6 +51,12 @@ export interface Valoracion {
   // Cómo se observó el partido. Opcional: los informes anteriores a este campo
   // no lo llevan y se muestran como "sin especificar".
   tipoVisionado?: TipoVisionado
+  // Sistema de juego con el que salió cada equipo y una nota breve del contexto
+  // táctico. Es información del partido, no de la jugadora, y se aprovecha para
+  // el resumen que se consulta desde el Calendario.
+  sistemaLocal?: string
+  sistemaVisitante?: string
+  comentarioSistemas?: string
   creadoEn: string
 }
 

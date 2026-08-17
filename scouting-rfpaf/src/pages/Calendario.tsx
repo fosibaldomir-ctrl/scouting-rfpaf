@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { ChevronLeft, ChevronRight, ChevronDown, Plus, Trash2, CalendarDays, BarChart3, X } from 'lucide-react'
 import { Bar } from 'react-chartjs-2'
 import {
@@ -10,6 +11,9 @@ import {
   Legend,
 } from 'chart.js'
 import { useStore } from '../store/useStore'
+import { resumenDePartido, type ResumenPartido } from '../utils/resumenPartido'
+import { normalizeText } from '../utils/textNormalize'
+import MiniCampoSistemas from '../components/calendario/MiniCampoSistemas'
 import type { Observador, PartidoCalendario } from '../types'
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend)
@@ -68,7 +72,8 @@ function getCalendarDays(year: number, month: number) {
 const EMPTY_FORM = { observador: '', local: '', visitante: '', hora: '12:00', categoria: '' }
 
 export default function Calendario() {
-  const { observadores, clubes, categorias, partidos, addPartido, deletePartido } = useStore()
+  const navigate = useNavigate()
+  const { observadores, clubes, categorias, partidos, fichas, addPartido, deletePartido } = useStore()
 
   const today = new Date()
   const todayYMD = toYMD(today)
@@ -82,14 +87,50 @@ export default function Calendario() {
   const [formOpen, setFormOpen] = useState(false)
   const [dayModalOpen, setDayModalOpen] = useState(false)
   const [statsObs, setStatsObs] = useState<string | null>(null)
+  // Resumen del partido ya observado, reconstruido desde los informes
+  const [resumen, setResumen] = useState<{ partido: PartidoCalendario; datos: ResumenPartido } | null>(null)
 
   const calDays = useMemo(() => getCalendarDays(year, month), [year, month])
 
+  /* Un partido puede llegar al calendario por dos caminos: porque alguien lo
+   * programó, o porque se observó y quedó dentro de un informe. Los segundos se
+   * deducen de las valoraciones para que el resumen esté siempre a mano, aunque
+   * nadie lo hubiera dado de alta antes de ir a verlo. */
+  const partidosObservados = useMemo(() => {
+    const clave = (f: string, a: string, b: string) => `${f}|${normalizeText(a)}|${normalizeText(b)}`
+    const vistos = new Map<string, PartidoCalendario>()
+    for (const ficha of fichas) {
+      for (const v of ficha.valoraciones ?? []) {
+        if (!v.fechaPartido || !v.local || !v.visitante) continue
+        const k = clave(v.fechaPartido, v.local, v.visitante)
+        if (!vistos.has(k)) {
+          vistos.set(k, {
+            id: `observado:${k}`,
+            fecha: v.fechaPartido,
+            hora: '',
+            local: v.local,
+            visitante: v.visitante,
+            observador: v.observador,
+            categoria: v.categoria ?? '',
+          })
+        }
+      }
+    }
+    // Si ya estaba programado, se queda el del calendario y no se duplica
+    for (const p of partidos) {
+      vistos.delete(clave(p.fecha, p.local, p.visitante))
+      vistos.delete(clave(p.fecha, p.visitante, p.local))
+    }
+    return [...vistos.values()]
+  }, [fichas, partidos])
+
+  const esObservado = (p: PartidoCalendario) => p.id.startsWith('observado:')
+
   const partidosByDate = useMemo(() => {
     const map: Record<string, PartidoCalendario[]> = {}
-    partidos.forEach((p) => { ;(map[p.fecha] ??= []).push(p) })
+    ;[...partidos, ...partidosObservados].forEach((p) => { ;(map[p.fecha] ??= []).push(p) })
     return map
-  }, [partidos])
+  }, [partidos, partidosObservados])
 
   const selectedPartidos = (partidosByDate[selectedDate] ?? [])
     .slice().sort((a, b) => a.hora.localeCompare(b.hora))
@@ -564,6 +605,8 @@ export default function Calendario() {
                 </div>
               ) : (
                 selectedPartidos.map((p) => {
+                  // Una sola vez por partido: lo usan la etiqueta de estado y el botón
+                  const datosResumen = resumenDePartido(p, fichas, observadores)
                   const obsNombre = observadores.find((o) => o.id === p.observador)?.nombre ?? p.observador
                   const color = getObsColor(p.observador, observadores)
                   const localEscudo = getClubEscudo(p.local, clubes)
@@ -587,7 +630,12 @@ export default function Calendario() {
                           </div>
                         </div>
                         <div className="text-gray-500 text-xs mt-1 flex items-center gap-2 flex-wrap">
-                          <span className="font-semibold text-gray-700">{p.hora}</span>
+                          {p.hora && <span className="font-semibold text-gray-700">{p.hora}</span>}
+                          {/* Un partido programado pasa a "Observado" en cuanto
+                              tiene informes: es el estado que interesa de un vistazo */}
+                          {datosResumen
+                            ? <span className="bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full text-[11px] font-semibold">Observado</span>
+                            : <span className="bg-slate-200 text-slate-600 px-2 py-0.5 rounded-full text-[11px] font-semibold">Programado</span>}
                           {p.categoria && (
                             <span className="bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full text-[11px] font-medium">{p.categoria}</span>
                           )}
@@ -599,13 +647,28 @@ export default function Calendario() {
                           </span>
                         </div>
                       </div>
-                      <button
-                        onClick={() => deletePartido(p.id)}
-                        className="text-red-400 hover:text-red-600 flex-shrink-0 p-1 transition-colors"
-                        title="Eliminar partido"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                      <div className="flex items-center gap-1 flex-shrink-0">
+                        {datosResumen && (
+                          <button
+                            onClick={() => setResumen({ partido: p, datos: datosResumen })}
+                            className="text-[11px] font-semibold text-rfpaf-blue border border-rfpaf-blue/30 rounded-lg px-2 py-1 hover:bg-blue-50 transition-colors whitespace-nowrap"
+                            title="Ver lo que se observó en este partido"
+                          >
+                            Ver resumen
+                          </button>
+                        )}
+                        {/* Los partidos deducidos de un informe no se pueden borrar
+                            aquí: no existen como fila del calendario */}
+                        {!esObservado(p) && (
+                          <button
+                            onClick={() => deletePartido(p.id)}
+                            className="text-red-400 hover:text-red-600 p-1 transition-colors"
+                            title="Eliminar partido"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
                     </div>
                   )
                 })
@@ -621,6 +684,93 @@ export default function Calendario() {
                 <Plus className="w-4 h-4" />
                 Añadir partido a este día
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Resumen de un partido ya observado */}
+      {resumen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+          onClick={() => setResumen(null)}>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[85vh] overflow-auto"
+            onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-start justify-between gap-3 p-5 border-b sticky top-0 bg-white">
+              <div className="min-w-0">
+                <h3 className="font-bold text-rfpaf-blue leading-tight">
+                  {resumen.partido.local} — {resumen.partido.visitante}
+                </h3>
+                <p className="text-xs text-gray-400 mt-0.5">
+                  {new Date(resumen.partido.fecha).toLocaleDateString('es-ES')} · {resumen.partido.hora}
+                  {resumen.partido.categoria ? ` · ${resumen.partido.categoria}` : ''}
+                  {' · '}{resumen.datos.totalInformes} informe{resumen.datos.totalInformes !== 1 ? 's' : ''}
+                </p>
+              </div>
+              <button onClick={() => setResumen(null)} className="text-gray-400 hover:text-gray-600 flex-shrink-0">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4">
+              {/* Sistemas */}
+              {(resumen.datos.sistemaLocal || resumen.datos.sistemaVisitante) ? (
+                <div>
+                  <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-2">Sistemas de juego</p>
+                  <MiniCampoSistemas
+                    sistemaLocal={resumen.datos.sistemaLocal}
+                    sistemaVisitante={resumen.datos.sistemaVisitante}
+                    nombreLocal={resumen.partido.local}
+                    nombreVisitante={resumen.partido.visitante}
+                  />
+                  {resumen.datos.sistemasEnDesacuerdo && (
+                    <p className="text-[11px] text-amber-700 bg-amber-50 rounded-lg px-2 py-1 mt-2">
+                      Los observadores anotaron dibujos distintos. Se muestra el del primer informe.
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <p className="text-xs text-gray-400">No se anotaron los sistemas de este partido.</p>
+              )}
+
+              {/* Comentarios */}
+              {resumen.datos.comentarios.length > 0 && (
+                <div>
+                  <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-2">Comentarios</p>
+                  <div className="space-y-2">
+                    {resumen.datos.comentarios.map((c, i) => (
+                      <div key={i} className="text-sm text-gray-700 bg-gray-50 rounded-xl px-3 py-2">
+                        <span className="text-[11px] font-bold text-gray-500 uppercase">{c.observador}</span>
+                        <p className="mt-0.5">{c.texto}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Jugadoras observadas */}
+              <div>
+                <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-2">
+                  Jugadoras observadas
+                </p>
+                <div className="space-y-1">
+                  {resumen.datos.jugadoras.map((j) => (
+                    <button
+                      key={j.fichaId + j.observador}
+                      onClick={() => navigate(`/ficha/${j.fichaId}`)}
+                      className="w-full flex items-center justify-between gap-2 text-left rounded-lg px-2 py-1.5 hover:bg-blue-50 transition-colors"
+                    >
+                      <span className="min-w-0">
+                        <span className="text-sm font-semibold text-gray-800 truncate block">{j.nombre}</span>
+                        <span className="text-[11px] text-gray-400">{j.demarcacion} · {j.observador}</span>
+                      </span>
+                      <span className="flex items-center gap-2 flex-shrink-0">
+                        <span className="text-yellow-500 text-xs">{'★'.repeat(j.valoracion)}</span>
+                        <span className="text-[10px] font-bold text-gray-600">{j.propuesta}</span>
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
         </div>

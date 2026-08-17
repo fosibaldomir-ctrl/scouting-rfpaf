@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { v4 as uuidv4 } from 'uuid'
 import { ArrowLeft, Save, CheckCircle } from 'lucide-react'
 import { useStore } from '../store/useStore'
-import { DEMARCACIONES_ITEMS } from '../data/masterData'
+import { DEMARCACIONES_ITEMS, FORMACIONES } from '../data/masterData'
 import { DatosPartidoFields, FisicoFields, EvaluacionTecnicaFields, CierreFields, type DatosPartidoValue, type CierreValue } from '../components/ficha/ValoracionFields'
 import type { Valoracion, EvaluacionDemarcacion } from '../types'
 
@@ -23,6 +23,9 @@ const emptyValoracion = (): Partial<Valoracion> => ({
   observaciones: '',
   cierre: '',
   tipoVisionado: 'directo',
+  sistemaLocal: '',
+  sistemaVisitante: '',
+  comentarioSistemas: '',
 })
 
 export default function NuevaValoracion() {
@@ -115,6 +118,9 @@ export default function NuevaValoracion() {
         observaciones: form.observaciones ?? '',
         cierre: form.cierre ?? '',
         tipoVisionado: form.tipoVisionado,
+        sistemaLocal: form.sistemaLocal,
+        sistemaVisitante: form.sistemaVisitante,
+        comentarioSistemas: form.comentarioSistemas,
         creadoEn: now,
       }
       await addValoracion(ficha.id, valoracion)
@@ -201,6 +207,53 @@ export default function NuevaValoracion() {
               {etiqueta}
             </button>
           ))}
+        </div>
+      </div>
+
+      <div className="card space-y-3">
+        <div>
+          <h2 className="text-lg font-bold text-gray-700">Sistemas de juego</h2>
+          <p className="text-xs text-gray-400 mt-0.5">
+            Con qué dibujo salió cada equipo. Se guarda con el informe y se puede consultar
+            después desde el Calendario, en el resumen del partido.
+          </p>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label className="form-label">
+              {form.local?.trim() || 'Equipo local'}
+            </label>
+            <select
+              className="form-select"
+              value={form.sistemaLocal ?? ''}
+              onChange={(e) => setPatch({ sistemaLocal: e.target.value })}
+            >
+              <option value="">— Sin especificar —</option>
+              {FORMACIONES.map((f) => <option key={f} value={f}>{f}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="form-label">
+              {form.visitante?.trim() || 'Equipo visitante'}
+            </label>
+            <select
+              className="form-select"
+              value={form.sistemaVisitante ?? ''}
+              onChange={(e) => setPatch({ sistemaVisitante: e.target.value })}
+            >
+              <option value="">— Sin especificar —</option>
+              {FORMACIONES.map((f) => <option key={f} value={f}>{f}</option>)}
+            </select>
+          </div>
+        </div>
+        <div>
+          <label className="form-label">Comentario del partido</label>
+          <textarea
+            className="form-input min-h-[70px]"
+            placeholder="Cómo se planteó el partido, cambios de dibujo, quién llevó el peso… en dos líneas."
+            value={form.comentarioSistemas ?? ''}
+            onChange={(e) => setPatch({ comentarioSistemas: e.target.value })}
+          />
         </div>
       </div>
 

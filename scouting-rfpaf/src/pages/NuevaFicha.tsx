@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { v4 as uuidv4 } from 'uuid'
 import { ChevronRight, ChevronLeft, Save, CheckCircle } from 'lucide-react'
 import { useStore } from '../store/useStore'
-import { DEMARCACIONES_ITEMS, ALTURAS, TIPOLOGIAS, LATERALIDADES } from '../data/masterData'
+import { DEMARCACIONES_ITEMS, ALTURAS, TIPOLOGIAS, LATERALIDADES, FORMACIONES } from '../data/masterData'
 import ScoreSlider from '../components/forms/ScoreSlider'
 import RadarChart from '../components/charts/RadarChart'
 import { DatosPartidoFields, EvaluacionTecnicaFields, CierreFields } from '../components/ficha/ValoracionFields'
@@ -40,6 +40,11 @@ export default function NuevaFicha() {
 
   const [step, setStep] = useState(1)
   const [form, setForm] = useState<Partial<FichaJugadora>>(defaultForm())
+  // Datos del partido observado que viajan en la primera valoración, no en la ficha
+  const [contexto, setContexto] = useState({
+    sistemaLocal: '', sistemaVisitante: '', comentarioSistemas: '',
+    tipoVisionado: 'directo' as 'directo' | 'video',
+  })
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [saved, setSaved] = useState(false)
 
@@ -171,6 +176,10 @@ export default function NuevaFicha() {
         descripcionJugadora: form.descripcionJugadora ?? '',
         observaciones: form.observaciones ?? '',
         cierre: form.cierre ?? '',
+        tipoVisionado: contexto.tipoVisionado,
+        sistemaLocal: contexto.sistemaLocal,
+        sistemaVisitante: contexto.sistemaVisitante,
+        comentarioSistemas: contexto.comentarioSistemas,
         creadoEn: now,
       }
       const ficha: FichaJugadora = {
@@ -282,6 +291,62 @@ export default function NuevaFicha() {
                 clubes={clubes}
                 observadores={observadores}
               />
+
+              <div className="pt-2 border-t border-gray-100 space-y-3">
+                <div>
+                  <label className="form-label">Cómo se observó el partido</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {([
+                      { valor: 'directo', etiqueta: 'En directo / TV' },
+                      { valor: 'video', etiqueta: 'Vídeo' },
+                    ] as const).map(({ valor, etiqueta }) => (
+                      <button key={valor} type="button"
+                        onClick={() => setContexto((c) => ({ ...c, tipoVisionado: valor }))}
+                        className={`rounded-xl border-2 py-2.5 text-sm font-semibold transition-colors ${
+                          contexto.tipoVisionado === valor
+                            ? 'border-rfpaf-blue bg-blue-50 text-rfpaf-blue'
+                            : 'border-gray-200 text-gray-500 hover:border-gray-300'
+                        }`}>
+                        {etiqueta}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="form-label">
+                      Sistema {form.local?.trim() ? `de ${form.local.trim()}` : 'del equipo local'}
+                    </label>
+                    <select className="form-select" value={contexto.sistemaLocal}
+                      onChange={(e) => setContexto((c) => ({ ...c, sistemaLocal: e.target.value }))}>
+                      <option value="">— Sin especificar —</option>
+                      {FORMACIONES.map((f) => <option key={f} value={f}>{f}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="form-label">
+                      Sistema {form.visitante?.trim() ? `de ${form.visitante.trim()}` : 'del equipo visitante'}
+                    </label>
+                    <select className="form-select" value={contexto.sistemaVisitante}
+                      onChange={(e) => setContexto((c) => ({ ...c, sistemaVisitante: e.target.value }))}>
+                      <option value="">— Sin especificar —</option>
+                      {FORMACIONES.map((f) => <option key={f} value={f}>{f}</option>)}
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="form-label">Comentario del partido</label>
+                  <textarea className="form-input min-h-[64px]"
+                    placeholder="Cómo se planteó el partido, cambios de dibujo, quién llevó el peso… en dos líneas."
+                    value={contexto.comentarioSistemas}
+                    onChange={(e) => setContexto((c) => ({ ...c, comentarioSistemas: e.target.value }))} />
+                  <p className="text-[11px] text-gray-400 mt-1">
+                    Se guarda con el informe y se consulta después desde el Calendario, en el resumen del partido.
+                  </p>
+                </div>
+              </div>
             </div>
           )}
 

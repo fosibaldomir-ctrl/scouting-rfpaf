@@ -1,4 +1,4 @@
-import type { Club, CategoriaItem, Observador, ItemDemarcacion, Categoria } from '../types'
+import type { Club, CategoriaItem, Observador, ItemDemarcacion, Categoria, FormacionFutbol } from '../types'
 
 export const OBSERVADORES: Observador[] = [
   { id: '191cb4b1', nombre: 'PARRA' },
@@ -85,6 +85,13 @@ export const CLUBES: Club[] = [
   { id: 'a049', nombre: 'UD PEÑAMELLERA' },
   { id: 'a050', nombre: 'CD RIBADEDEVA' },
   { id: 'a051', nombre: 'OTHAYA CF' },
+]
+
+/** Sistemas de juego más habituales. Compartidos por la pizarra táctica y por
+ *  las valoraciones, para que en toda la app se nombren igual. */
+export const FORMACIONES: FormacionFutbol[] = [
+  '4-4-2', '4-3-3', '4-2-3-1', '4-3-2-1', '3-5-2',
+  '3-4-3', '5-3-2', '5-4-1', '4-1-4-1', '4-5-1', '4-4-1-1',
 ]
 
 export const DEMARCACIONES_ITEMS: ItemDemarcacion[] = [
