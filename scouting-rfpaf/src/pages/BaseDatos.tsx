@@ -119,8 +119,8 @@ function PlayerCard({ f, onView, onEdit, onAddValoracion, onDuplicate, onDelete,
           </div>
         )}
 
-        {/* Category */}
-        <p className="text-[10px] text-gray-400 truncate">{f.categoria}</p>
+        {/* Categoría del equipo en el que juega; si no se anotó, la del partido */}
+        <p className="text-[10px] text-gray-400 truncate">{f.categoriaEquipo || f.categoria}</p>
 
         {/* Actions */}
         <div className="flex items-center justify-between mt-auto pt-1 border-t border-gray-50">
@@ -175,7 +175,9 @@ export default function BaseDatos() {
       `${f.nombre} ${f.primerApellido} ${f.segundoApellido}`.toLowerCase().includes(q) ||
       f.equipo?.toLowerCase().includes(q)
     )
-    if (filterCategoria) list = list.filter((f) => f.categoria === filterCategoria)
+    // El filtro va por el equipo en el que juega, que es lo que muestran la
+    // tarjeta y la tabla; las fichas antiguas caen en la del partido.
+    if (filterCategoria) list = list.filter((f) => (f.categoriaEquipo || f.categoria) === filterCategoria)
     if (filterDemarcacion) list = list.filter((f) => f.demarcacion === filterDemarcacion)
     if (filterPropuesta) list = list.filter((f) => f.propuesta === filterPropuesta)
     if (filterObservador) list = list.filter((f) => f.observador === filterObservador)
@@ -234,6 +236,7 @@ export default function BaseDatos() {
       ALTURA: f.altura,
       LATERALIDAD: f.lateralidad,
       CLUB: clubes.find((c) => c.id === f.club)?.nombre ?? f.club,
+      'CATEGORÍA EQUIPO': f.categoriaEquipo ?? '',
       FUERZA: f.fuerza,
       VELOCIDAD: f.velocidad,
       RESISTENCIA: f.resistencia,
@@ -257,7 +260,7 @@ export default function BaseDatos() {
     XLSX.writeFile(wb, `RFPAF_Scouting_${new Date().toISOString().split('T')[0]}.xlsx`)
   }
 
-  const uniqueCategs = [...new Set(fichas.map((f) => f.categoria))].sort()
+  const uniqueCategs = [...new Set(fichas.map((f) => f.categoriaEquipo || f.categoria))].sort()
   const uniqueDemarcs = [...new Set(fichas.map((f) => f.demarcacion))].sort()
 
   const getEscudo = (f: FichaJugadora): string | undefined => {
@@ -401,7 +404,7 @@ export default function BaseDatos() {
                     { key: null, label: 'Edad' },
                     { key: 'equipo', label: 'Equipo' },
                     { key: 'club', label: 'Club' },
-                    { key: 'categoria', label: 'Categoría' },
+                    { key: 'categoriaEquipo', label: 'Categoría' },
                     { key: 'demarcacion', label: 'Demarcación' },
                     { key: 'lateralidad', label: 'Lateral.' },
                     { key: 'valoracionGeneral', label: 'Val.' },
@@ -465,7 +468,7 @@ export default function BaseDatos() {
                           <span className="text-xs text-gray-400">—</span>
                         )}
                       </td>
-                      <td className="px-4 py-3 text-gray-600 whitespace-nowrap">{f.categoria}</td>
+                      <td className="px-4 py-3 text-gray-600 whitespace-nowrap">{f.categoriaEquipo || f.categoria}</td>
                       <td className="px-4 py-3 text-gray-600 whitespace-nowrap">{f.demarcacion}</td>
                       <td className="px-4 py-3 text-gray-600">{f.lateralidad?.charAt(0)}</td>
                       <td className="px-4 py-3">

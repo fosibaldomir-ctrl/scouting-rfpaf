@@ -82,6 +82,10 @@ export default function FichaPreviewCard({
         <div>
           <p className="font-bold text-gray-900 text-sm leading-tight truncate">{fullName}</p>
           <p className="text-xs text-gray-400 truncate">{club?.nombre || ficha.equipo || '—'}</p>
+          {/* Equipo del club en el que juega; si no se anotó, la del partido */}
+          <p className="text-[10px] font-semibold text-rfpaf-blue truncate">
+            {ficha.categoriaEquipo || ficha.categoria}
+          </p>
         </div>
 
         {/* La demarcación es la única que puede encogerse: si no, "15 años" se

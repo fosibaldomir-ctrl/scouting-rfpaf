@@ -82,6 +82,10 @@ export interface FichaJugadora {
   tipologia: Tipologia
   altura: string
   club: string
+  // Equipo del club en el que juega. Un mismo club puede tener varios equipos
+  // en categorías distintas, así que la categoría de la jugadora se guarda
+  // aparte de la del partido observado.
+  categoriaEquipo?: string
   foto?: string | null
   // Físico
   fuerza: number

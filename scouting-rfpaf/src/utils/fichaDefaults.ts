@@ -16,6 +16,7 @@ export const defaultFichaFields = (): Partial<FichaJugadora> => ({
   tipologia: 'ATLÉTICA',
   altura: '1.65',
   club: '',
+  categoriaEquipo: '',
   foto: null,
   fuerza: 5,
   velocidad: 5,

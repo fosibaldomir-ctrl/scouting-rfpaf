@@ -141,6 +141,7 @@ export default function ImportFichasTab() {
             fechaNacimiento: row.fechaNacimiento,
             dorsal: row.dorsal,
             club: batch.clubId,
+            categoriaEquipo: batch.categoria,
             demarcacion: (row.demarcacion || 'CENTRAL') as FichaJugadora['demarcacion'],
             minutosJugados: row.minutosJugados,
             partidosTitular: row.partidosTitular,

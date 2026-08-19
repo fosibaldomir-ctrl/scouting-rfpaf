@@ -47,6 +47,7 @@ export const supabaseService = {
       tipologia: f.tipologia,
       altura: f.altura,
       club: f.club,
+      categoriaEquipo: f.categoria_equipo ?? '',
       foto: f.foto,
       fuerza: f.fuerza,
       velocidad: f.velocidad,
@@ -93,6 +94,7 @@ export const supabaseService = {
         tipologia: ficha.tipologia,
         altura: ficha.altura,
         club: ficha.club,
+        categoria_equipo: ficha.categoriaEquipo || null,
         foto: ficha.foto || null,
         fuerza: ficha.fuerza || 0,
         velocidad: ficha.velocidad || 0,
@@ -153,6 +155,7 @@ export const supabaseService = {
       if (ficha.tipologia !== undefined) data.tipologia = ficha.tipologia
       if (ficha.altura !== undefined) data.altura = ficha.altura
       if (ficha.club !== undefined) data.club = ficha.club
+      if (ficha.categoriaEquipo !== undefined) data.categoria_equipo = ficha.categoriaEquipo
       if (ficha.foto !== undefined) data.foto = ficha.foto
       if (ficha.fuerza !== undefined) data.fuerza = ficha.fuerza
       if (ficha.velocidad !== undefined) data.velocidad = ficha.velocidad

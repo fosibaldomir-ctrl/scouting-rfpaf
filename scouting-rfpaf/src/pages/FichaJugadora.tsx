@@ -399,6 +399,7 @@ export default function FichaJugadora() {
                 <span className="text-sm font-semibold text-gray-800">{clubNombre}</span>
               </div>
             </div>
+            <DataRow label="Categoría del equipo" value={ficha.categoriaEquipo || '—'} />
           </div>
         </div>
 

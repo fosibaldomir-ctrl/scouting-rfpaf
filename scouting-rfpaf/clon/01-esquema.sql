@@ -154,6 +154,7 @@ create table if not exists public.fichas (
   tipologia text not null,
   altura text not null,
   club text not null,
+  categoria_equipo text,
   foto text,
   fuerza integer,
   velocidad integer,

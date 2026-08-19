@@ -123,10 +123,15 @@ export default function NuevaFicha() {
   }
 
   const nextStep = () => {
-    if (validate()) {
-      saveBorrador(form)
-      setStep((s) => Math.min(phases.length, s + 1))
-    }
+    if (!validate()) return
+    // El equipo de la jugadora suele ser el del partido recién visto: se propone
+    // esa categoría y el observador la cambia si no coincide.
+    const siguiente = phase === 1 && !form.categoriaEquipo && form.categoria
+      ? { ...form, categoriaEquipo: form.categoria }
+      : form
+    setForm(siguiente)
+    saveBorrador(siguiente)
+    setStep((s) => Math.min(phases.length, s + 1))
   }
 
   const prevStep = () => setStep((s) => Math.max(1, s - 1))
@@ -147,6 +152,7 @@ export default function NuevaFicha() {
         tipologia: form.tipologia,
         altura: form.altura,
         club: form.club,
+        categoriaEquipo: form.categoriaEquipo,
         equipo: clubNombre,
         minutosJugados: form.minutosJugados,
         partidosTitular: form.partidosTitular,
@@ -428,14 +434,27 @@ export default function NuevaFicha() {
                   </select>
                 </div>
               </div>
-              <div>
-                <label className="form-label">Club *</label>
-                <select className={`form-select ${errors.club ? 'border-red-400' : ''}`}
-                  value={form.club ?? ''} onChange={(e) => set('club', e.target.value)}>
-                  <option value="">— Seleccionar club —</option>
-                  {clubes.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
-                </select>
-                {errors.club && <p className="text-red-500 text-xs mt-1">{errors.club}</p>}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="form-label">Club *</label>
+                  <select className={`form-select ${errors.club ? 'border-red-400' : ''}`}
+                    value={form.club ?? ''} onChange={(e) => set('club', e.target.value)}>
+                    <option value="">— Seleccionar club —</option>
+                    {clubes.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+                  </select>
+                  {errors.club && <p className="text-red-500 text-xs mt-1">{errors.club}</p>}
+                </div>
+                <div>
+                  <label className="form-label">Categoría del equipo</label>
+                  <select className="form-select" value={form.categoriaEquipo ?? ''}
+                    onChange={(e) => set('categoriaEquipo', e.target.value)}>
+                    <option value="">— Sin especificar —</option>
+                    {categorias.map((c) => <option key={c.id} value={c.nombre}>{c.nombre}</option>)}
+                  </select>
+                  <p className="text-[11px] text-gray-400 mt-1">
+                    En qué equipo del club juega: un club puede tener varios en categorías distintas.
+                  </p>
+                </div>
               </div>
             </div>
           )}
