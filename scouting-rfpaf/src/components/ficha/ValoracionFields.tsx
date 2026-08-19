@@ -21,7 +21,7 @@ export function DatosPartidoFields({ value, onChange, errors, categorias, clubes
   const err = errors ?? {}
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label className="form-label">Fecha del Partido *</label>
           <input type="date" className={`form-input ${err.fechaPartido ? 'border-red-400' : ''}`}
@@ -36,7 +36,7 @@ export function DatosPartidoFields({ value, onChange, errors, categorias, clubes
           </select>
         </div>
       </div>
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label className="form-label">Equipo Local *</label>
           <select className={`form-select ${err.local ? 'border-red-400' : ''}`}

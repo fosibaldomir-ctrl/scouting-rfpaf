@@ -319,7 +319,7 @@ export default function NuevaFicha() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="form-label">
                       Sistema {form.local?.trim() ? `de ${form.local.trim()}` : 'del equipo local'}
@@ -360,7 +360,7 @@ export default function NuevaFicha() {
           {phase === 2 && (
             <div className="space-y-4">
               <h2 className="text-lg font-bold text-gray-700 mb-4">Datos de la Jugadora</h2>
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
                   <label className="form-label">Nombre *</label>
                   <input type="text" className={`form-input ${errors.nombre ? 'border-red-400' : ''}`}
@@ -393,7 +393,7 @@ export default function NuevaFicha() {
                   )}
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="form-label">Fecha de Nacimiento *</label>
                   <input type="date" className={`form-input ${errors.fechaNacimiento ? 'border-red-400' : ''}`}
@@ -411,7 +411,7 @@ export default function NuevaFicha() {
                     value={form.dorsal ?? ''} onChange={(e) => set('dorsal', Number(e.target.value))} />
                 </div>
               </div>
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
                   <label className="form-label">Lateralidad</label>
                   <select className="form-select" value={form.lateralidad ?? 'DIESTRA'}
@@ -434,7 +434,7 @@ export default function NuevaFicha() {
                   </select>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="form-label">Club *</label>
                   <select className={`form-select ${errors.club ? 'border-red-400' : ''}`}
@@ -513,7 +513,7 @@ export default function NuevaFicha() {
               <h2 className="text-lg font-bold text-gray-700 mb-4">
                 {isEdit ? 'Demarcación' : 'Evaluación Técnica por Demarcación'}
               </h2>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="form-label">Demarcación Principal</label>
                   <select className="form-select" value={form.demarcacion ?? 'CENTRAL'}
