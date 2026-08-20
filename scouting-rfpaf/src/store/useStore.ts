@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import { almacenamientoSeguro } from './almacenamientoSeguro'
 import type { FichaJugadora, Valoracion, Observador, Club, CategoriaItem, PartidoCalendario, Convocatoria, JugadoraConvocada, Sesion, VideoSesion, Evento, AnalisisPartido, RegistroRPE, RegistroLesion, AccionBalonParado, Informe, PartidoInforme, EvaluacionJugadora, CompeticionMapeo, SyncRun } from '../types'
 import type { EjercicioDB } from '../lib/supabase'
 import { OBSERVADORES, CATEGORIAS, CLUBES } from '../data/masterData'
@@ -497,25 +498,21 @@ export const useStore = create<AppState>()(
     }),
     {
       name: 'rfpaf-scouting-storage',
-      // fichas/observadores/clubes contain base64 fotos/escudos and are always
-      // re-fetched fresh from Supabase on load (useSupabaseSync) — persisting them
-      // here too just duplicates that data into localStorage, and once enough
-      // images accumulate it blows the ~5-10MB browser quota, which throws
-      // synchronously inside set() and silently aborts whatever add/update call
-      // triggered it (including its Supabase write) before it ever runs.
+      storage: almacenamientoSeguro,
+      /* Aquí solo va lo que vive únicamente en este navegador. Todo lo que
+       * useSupabaseSync vuelve a pedir al servidor en cada arranque —fichas,
+       * observadores, clubes, partidos, convocatorias, vídeos, eventos y
+       * análisis— se queda fuera: guardarlo aquí solo duplica datos y, como
+       * las fichas y las convocatorias llevan fotos en base64, en cuanto se
+       * acumulan unas cuantas se rebasa el límite del navegador. */
       partialize: (state) => ({
         categorias: state.categorias,
-        partidos: state.partidos,
-        convocatorias: state.convocatorias,
         currentObservador: state.currentObservador,
         borrador: state.borrador,
         sesion: state.sesion,
         ejercicios: state.ejercicios,
-        videosSesiones: state.videosSesiones,
-        eventos: state.eventos,
         registrosRPE: state.registrosRPE,
         lesiones: state.lesiones,
-        analisis: state.analisis,
         activeAnalisisId: state.activeAnalisisId,
         pizarraLibre: state.pizarraLibre,
       }),
