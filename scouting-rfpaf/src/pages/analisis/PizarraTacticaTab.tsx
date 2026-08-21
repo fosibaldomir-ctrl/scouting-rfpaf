@@ -1,14 +1,16 @@
-import { useState, useRef, useCallback, useEffect } from 'react'
+import { useState, useRef, useCallback, useEffect, useMemo } from 'react'
 import {
-  RefreshCw, Sparkles, ChevronDown, Users, UserPlus,
+  RefreshCw, ChevronDown, Users, UserPlus,
   Pencil, ArrowRight, Eraser, Play, Square, Camera, Trash2, Plus,
   Spline, Link2, Download, Minus, Circle, Type, Video,
 } from 'lucide-react'
 import { useStore } from '../../store/useStore'
 import type {
   AnalisisPartido, FormacionFutbol, JugadoraTactica,
-  EquipoTactico, Convocatoria, FichaJugadora,
+  Convocatoria, FichaJugadora,
 } from '../../types'
+import { analizarEnfrentamiento } from '../../utils/analisisTactico'
+import PanelAnalisisTactico from '../../components/analisis/PanelAnalisisTactico'
 import { buildTeamJugadoras } from '../../utils/tactics'
 import { codificarFotogramasWebm, descargarBlob, soportaGrabacionVideo } from '../../utils/pizarraVideo'
 
@@ -53,33 +55,6 @@ function buildPlayersFromConv(conv: Convocatoria, formation: FormacionFutbol, fi
   })
 }
 
-function generateAnalysis(local: EquipoTactico, visit: EquipoTactico): string {
-  const lf = local.formacion; const vf = visit.formacion
-  const lP = lf.split('-').map(Number); const vP = vf.split('-').map(Number)
-  const lDef = lP[0]; const lMid = lP.slice(1, -1).reduce((a, b) => a + b, 0); const lFwd = lP[lP.length - 1]
-  const vDef = vP[0]; const vMid = vP.slice(1, -1).reduce((a, b) => a + b, 0); const vFwd = vP[vP.length - 1]
-  const lines: string[] = [
-    `ANÁLISIS TÁCTICO: ${local.nombre} (${lf}) vs ${visit.nombre} (${vf})`, '',
-    '── EQUILIBRIO NUMÉRICO ──',
-    `Defensa: ${lDef} vs ${vDef} → ${lDef > vDef ? `Superioridad defensiva local (+${lDef - vDef})` : lDef < vDef ? `Superioridad defensiva visitante (+${vDef - lDef})` : 'Igualdad numérica'}`,
-    `Mediocampo: ${lMid} vs ${vMid} → ${lMid > vMid ? `Dominio local (+${lMid - vMid})` : lMid < vMid ? `Superioridad rival (+${vMid - lMid})` : 'Equilibrio'}`,
-    `Ataque: ${lFwd} vs ${vFwd} → ${lFwd > vFwd ? `Mayor poder local (+${lFwd - vFwd})` : lFwd < vFwd ? `Rival más ofensivo (+${vFwd - lFwd})` : 'Igualdad en línea ofensiva'}`,
-    '', '── PUNTOS CLAVE ──',
-  ]
-  const ins: string[] = []
-  if (vf.startsWith('3') && !lf.startsWith('3')) ins.push(`El sistema ${vf} rival puede dejar espacios en las bandas.`)
-  if (lMid < vMid) ins.push('Inferioridad en mediocampo: necesaria presión organizada.')
-  if (lMid > vMid) ins.push('Dominio en el centro: controlar ritmo y temporizar.')
-  if (lFwd === 1 && vFwd >= 2) ins.push('Con una punta, la eficacia en el área será determinante.')
-  if (['4-3-3', '4-2-3-1', '3-4-3'].includes(lf)) ins.push(`El sistema ${lf} favorece la presión alta.`)
-  if (ins.length === 0) ins.push('Partido equilibrado; los detalles y las ABP serán decisivas.')
-  ins.forEach(i => lines.push(`• ${i}`))
-  lines.push('', '── RECOMENDACIONES ──')
-  if (lMid < vMid) lines.push('→ Presionar en bloque para compensar la inferioridad.')
-  if (lFwd > vFwd) lines.push('→ Explotar la superioridad atacante en bandas.')
-  lines.push('→ Preparar las ABP ofensivas y defensivas.')
-  return lines.join('\n')
-}
 
 /* ── Frame download (canvas PNG) ─────────────────────────────────── */
 
@@ -120,9 +95,20 @@ export default function PizarraTacticaTab({ analisis }: Props) {
 
   const [localJugadoras, setLocalJugadoras] = useState<JugadoraTactica[]>(analisis.equipoLocal.jugadoras)
   const [visitJugadoras, setVisitJugadoras] = useState<JugadoraTactica[]>(analisis.equipoVisitante.jugadoras)
+
+  /* El análisis se rehace en cuanto se mueve una ficha: se calcula sobre las
+   * posiciones que hay ahora mismo en el tablero, no sobre el nombre del
+   * sistema, y se apoya en los informes de las fichas de la convocatoria. */
+  const analisisTactico = useMemo(
+    () => analizarEnfrentamiento(
+      { ...analisis.equipoLocal, jugadoras: localJugadoras },
+      { ...analisis.equipoVisitante, jugadoras: visitJugadoras },
+      fichas,
+    ),
+    [analisis.equipoLocal, analisis.equipoVisitante, localJugadoras, visitJugadoras, fichas],
+  )
   const [selectedConvId, setSelectedConvId] = useState<string>('')
-  const [generating, setGenerating] = useState(false)
-  const [showAnalysis, setShowAnalysis] = useState(!!analisis.analisisIA)
+
   const [editingLocal, setEditingLocal] = useState(false)
   const [editingVisit, setEditingVisit] = useState(false)
 
@@ -507,14 +493,6 @@ export default function PizarraTacticaTab({ analisis }: Props) {
       if (team === 'local') { setLocalJugadoras(newJ); updateAnalisis(analisis.id, { equipoLocal: { ...analisis.equipoLocal, jugadoras: newJ } }) }
       else { setVisitJugadoras(newJ); updateAnalisis(analisis.id, { equipoVisitante: { ...analisis.equipoVisitante, jugadoras: newJ } }) }
     }
-  }
-
-  const handleGenerateAnalysis = () => {
-    setGenerating(true)
-    setTimeout(() => {
-      const text = generateAnalysis({ ...analisis.equipoLocal, jugadoras: localJugadoras }, { ...analisis.equipoVisitante, jugadoras: visitJugadoras })
-      updateAnalisis(analisis.id, { analisisIA: text }); setShowAnalysis(true); setGenerating(false)
-    }, 800)
   }
 
   const handleNameEdit = (team: 'local' | 'visit', name: string) => {
@@ -1188,30 +1166,11 @@ export default function PizarraTacticaTab({ analisis }: Props) {
 
         {/* Right panel */}
         <div className="xl:w-80 flex-shrink-0">
-          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-            <div className="bg-rfpaf-blue px-4 py-3 flex items-center justify-between">
-              <div className="flex items-center gap-2 text-white font-semibold text-sm">
-                <Sparkles className="w-4 h-4" /> Análisis IA
-              </div>
-              <button onClick={handleGenerateAnalysis} disabled={generating}
-                className="flex items-center gap-1.5 bg-white/20 hover:bg-white/30 text-white text-xs font-medium px-3 py-1.5 rounded-lg transition-colors disabled:opacity-60">
-                <RefreshCw className={`w-3.5 h-3.5 ${generating ? 'animate-spin' : ''}`} />
-                {generating ? 'Analizando...' : 'Generar'}
-              </button>
-            </div>
-            {showAnalysis && analisis.analisisIA ? (
-              <div className="p-4">
-                <pre className="text-xs text-gray-700 whitespace-pre-wrap font-mono leading-relaxed">{analisis.analisisIA}</pre>
-                <button onClick={() => { updateAnalisis(analisis.id, { analisisIA: '' }); setShowAnalysis(false) }}
-                  className="mt-3 text-xs text-gray-400 hover:text-rfpaf-red transition-colors">Borrar análisis</button>
-              </div>
-            ) : (
-              <div className="p-6 text-center text-gray-400 text-sm">
-                <Sparkles className="w-8 h-8 mx-auto mb-2 opacity-30" />
-                <p>Pulsa <strong>Generar</strong> para obtener un análisis táctico</p>
-              </div>
-            )}
-          </div>
+          <PanelAnalisisTactico
+            analisis={analisisTactico}
+            local={{ ...analisis.equipoLocal, jugadoras: localJugadoras }}
+            visitante={{ ...analisis.equipoVisitante, jugadoras: visitJugadoras }}
+          />
 
           <div className="mt-4 bg-white rounded-2xl border border-gray-200 shadow-sm p-4">
             <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Jugadoras</p>
