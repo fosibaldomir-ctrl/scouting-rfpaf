@@ -26,6 +26,10 @@ ChartJS.register(
   Tooltip, Legend, ArcElement, CategoryScale, LinearScale, BarElement
 )
 
+// Gris para las fichas que todavía no tiene ningún informe, igual que la
+// etiqueta «Sin valorar» de las tarjetas de Base de Datos
+const COLOR_SIN_VALORAR = '#94a3b8'
+
 // Colores de propuesta, alineados con los badges de la app
 const PROPUESTA_COLOR: Record<string, string> = {
   'SELECCIÓN': '#16a34a',
@@ -51,7 +55,14 @@ function isoWeek(d: Date): number {
   return Math.ceil((((t.getTime() - yearStart.getTime()) / 86400000) + 1) / 7)
 }
 
-function PropuestaBadge({ propuesta }: { propuesta: string }) {
+function PropuestaBadge({ propuesta, sinValorar }: { propuesta: string; sinValorar?: boolean }) {
+  if (sinValorar) {
+    return (
+      <span className="text-[10px] font-bold px-2 py-1 rounded-full bg-gray-100 text-gray-500 border border-gray-200">
+        Sin valorar
+      </span>
+    )
+  }
   const map: Record<string, string> = {
     'SELECCIÓN': 'badge-seleccion',
     'INCORPORAR': 'badge-incorporar',
@@ -84,10 +95,16 @@ export default function Dashboard() {
   const fechaLarga = fechaRaw.charAt(0).toUpperCase() + fechaRaw.slice(1)
 
   const stats = useMemo(() => {
+    /* Una ficha sin informes lleva «SEGUIR» de arranque, que es solo el valor
+     * por defecto del formulario: contarla como propuesta de seguimiento
+     * hinchaba esa porción con jugadoras que nadie ha visto todavía. Aquí se
+     * reparten solo las valoradas y las demás van a su propia porción. */
+    const conInforme = fichas.filter((f) => (f.valoraciones?.length ?? 0) > 0)
     const byPropuesta = PROPUESTAS.reduce((acc, p) => {
-      acc[p.value] = fichas.filter((f) => f.propuesta === p.value).length
+      acc[p.value] = conInforme.filter((f) => f.propuesta === p.value).length
       return acc
     }, {} as Record<string, number>)
+    const sinValorar = fichas.length - conInforme.length
 
     const lineas = LINEAS.map((l) => ({
       ...l,
@@ -105,14 +122,14 @@ export default function Dashboard() {
       : 0
     const totalValoraciones = fichas.reduce((a, f) => a + (f.valoraciones?.length ?? 0), 0)
 
-    return { byPropuesta, lineas, partidos, nuevasSemana, valMedia, valoradas: valoradas.length, totalValoraciones }
+    return { byPropuesta, sinValorar, lineas, partidos, nuevasSemana, valMedia, valoradas: valoradas.length, totalValoraciones }
   }, [fichas])
 
   const doughnutData = {
-    labels: PROPUESTAS.map((p) => p.label),
+    labels: [...PROPUESTAS.map((p) => p.label), 'SIN VALORAR'],
     datasets: [{
-      data: PROPUESTAS.map((p) => stats.byPropuesta[p.value] || 0),
-      backgroundColor: PROPUESTAS.map((p) => PROPUESTA_COLOR[p.value]),
+      data: [...PROPUESTAS.map((p) => stats.byPropuesta[p.value] || 0), stats.sinValorar],
+      backgroundColor: [...PROPUESTAS.map((p) => PROPUESTA_COLOR[p.value]), COLOR_SIN_VALORAR],
       borderWidth: 2,
       borderColor: '#fff',
       hoverOffset: 6,
@@ -423,9 +440,11 @@ export default function Dashboard() {
                           <span>{f.equipo}</span>
                         </div>
                       </td>
-                      <td className="py-3 pr-4 text-gray-600">{f.categoria}</td>
+                      <td className="py-3 pr-4 text-gray-600">{f.categoriaEquipo || f.categoria}</td>
                       <td className="py-3 pr-4 text-gray-600">{f.demarcacion}</td>
-                      <td className="py-3 pr-4"><PropuestaBadge propuesta={f.propuesta} /></td>
+                      <td className="py-3 pr-4">
+                        <PropuestaBadge propuesta={f.propuesta} sinValorar={(f.valoraciones?.length ?? 0) === 0} />
+                      </td>
                       <td className="py-3">
                         <button onClick={() => navigate(`/ficha/${f.id}`)} className="text-rfpaf-blue hover:text-rfpaf-blue-light">
                           <Eye className="w-4 h-4" />
